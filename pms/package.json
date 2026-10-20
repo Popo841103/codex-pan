@@ -1,0 +1,14 @@
+{
+  "name": "jovian-pms-core",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "start": "node server/main.js",
+    "setup": "node server/setup.js"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

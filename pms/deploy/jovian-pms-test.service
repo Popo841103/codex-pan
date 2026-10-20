@@ -1,0 +1,25 @@
+[Unit]
+Description=JOVIAN PMS isolated test service
+After=network.target
+
+[Service]
+Type=simple
+User=jovian-pms
+Group=jovian-pms
+WorkingDirectory=/opt/jovian-pms-test/current/pms
+EnvironmentFile=/etc/jovian-pms-test.env
+ExecStart=/usr/bin/node server/main.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StateDirectory=jovian-pms-test
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jovian-pms-test
+
+[Install]
+WantedBy=multi-user.target

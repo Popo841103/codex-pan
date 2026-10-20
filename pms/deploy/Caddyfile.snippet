@@ -1,0 +1,6 @@
+# A separate site block. Replace the example hostname; do not replace the
+# existing Caddyfile or touch any CO-HUB, restaurant or supply-chain site block.
+pms.jovianhome.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:18010
+}
