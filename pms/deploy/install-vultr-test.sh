@@ -50,6 +50,7 @@ install -d -m 755 "$BASE/runtime" "$BASE/releases"
 NODEDIR=${PACKAGE%.tar.gz}
 [[ ! -e "$BASE/runtime/$NODEDIR" ]] || { echo 'Runtime directory already exists; stop for review.'; exit 1; }
 tar -xzf "$TMP/$PACKAGE" -C "$BASE/runtime" --no-same-owner
+chmod -R a+rX "$BASE/runtime/$NODEDIR"
 NODE="$BASE/runtime/$NODEDIR/bin/node"
 "$NODE" -e "if(Number(process.versions.node.split('.')[0])!==24)process.exit(1)"
 # Never replace /usr/bin/node, npm, or existing Node services.
