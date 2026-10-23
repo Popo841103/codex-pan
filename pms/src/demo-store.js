@@ -14,7 +14,7 @@ export function preview(state, propertyId) {
   return planInventory({ propertyId, resources: state.resources.filter(r => r.propertyId === propertyId), demands, blocks: state.blocks.filter(b => b.propertyId === propertyId) });
 }
 // Mutations are copy-on-write: a failed operation leaves the original state intact.
-// This local prototype has no authentication or multi-user transaction guarantees.
+// Shared mode wraps this pure reducer in Store's authorized database transaction.
 export function apply(state, command) {
   const next = structuredClone(state);
   for (const o of next.orders) { o.nightly ??= 0; o.transactions ??= []; o.notes ??= ''; o.source ??= 'direct'; o.locked ??= false; }
@@ -30,7 +30,7 @@ export function apply(state, command) {
     if (typeof command.guest !== 'string' || !command.guest.trim() || command.guest.length > 100) reject('guest');
     if (!['room','bed'].includes(command.productId) || !['female','male','any'].includes(command.gender)) reject('input');
     if (typeof command.group !== 'undefined' && (typeof command.group !== 'string' || command.group.length > 60)) reject('input');
-    next.orders.push({ id: command.id, propertyId, guest: command.guest.trim(), productId: command.productId, gender: command.gender, start: command.start, end: command.end, group: command.group || '', status: 'confirmed', resourceId: command.resourceId || null, history: [], nightly: money(command.nightly ?? 0), source: validSource(command.source || 'direct'), notes: text(command.notes || '',2000), transactions: [], locked:false });
+    next.orders.push({ id: command.id, propertyId, guest: command.guest.trim(), productId: command.productId, gender: command.gender, start: command.start, end: command.end, group: command.group || '', status: 'confirmed', resourceId: command.resourceId || null, history: [], nightly: money(command.nightly ?? 0), source: validSource(command.source || 'direct'), notes: text(command.notes || '',2000), transactions: [], locked:false, ...guestFields(command), createdAt:command.at, createdBy:command.actor||'local' });
   } else if (type === 'assign') {
     if (!resource || ['checked_out','cancelled'].includes(order.status)) reject('state');
     if (order.locked) reject('locked');
@@ -49,6 +49,7 @@ export function apply(state, command) {
     order.nightly = money(command.nightly);
     order.notes = text(command.notes || '',2000);
     order.source = validSource(command.source);
+    Object.assign(order,guestFields(command,order));
   } else if (type === 'lock') {
     if (!order.resourceId || ['checked_out','cancelled'].includes(order.status)) reject('state');
     order.locked = !order.locked;
@@ -78,11 +79,42 @@ export function apply(state, command) {
     if (balance.due !== 0 || balance.deposit !== 0) reject('balance');
     order.status = 'checked_out';
     next.resources.find(r => r.id === order.resourceId).cleaning = 'dirty';
+  } else if (['bulk_clean','bulk_block','bulk_unblock'].includes(type)) {
+    if (!Array.isArray(command.resourceIds) || !command.resourceIds.length || command.resourceIds.length>100 || new Set(command.resourceIds).size!==command.resourceIds.length) reject('input');
+    const selected=command.resourceIds.map(id=>next.resources.find(r=>r.id===id&&r.propertyId===propertyId));
+    if(selected.some(r=>!r))reject('scope');
+    if(type==='bulk_clean'){
+      if(!['clean','dirty'].includes(command.cleaning))reject('input');
+      if(next.orders.some(o=>o.status==='checked_in'&&selected.some(r=>r.id===o.resourceId)))reject('occupied');
+      selected.forEach(r=>r.cleaning=command.cleaning);
+    }else{
+      validRange(command.start,command.end);
+      const atoms=[...new Set(selected.flatMap(r=>r.atoms))];
+      if(type==='bulk_block'){
+        const reason=text(command.reason||'',500);
+        // Never displace an in-house guest, including when their planned departure is overdue.
+        if(next.orders.some(o=>o.status==='checked_in'&&next.resources.find(r=>r.id===o.resourceId)?.atoms.some(a=>atoms.includes(a))))reject('occupied');
+        next.blocks.push({id:command.id,propertyId,atoms,start:command.start,end:command.end,reason});
+      }else{
+        // Release only selected atoms during the requested range. Preserve other dates/atoms.
+        next.blocks=next.blocks.flatMap((b,index)=>{
+          if(b.propertyId!==propertyId||b.end<=command.start||b.start>=command.end||!b.atoms.some(a=>atoms.includes(a)))return [b];
+          const parts=[],remaining=b.atoms.filter(a=>!atoms.includes(a));
+          if(remaining.length)parts.push({...b,id:`${command.id}-${index}-other`,atoms:remaining});
+          const hit=b.atoms.filter(a=>atoms.includes(a));
+          if(b.start<command.start)parts.push({...b,id:`${command.id}-${index}-before`,atoms:hit,end:command.start});
+          if(b.end>command.end)parts.push({...b,id:`${command.id}-${index}-after`,atoms:hit,start:command.end});
+          return parts;
+        });
+      }
+    }
   } else if (type === 'clean') {
     if (!resource || next.orders.some(o => o.resourceId === resource.id && o.status === 'checked_in')) reject('occupied');
     resource.cleaning = 'clean';
   } else if (type === 'block') {
     if (!resource) reject('scope');
+    validRange(command.start,command.end);
+    if(next.orders.some(o=>o.status==='checked_in'&&next.resources.find(r=>r.id===o.resourceId)?.atoms.some(a=>resource.atoms.includes(a))))reject('occupied');
     next.blocks.push({ id: command.id, propertyId, atoms: resource.atoms, start: command.start, end: command.end });
   } else if (type === 'unblock') {
     const block = next.blocks.find(b => b.id === command.blockId && b.propertyId === propertyId);
@@ -90,13 +122,13 @@ export function apply(state, command) {
     next.blocks = next.blocks.filter(b => b !== block);
   } else reject('input');
   preview(next, propertyId);
-  next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, orderId: order?.id || null, resourceId: resource?.id || null, at: command.at });
+  next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, orderId: order?.id || null, resourceId: resource?.id || null, resourceIds: command.resourceIds, cleaning:command.cleaning, at: command.at });
   return next;
 }
 
 const text = (value, max) => { if(typeof value !== 'string' || value.length > max) reject('input'); return value; };
 const money = value => { if (!Number.isSafeInteger(value) || value < 0 || value > 100000000) reject('amount'); return value; };
-const validSource = value => { if (!['direct','walkin','booking','airbnb','agoda','other'].includes(value)) reject('input'); return value; };
+const validSource = value => { if (!['direct','walkin','booking','airbnb','agoda','tripcom','other'].includes(value)) reject('input'); return value; };
 export function folio(order) {
   const nights = Math.round((Date.parse(order.end)-Date.parse(order.start))/86400000);
   const charge = order.finalCharge ?? nights*(order.nightly||0);
@@ -104,4 +136,16 @@ export function folio(order) {
   const sum = kind => transactions.filter(t=>t.kind===kind).reduce((n,t)=>n+t.amount,0);
   const paid = sum('payment')-sum('refund');
   return { nights, charge, paid, due: charge-paid, deposit:sum('deposit_in')-sum('deposit_out') };
+}
+
+function validRange(start,end){
+  const valid=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
+  if(!valid(start)||!valid(end)||end<=start||(Date.parse(end)-Date.parse(start))/86400000>366)reject('date_range');
+}
+function guestFields(command,prior={}){
+  const fields={};
+  for(const [name,max] of Object.entries({email:254,phone:40,country:80,guestLanguage:40,channelOrderId:100,channelNotes:2000}))fields[name]=text(command[name]??prior[name]??'',max);
+  fields.color=command.color??prior.color??'';
+  if(!['','peach','blue','green','violet'].includes(fields.color))reject('input');
+  return fields;
 }

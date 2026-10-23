@@ -92,7 +92,10 @@ cp "$SOURCE/pms/deploy/nginx-pms-https.conf" /etc/nginx/sites-available/jovian-p
 chmod 644 /etc/nginx/sites-available/jovian-pms-test
 nginx -t
 systemctl reload nginx
-curl --fail --silent --show-error --max-time 15 "https://$DOMAIN/healthz"
+# nginx reload completes before all new workers are necessarily serving TLS.
+# Retry with certificate verification enabled; use local SNI to verify this host.
+curl --retry 12 --retry-all-errors --retry-delay 2 --fail --silent --show-error --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/healthz"
+curl --retry 6 --retry-all-errors --retry-delay 2 --fail --silent --show-error --max-time 5 "https://$DOMAIN/healthz"
 echo
 curl --fail --silent --show-error --max-time 15 "https://$DOMAIN/api/mode"
 echo

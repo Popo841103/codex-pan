@@ -1,0 +1,65 @@
+name: JOVIAN PMS continuous test deployment
+
+on:
+  push:
+    branches: [jovian-pms-test]
+    paths:
+      - 'pms/**'
+      - '.github/workflows/jovian-pms-test.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jovian-pms-test
+  cancel-in-progress: false
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Verify PMS
+        run: |
+          npm test --prefix pms
+          python3 -m unittest discover -s pms/test -p 'test_*.py' -v
+          bash -n pms/deploy/update-vultr-test.sh
+          bash -n pms/deploy/ci/setup-server.sh
+          bash -n pms/deploy/ci/receive-release.sh
+      - name: Check deployment setup
+        id: setup
+        env:
+          DEPLOY_KEY: ${{ secrets.PMS_SSH_KEY }}
+          HOST_KEYS: ${{ secrets.PMS_KNOWN_HOSTS }}
+        run: |
+          if [[ -n "$DEPLOY_KEY" && -n "$HOST_KEYS" ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'Tests passed. Server not changed: configure PMS_SSH_KEY and PMS_KNOWN_HOSTS to enable deployment.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Deploy existing PMS test service
+        if: steps.setup.outputs.ready == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.PMS_SSH_KEY }}
+          HOST_KEYS: ${{ secrets.PMS_KNOWN_HOSTS }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          TASK_SSH_DIR=$(mktemp -d)
+          trap 'rm -rf -- "$TASK_SSH_DIR"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$TASK_SSH_DIR/key"
+          printf '%s\n' "$HOST_KEYS" > "$TASK_SSH_DIR/known_hosts"
+          chmod 600 "$TASK_SSH_DIR/key" "$TASK_SSH_DIR/known_hosts"
+          SSH=(ssh -F /dev/null -i "$TASK_SSH_DIR/key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$TASK_SSH_DIR/known_hosts" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 root@207.148.78.107)
+          "${SSH[@]}" status
+          tar -czf - pms/src pms/server pms/web pms/package.json | "${SSH[@]}" "deploy $RELEASE_COMMIT"
+          printf 'Deployed commit `%s` to https://pms.jovianhome.com/web/\n' "$RELEASE_COMMIT" >> "$GITHUB_STEP_SUMMARY"

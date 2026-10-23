@@ -8,8 +8,8 @@ export class ServiceError extends Error {
 const error = (status, code) => { throw new ServiceError(status, code); };
 const hash = value => createHash('sha256').update(value).digest('hex');
 const roleTypes = {
-  admin: ['create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock'],
-  operations: ['create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock'],
+  admin: ['create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
+  operations: ['create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
   finance: ['payment'], viewer: []
 };
 export class Store {
@@ -106,7 +106,7 @@ export class Store {
   command(user,{key,expectedRevision,command}) {
     if(typeof key!=='string'||!/^[a-zA-Z0-9_-]{8,100}$/.test(key)||!command||typeof command!=='object'||Array.isArray(command)||
        !Number.isSafeInteger(expectedRevision)||expectedRevision<0)error(400,'input');
-    if (['create','edit','block'].includes(command.type)) {
+    if (['create','edit','block','bulk_block','bulk_unblock'].includes(command.type)) {
       const {start,end}=command;
       const valid=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+'T00:00:00Z'))&&new Date(Date.parse(value+'T00:00:00Z')).toISOString().slice(0,10)===value;
       if(!valid(start)||!valid(end)||end<=start||(Date.parse(end)-Date.parse(start))/86400000>366)error(400,'date_range');
@@ -124,7 +124,7 @@ export class Store {
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(propertyId);
       if(row.revision!==expectedRevision)error(409,'stale_revision');
       // Never accept browser-created timestamps, command IDs or an actor identity.
-      const cmd={...command,id:randomUUID(),at:new Date().toISOString()};
+      const cmd={...command,id:randomUUID(),at:new Date().toISOString(),actor:rowUser.username};
       let next;
       try{ next=apply(JSON.parse(row.body),cmd); }
       catch(e){ if(e instanceof InventoryConflict)error(409,'inventory_conflict');error(400,e.message||'input'); }
@@ -146,6 +146,7 @@ export class Store {
       next.audit=[]; // Durable audit is stored separately, never trusted from the browser.
       this.db.prepare('UPDATE properties SET revision=?,body=? WHERE id=?').run(revision,JSON.stringify(next),propertyId);
       const summary={orderId:cmd.type==='create'?cmd.id:cmd.orderId||null,resourceId:cmd.resourceId||null,
+        ...(cmd.resourceIds?{resourceIds:cmd.resourceIds,cleaning:cmd.cleaning||null,start:cmd.start||null,end:cmd.end||null}:{}),
         fields:Object.keys(command).filter(k=>!['type','propertyId'].includes(k)),
         ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{})};
       this.db.prepare('INSERT INTO audit VALUES(?,?,?,?,?,?,?)').run(cmd.id,propertyId,user.id,cmd.type,cmd.at,revision,JSON.stringify(summary));
