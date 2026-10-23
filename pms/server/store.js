@@ -23,6 +23,9 @@ export class Store {
         role TEXT NOT NULL CHECK(role IN ('admin','operations','finance','viewer')), active INTEGER NOT NULL DEFAULT 1);
       CREATE TABLE IF NOT EXISTS user_properties (user_id TEXT NOT NULL REFERENCES users(id), property_id TEXT NOT NULL REFERENCES properties(id),
         PRIMARY KEY(user_id,property_id));
+      CREATE TABLE IF NOT EXISTS used_recovery_tokens (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), used_at TEXT NOT NULL);
+      CREATE TRIGGER IF NOT EXISTS recovery_no_delete BEFORE DELETE ON used_recovery_tokens BEGIN SELECT RAISE(ABORT,'recovery_append_only'); END;
+      CREATE TRIGGER IF NOT EXISTS recovery_no_update BEFORE UPDATE ON used_recovery_tokens BEGIN SELECT RAISE(ABORT,'recovery_append_only'); END;
       CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS receipts (user_id TEXT NOT NULL REFERENCES users(id), request_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
         response TEXT NOT NULL, PRIMARY KEY(user_id,request_key));
@@ -70,6 +73,25 @@ export class Store {
     this.db.prepare('DELETE FROM sessions WHERE expires<?').run(Date.now());
     this.db.prepare('INSERT INTO sessions VALUES(?,?,?,?)').run(hash(token),user.id,csrf,Date.now()+8*60*60*1000);
     return { token, csrf, user:this.publicUser(user) };
+  }
+  recoverPassword(config, token, password, now=Date.now()) {
+    const denied=()=>error(400,'recovery_invalid');
+    if(!config || typeof token!=='string' || !/^[a-f0-9]{64}$/.test(token) ||
+      typeof config.id!=='string' || !/^[a-zA-Z0-9_-]{8,100}$/.test(config.id) ||
+      typeof config.username!=='string' || typeof config.tokenHash!=='string' || !/^[a-f0-9]{64}$/.test(config.tokenHash) ||
+      !Number.isSafeInteger(config.issuedAt) || !Number.isSafeInteger(config.expiresAt) ||
+      config.expiresAt<=config.issuedAt || config.expiresAt-config.issuedAt>86400000 || now<config.issuedAt || now>=config.expiresAt ||
+      !timingSafeEqual(Buffer.from(hash(token),'hex'),Buffer.from(config.tokenHash,'hex')))denied();
+    if(typeof password!=='string'||password.length<12||password.length>256)error(400,'password_length');
+    return this.transaction(()=>{
+      const user=this.db.prepare("SELECT * FROM users WHERE username=? AND role='admin' AND active=1").get(config.username);
+      if(!user || this.db.prepare('SELECT 1 FROM used_recovery_tokens WHERE id=?').get(config.id))denied();
+      const salt=randomBytes(16).toString('hex'),passwordHash=scryptSync(password,salt,64).toString('hex');
+      this.db.prepare('UPDATE users SET salt=?,password_hash=? WHERE id=?').run(salt,passwordHash,user.id);
+      this.db.prepare('DELETE FROM sessions WHERE user_id=?').run(user.id);
+      this.db.prepare('INSERT INTO used_recovery_tokens VALUES(?,?,?)').run(config.id,user.id,new Date(now).toISOString());
+      return {ok:true,username:user.username};
+    });
   }
   publicUser(user) {
     return { id:user.id,username:user.username,role:user.role,allowedActions:[...roleTypes[user.role]],

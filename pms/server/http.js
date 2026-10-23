@@ -11,7 +11,7 @@ export function validatePublicOrigin(value) {
     throw new Error('PMS_PUBLIC_ORIGIN must be an HTTPS origin without credentials or a path');
   return parsed.origin;
 }
-export function makeServer(store, { publicOrigin } = {}) {
+export function makeServer(store, { publicOrigin, recovery = null } = {}) {
   publicOrigin=validatePublicOrigin(publicOrigin);
   const secureCookie=publicOrigin ? '; Secure' : '';
   const attempts=new Map();
@@ -23,7 +23,7 @@ export function makeServer(store, { publicOrigin } = {}) {
   };
   const cookie=req=>{const match=/(?:^|;\s*)jovian_session=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie||'');return match?.[1];};
   const server=createServer(async(req,res)=>{
-    res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');
+    res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try{
       const port=server.address().port;
@@ -36,7 +36,19 @@ export function makeServer(store, { publicOrigin } = {}) {
       const origin=publicOrigin||`http://${req.headers.host}`;
       if(req.method!=='GET'&&(req.headers.origin!==origin||req.headers['sec-fetch-site']==='cross-site'))throw new ServiceError(403,'origin');
       const url=new URL(req.url,origin), path=url.pathname;
-      if(path==='/api/mode'&&req.method==='GET')return json(res,200,{mode:'shared-development',version:'0.5.0'});
+      if(path==='/api/mode'&&req.method==='GET')return json(res,200,{mode:'shared-development',version:'0.5.1'});
+      if(path==='/api/account-recovery'&&req.method==='POST'){
+        const attemptKey='recovery|'+req.socket.remoteAddress,now=Date.now();
+        for(const [key,value] of attempts)if(value.until<=now)attempts.delete(key);
+        if(attempts.size>=10000&&!attempts.has(attemptKey))throw new ServiceError(429,'rate_limited');
+        const limit=attempts.get(attemptKey)||{count:0,until:now+15*60*1000};
+        if(limit.count>=10)throw new ServiceError(429,'rate_limited');
+        limit.count++;attempts.set(attemptKey,limit);
+        const data=await body(req);
+        const result=store.recoverPassword(recovery,data.token,data.password);
+        res.setHeader('Set-Cookie',`jovian_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secureCookie}`);
+        return json(res,200,result);
+      }
       if(path==='/api/login'&&req.method==='POST'){
         const data=await body(req),now=Date.now(),ip=req.socket.remoteAddress;
         const attemptKey=ip+'|'+String(data.username||'').slice(0,64);
@@ -64,7 +76,7 @@ export function makeServer(store, { publicOrigin } = {}) {
       if(req.method!=='GET')throw new ServiceError(405,'method');
       if(path==='/'){res.writeHead(302,{Location:'/web/'});return res.end();}
       const assets={'/web/':'web/index.html','/web/index.html':'web/index.html','/web/app.js':'web/app.js','/web/style.css':'web/style.css',
-        '/web/backend.js':'web/backend.js','/web/pwa.js':'web/pwa.js','/web/sw.js':'web/sw.js',
+        '/web/backend.js':'web/backend.js','/web/recovery.html':'web/recovery.html','/web/recovery.js':'web/recovery.js','/web/pwa.js':'web/pwa.js','/web/sw.js':'web/sw.js',
         '/web/manifest.webmanifest':'web/manifest.webmanifest','/web/offline.html':'web/offline.html',
         '/web/icon-192.png':'web/icon-192.png','/web/icon-512.png':'web/icon-512.png','/web/icon-maskable.png':'web/icon-maskable.png','/src/inventory.js':'src/inventory.js','/src/demo-store.js':'src/demo-store.js'};
       if(!Object.hasOwn(assets,path))throw new ServiceError(404,'not_found');
