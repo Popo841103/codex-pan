@@ -25,7 +25,10 @@ with sync_playwright() as pw:
     assert '筹备中' in page.locator('.experience-card').first.inner_text()
     page.goto(BASE+'guide.html');assert '15:00' in page.locator('.guide-stay').inner_text() and '12:00' in page.locator('.guide-stay').inner_text()
     direction=page.locator('a[href*="maps/dir"]').first.get_attribute('href');args=parse_qs(urlparse(direction).query)
-    assert '38B Jalan Nagasari' in args['destination'][0] and args['travelmode']==['transit']
+    assert args['destination']==['38B Jalan Nagasari, Bukit Bintang, Wilayah Persekutuan, Kuala Lumpur 50200, Malaysia']
+    assert 'origin' not in args  # Guests choose their own starting point.
+    transit=page.locator('a[href*="maps/dir"][href*="origin=KL"]').get_attribute('href')
+    assert parse_qs(urlparse(transit).query)['travelmode']==['transit']
     assert page.locator('a[href*="kliaekspres.com"]').count()==1
     page.goto(BASE+'enquiry.html?type=activities&interest=ai-agents');assert page.locator('#enquiry-topic').input_value()=='activities'
     assert page.locator('[name="activity"][value="ai-agents"]').is_checked()
