@@ -27,7 +27,7 @@ for p in products:
  main+='</div><div class="coffee-add-controls"><label>'+tr('span','Pack size','包装规格','Saiz pek')+'<select class="coffee-unit" aria-label="Pack size">'
  for unit in p['prices']:
   main+=(tr('option','Box · 10 bags','整盒 · 10袋','Kotak · 10 beg','value="box10"') if unit=='box10' else '<option value="'+unit+'">'+('250 g' if unit=='250g' else '1 kg')+'</option>')
- main+='</select></label><label>'+tr('span','Quantity','数量','Kuantiti')+'<input class="coffee-qty" type="number" min="1" max="999" step="1" value="1" aria-label="Quantity"></label>'+tr('button','Add to cart','加入购物车','Tambah ke troli','class="button coffee-add" type="button"')+'</div></article>' 
+ main+='</select></label><label>'+tr('span','Quantity','数量','Kuantiti')+'<input class="coffee-qty" type="number" min="1" max="999" step="1" value="1" aria-label="Quantity"></label>'+tr('button','Add to cart','加入购物车','Tambah ke troli','class="button coffee-add" type="button"')+'</div></article>'
 main+='</div></section>'
 # The customer-supplied bean/roaster/espresso photographs are generic range imagery, never assigned to unpictured SKUs.
 photos=[('assets/coffee/cohub-beans-dark.jpg','Yunnan coffee beans'),('assets/coffee/cohub-roasting.jpg','Coffee roasting'),('assets/coffee/cohub-beans-spoon.jpg','Roasted coffee beans'),('assets/coffee/cohub-espresso.jpg','Espresso extraction')]

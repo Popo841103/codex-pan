@@ -18,3 +18,6 @@
 
 ## 已核查GitHub实际情况（2026-10-25）
 远程main只有README。仓库有jovian-pms-test及jovian-pms-deploy-20261020分支。现有Actions为.github/workflows/jovian-pms-test.yml，推送jovian-pms-test分支的pms目录触发，目标https://pms.jovianhome.com/web/。最近运行39977218415成功；实际步骤状态另核查。使用secrets.PMS_SSH_KEY与PMS_KNOWN_HOSTS。服务器receive-release.sh为forced-command密钥，仅允许status或deploy <sha>，固定/opt/jovian-pms-test，不允许通用shell。不能复用其权限部署CO-HUB官网，更不能通过PMS入口写入其他路径。Actions secrets元数据API当前403，不代表密钥不存在。官网独立自动部署尚待配置；不得声称官网已部署。
+
+## 官网GitHub接入进度（2026-10-25）
+网站源码及本规则已推送cohub-website分支；不再仅存在当前云工作区。工作流.github/workflows/cohub-website.yml专用于官网；7项部署测试及67个静态文件打包在GitHub运行40146936228通过。运行因缺少COHUB_SSH_KEY或COHUB_KNOWN_HOSTS停止，官网部署步骤跳过，未触及服务器。需要在服务器一次性安装scripts/deploy/ci/setup-server.sh和配套文件，并在GitHub填写官网独立密钥，之后重跑。既有PMS流程不改。未来聊天读取本分支AGENTS.md、docs/project-brief.md、docs/deployment-policy.md；main当前尚未包含官网源码。
