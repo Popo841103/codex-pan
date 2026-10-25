@@ -21,3 +21,6 @@
 
 ## 官网GitHub接入进度（2026-10-25）
 网站源码及本规则已推送cohub-website分支；不再仅存在当前云工作区。工作流.github/workflows/cohub-website.yml专用于官网；7项部署测试及67个静态文件打包在GitHub运行40146936228通过。运行因缺少COHUB_SSH_KEY或COHUB_KNOWN_HOSTS停止，官网部署步骤跳过，未触及服务器。需要在服务器一次性安装scripts/deploy/ci/setup-server.sh和配套文件，并在GitHub填写官网独立密钥，之后重跑。既有PMS流程不改。未来聊天读取本分支AGENTS.md、docs/project-brief.md、docs/deployment-policy.md；main当前尚未包含官网源码。
+
+## 已成功上线（2026-10-25 16:32，马来西亚时间，以此为准）
+GitHub运行40146936228重跑成功，实际部署步骤完成；提交61a548d056c0ea93c81a98b569811161a854bf16。服务器已安装官网独立receiver，并有COHUB_SSH_KEY、COHUB_KNOWN_HOSTS可用。上线前备份/var/backups/cohub/cohub-20261025T083250Z-uc4cefp2/site-before.tar.gz。首页、住宿、社区、指南、咨询、languages.js、咖啡、啤酒共8项公网HTTPS200且SHA256与本地一致。未重启服务。后续在cohub-website分支修改并推送相关网站文件即自动触发，不再要求用户下载包、复制终端命令或配置Tailscale。docs单独修改不会触发部署。main尚未合并官网源码，未来聊天必须读取cohub-website分支。此前“配置尚缺”记录为历史状态。

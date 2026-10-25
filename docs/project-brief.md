@@ -44,3 +44,6 @@ coffee.html及coffee-products.js/coffee.js；四款CO-HUB前缀、两种规格�
 
 ## 固定GitHub部署（2026-10-25，以此为准）
 用户要求旧项目和新网站统一GitHub自动部署，不再交替使用更新包、人工终端或Tailscale方案。先核查已有流程，缺少权限明确报告。详见docs/deployment-policy.md；之前Tailscale开工模板已被此约定替代。当前未证明GitHub工作流可用或新版已上线。
+
+## 官网部署已打通（2026-10-25最新）
+CO-HUB官网通过GitHub Actions40146936228正式更新成功，8项公网文件校验一致。后续使用cohub-website分支和COHUB官网独立工作流，不用手工更新包或Tailscale。部署备份与证据见docs/deployment-policy.md。不得把旧的连接失败和未上线记录当作当前状态。
