@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+cohub-release.zip
+.env

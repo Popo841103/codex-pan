@@ -1,0 +1,128 @@
+[
+  {
+    "id": "nomads",
+    "name": [
+      "CO-HUB Nomad Circle",
+      "CO-HUB 数字游民圈",
+      "CO-HUB Lingkaran Nomad"
+    ],
+    "tag": [
+      "REMOTE WORK · COMMUNITY",
+      "远程工作 · 社群",
+      "KERJA JARAK JAUH · KOMUNITI"
+    ],
+    "desc": [
+      "Meet remote workers, freelancers and creators. Exchange ideas about projects, collaboration and life in Kuala Lumpur.",
+      "认识远程工作者、自由职业者与创作者，交流项目、协作方式，以及在吉隆坡生活的经验。",
+      "Temui pekerja jarak jauh, pekerja bebas dan pencipta. Kongsi idea tentang projek, kerjasama dan kehidupan di Kuala Lumpur."
+    ]
+  },
+  {
+    "id": "ai-agents",
+    "name": [
+      "AI Agent Lab",
+      "AI Agent 实用交流",
+      "Makmal AI Agent"
+    ],
+    "tag": [
+      "BUILD · SHARE · LEARN",
+      "动手实践 · 分享交流",
+      "BINA · KONGSI · BELAJAR"
+    ],
+    "desc": [
+      "Bring a use case or an idea. Share practical ways to use AI agents, automation and digital tools in work and everyday projects.",
+      "带一个真实需求或想法来，交流AI Agent、自动化与数字工具在工作和个人项目中的实际用法。",
+      "Bawa kegunaan sebenar atau idea. Kongsi cara praktikal menggunakan AI agent, automasi dan alat digital dalam kerja serta projek harian."
+    ]
+  },
+  {
+    "id": "web3",
+    "name": [
+      "Web3 Builders Circle",
+      "Web3 构建者交流",
+      "Lingkaran Pembina Web3"
+    ],
+    "tag": [
+      "TECHNOLOGY · IDEAS · COLLABORATION",
+      "技术 · 想法 · 协作",
+      "TEKNOLOGI · IDEA · KERJASAMA"
+    ],
+    "desc": [
+      "A meeting point for developers, designers and curious minds to discuss Web3 tools, product ideas and possible collaborations.",
+      "面向开发者、设计师及感兴趣的朋友，聊Web3工具、产品想法与协作机会。",
+      "Ruang pertemuan untuk pembangun, pereka dan mereka yang ingin tahu bagi membincangkan alat Web3, idea produk dan peluang kerjasama."
+    ]
+  },
+  {
+    "id": "city-walk",
+    "name": [
+      "KL Culture City Walk",
+      "吉隆坡宗教与文化漫步",
+      "City Walk Budaya Kuala Lumpur"
+    ],
+    "tag": [
+      "CITY · CULTURE · CONNECTION",
+      "城市 · 文化 · 相遇",
+      "BANDAR · BUDAYA · HUBUNGAN"
+    ],
+    "desc": [
+      "Explore Kuala Lumpur’s religious and cultural diversity together. The route, meeting point, visit arrangements and any fees will be shared when a walk is confirmed.",
+      "一起认识吉隆坡多元的宗教与城市文化。路线、集合点、参访安排及可能产生的费用，会在活动确定后说明。",
+      "Kenali kepelbagaian agama dan budaya Kuala Lumpur bersama-sama. Laluan, tempat berkumpul, aturan lawatan dan sebarang bayaran akan dikongsi apabila aktiviti disahkan."
+    ]
+  },
+  {
+    "id": "art",
+    "name": [
+      "Art & Sketch Social",
+      "画画与创作交流",
+      "Sesi Seni & Lakaran"
+    ],
+    "tag": [
+      "CREATE · UNWIND · CONNECT",
+      "创作 · 放松 · 交流",
+      "CIPTA · SANTAI · BERKENALAN"
+    ],
+    "desc": [
+      "A relaxed space to draw, share ideas and meet people through creativity. The format and materials will be confirmed before each session.",
+      "用画画放松、分享创意，也认识新朋友。每次活动的形式与材料安排会提前确认。",
+      "Ruang santai untuk melukis, berkongsi idea dan berkenalan melalui kreativiti. Format serta bahan akan disahkan sebelum setiap sesi."
+    ]
+  },
+  {
+    "id": "coffee",
+    "name": [
+      "Coffee & Latte Art Experience",
+      "咖啡制作与拉花体验",
+      "Pengalaman Kopi & Seni Latte"
+    ],
+    "tag": [
+      "COFFEE · HANDS-ON",
+      "咖啡 · 动手体验",
+      "KOPI · PRAKTIKAL"
+    ],
+    "desc": [
+      "Explore coffee preparation, espresso and latte art with others who enjoy a good cup. Session details and participation fees will be announced when confirmed.",
+      "和喜欢咖啡的朋友一起认识咖啡制作、意式萃取与拉花。具体体验内容和费用确定后公布。",
+      "Terokai penyediaan kopi, espresso dan seni latte bersama peminat kopi lain. Butiran sesi dan bayaran penyertaan akan diumumkan selepas disahkan."
+    ]
+  },
+  {
+    "id": "beer-pour",
+    "name": [
+      "Craft Beer Pouring Experience",
+      "精酿啤酒打酒体验",
+      "Pengalaman Menuang Bir Kraf"
+    ],
+    "tag": [
+      "CRAFT BEER · HANDS-ON",
+      "精酿 · 打酒体验",
+      "BIR KRAF · PRAKTIKAL"
+    ],
+    "desc": [
+      "Discover the beer tap, pouring technique and foam control in a guided hands-on session. Beer selections, dates and fees will be confirmed before participation.",
+      "在引导下体验酒头操作、倒酒方法与泡沫控制。体验酒款、日期和费用将在参加前确认。",
+      "Kenali paip bir, teknik menuang dan kawalan buih melalui pengalaman berpandu. Pilihan bir, tarikh dan bayaran akan disahkan sebelum penyertaan."
+    ]
+  }
+]
