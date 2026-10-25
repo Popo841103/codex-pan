@@ -47,3 +47,6 @@ coffee.html及coffee-products.js/coffee.js；四款CO-HUB前缀、两种规格�
 
 ## 官网部署已打通（2026-10-25最新）
 CO-HUB官网通过GitHub Actions40146936228正式更新成功，8项公网文件校验一致。后续使用cohub-website分支和COHUB官网独立工作流，不用手工更新包或Tailscale。部署备份与证据见docs/deployment-policy.md。不得把旧的连接失败和未上线记录当作当前状态。
+
+## 活动调整（2026-10-25）
+用户将画画活动改为旅行与潜水，首页、社区卡片与兴趣咨询中英马来文同步。活动仍先收集兴趣，不虚构已确定行程、资质或日期。
