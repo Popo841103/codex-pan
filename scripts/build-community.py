@@ -195,8 +195,8 @@ old=cafe.xpath('./div[contains(@class,"cafe-art")] | ./div[contains(@class,"cafe
 gallery='<div class="cafe-gallery">'
 for cls,src,alt,captions,href in [
  ('cafe-photo-main','assets/coffee/cohub-espresso.jpg','Espresso pouring into a coffee cup',['A fresh pour. A good start.','一杯现萃，开启好时光。','Kopi segar, permulaan indah.'],'https://eats.jovianhome.com/menu.html?c=cohubkl'),
- ('cafe-photo-food','assets/cafe/asam-pedas-pasta.jpg','Asam pedas pasta from the CO-HUB menu',['Asam pedas pasta','亚参辣意面','Pasta asam pedas'],'https://eats.jovianhome.com/menu.html?c=cohubkl'),
- ('cafe-photo-pastry','assets/cafe/croissant-egg-sandwich.jpg','Croissant egg sandwich from the CO-HUB menu',['Croissant egg sandwich','可颂炒蛋三明治','Sandwic telur croissant'],'https://eats.jovianhome.com/menu.html?c=cohubkl')]:
+ ('cafe-photo-food','assets/coffee/cohub-cafe-asam-pedas-pasta.jpg','Asam pedas pasta from the CO-HUB menu',['Asam pedas pasta','亚参辣意面','Pasta asam pedas'],'https://eats.jovianhome.com/menu.html?c=cohubkl'),
+ ('cafe-photo-pastry','assets/coffee/cohub-cafe-croissant-egg-sandwich.jpg','Croissant egg sandwich from the CO-HUB menu',['Croissant egg sandwich','可颂炒蛋三明治','Sandwic telur croissant'],'https://eats.jovianhome.com/menu.html?c=cohubkl')]:
  gallery+='<a class="cafe-photo '+cls+'" href="'+H.escape(href,quote=True)+'" target="_blank" rel="noopener noreferrer"><img src="'+src+'" alt="'+alt+'" loading="lazy" decoding="async" width="800" height="800">'+t('span',*captions,attrs='class="cafe-photo-caption"')+'</a>'
 gallery+='</div>'
 old.getparent().replace(old,html.fromstring(gallery))
