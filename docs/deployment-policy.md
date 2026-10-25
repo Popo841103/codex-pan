@@ -24,3 +24,6 @@
 
 ## 已成功上线（2026-10-25 16:32，马来西亚时间，以此为准）
 GitHub运行40146936228重跑成功，实际部署步骤完成；提交61a548d056c0ea93c81a98b569811161a854bf16。服务器已安装官网独立receiver，并有COHUB_SSH_KEY、COHUB_KNOWN_HOSTS可用。上线前备份/var/backups/cohub/cohub-20261025T083250Z-uc4cefp2/site-before.tar.gz。首页、住宿、社区、指南、咨询、languages.js、咖啡、啤酒共8项公网HTTPS200且SHA256与本地一致。未重启服务。后续在cohub-website分支修改并推送相关网站文件即自动触发，不再要求用户下载包、复制终端命令或配置Tailscale。docs单独修改不会触发部署。main尚未合并官网源码，未来聊天必须读取cohub-website分支。此前“配置尚缺”记录为历史状态。
+
+## 图片目录部署注意事项（2026-10-25）
+服务器receiver使用umask077，已安装版本的atomic_copy对新建子目录未显式设置0755。新建assets/cafe目录曾导致图片公网404，已通过将照片部署到原有可读assets/coffee目录解决，并以运行40178244013及公网SHA256核实成功。后续不要假定新建目录可被Web服务读取；应优先使用既有可读目录，或在正式维护receiver时修正新目录权限并验证。旧不可读assets/cafe文件未被再次使用，未擅自删除服务器目录。
