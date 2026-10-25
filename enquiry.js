@@ -5,7 +5,7 @@
   const status=document.querySelector('#enquiry-status');
   const preview=document.querySelector('#enquiry-preview');
   const roomSelect=document.querySelector('#stay-room');
-  const local=(en,zh,ms)=>({en,zh,ms}[languageSelect.value]||en);
+  const local=(en,zh,ms)=>window.COHUB_I18N.local(en,zh,ms);
   const languageIndex=()=>({en:0,zh:1,ms:2}[languageSelect.value]||0);
   const field=id=>document.querySelector('#'+id);
   const value=id=>field(id).value.trim();
@@ -23,9 +23,9 @@
   form.querySelectorAll('[name="activity"]').forEach(input=>input.checked=chosenInterests.has(input.value));
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   ['stay-arrival','stay-departure','activity-date'].forEach(id=>field(id).min=today);
-  function selectedText(id){const el=field(id);return el.selectedOptions[0]?.textContent||'';}
+  function selectedText(id){const el=field(id);return window.COHUB_I18N.t(el.selectedOptions[0]?.textContent||'');}
   function buildMessage(){
-    const lines=[local('Hello CO-HUB,','你好，CO-HUB：','Helo CO-HUB,'),topicNames[topic.value][languageIndex()]];
+    const lines=[local('Hello CO-HUB,','你好，CO-HUB：','Helo CO-HUB,'),window.COHUB_I18N.t(topicNames[topic.value][languageIndex()])];
     if(value('enquiry-name'))lines.push(local('Name: ','姓名：','Nama: ')+value('enquiry-name'));
     if(topic.value==='stay'){
       lines.push(local('Room preference: ','意向房型：','Pilihan penginapan: ')+selectedText('stay-room'));
@@ -35,14 +35,14 @@
       lines.push(local('I understand the hostel is being prepared. Please confirm future booking arrangements; this is not a reservation.','我了解青旅仍在筹备，请确认未来预订安排。本次仅咨询，不是订房。','Saya memahami hostel sedang disediakan. Sila sahkan aturan tempahan akan datang; ini bukan tempahan.'));
     }
     if(topic.value==='activities'){
-      const activities=[...form.querySelectorAll('[name="activity"]:checked')].map(input=>input.closest('label').querySelector('span').textContent);
+      const activities=[...form.querySelectorAll('[name="activity"]:checked')].map(input=>window.COHUB_I18N.t(input.closest('label').querySelector('span').textContent));
       lines.push(local('Interests: ','活动兴趣：','Minat: ')+(activities.length?activities.join(' / '):local('Please recommend','希望获得推荐','Sila cadangkan')));
       if(value('activity-date'))lines.push(local('Preferred date: ','期望日期：','Tarikh pilihan: ')+value('activity-date'));
       lines.push(local('Please let me know when dates, participation arrangements and fees are confirmed. This does not reserve a place.','请在日期、参加安排和费用确定后联系我。本次不保留活动名额。','Sila maklumkan apabila tarikh, aturan penyertaan dan bayaran disahkan. Ini tidak menempah tempat.'));
     }
     if(topic.value==='supply'){
       lines.push(local('Category: ','采购品类：','Kategori: ')+selectedText('supply-category'));
-      [['supply-quantity',['Quantity / specification: ','数量／规格：','Kuantiti / spesifikasi: ']],['supply-area',['Delivery area: ','配送地区：','Kawasan penghantaran: ']],['supply-business',['Business / project: ','公司／项目：','Perniagaan / projek: ']]].forEach(([id,labels])=>{if(value(id))lines.push(labels[languageIndex()]+value(id));});
+      [['supply-quantity',['Quantity / specification: ','数量／规格：','Kuantiti / spesifikasi: ']],['supply-area',['Delivery area: ','配送地区：','Kawasan penghantaran: ']],['supply-business',['Business / project: ','公司／项目：','Perniagaan / projek: ']]].forEach(([id,labels])=>{if(value(id))lines.push(window.COHUB_I18N.t(labels[languageIndex()])+value(id));});
       lines.push(local('Please confirm specifications, availability, delivery and a quotation before an order is agreed.','请确认规格、供货、配送与报价后再商定订单。','Sila sahkan spesifikasi, stok, penghantaran dan sebut harga sebelum pesanan dipersetujui.'));
     }
     if(topic.value==='opening')lines.push(local('I would like updates when accommodation bookings or community activities open. Please confirm my request. I can ask to stop updates at any time.','我希望收到住宿开放预订或社区活动消息，请确认登记。我可以随时告知停止联系。','Saya ingin menerima berita apabila tempahan penginapan atau aktiviti komuniti dibuka. Sila sahkan permintaan saya. Saya boleh meminta berita dihentikan pada bila-bila masa.'));
@@ -75,7 +75,7 @@
     event.preventDefault();if(!valid())return;
     const message=buildMessage();
     if(event.submitter?.value==='email'){
-      location.href='mailto:cohubcom@gmail.com?subject='+encodeURIComponent('CO-HUB · '+topicNames[topic.value][languageIndex()])+'&body='+encodeURIComponent(message);
+      location.href='mailto:cohubcom@gmail.com?subject='+encodeURIComponent('CO-HUB · '+window.COHUB_I18N.t(topicNames[topic.value][languageIndex()]))+'&body='+encodeURIComponent(message);
       status.textContent=local('Please review and send in your email app. If it does not open, copy the message and email cohubcom@gmail.com.','请在邮件应用检查并发送；如未打开，可复制消息发送至cohubcom@gmail.com。','Sila semak dan hantar dalam aplikasi e-mel. Jika tidak terbuka, salin mesej dan e-mel ke cohubcom@gmail.com.');
     }else{
       window.open('https://wa.me/60178497319?text='+encodeURIComponent(message),'_blank','noopener,noreferrer');

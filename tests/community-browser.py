@@ -53,14 +53,16 @@ with sync_playwright() as pw:
     draft=page.locator('#enquiry-preview').input_value();assert '20 capsules' in draft and '2027-02-12' not in draft
     page.select_option('#enquiry-topic','opening');assert page.locator('#opening-fields').is_visible();assert '20 capsules' not in page.locator('#enquiry-preview').input_value()
     assert 'berita' in page.locator('#enquiry-preview').input_value().lower()
-    # More-language selection must never enter the app's native-language state or share customer input.
-    page.select_option('#language','read:ja');assert page.locator('#translation-dialog').is_visible();assert page.locator('#language').input_value()=='ms'
-    translate=page.locator('#translation-open').get_attribute('href');query=parse_qs(urlparse(translate).query)
-    assert query['tl']==['ja'] and query['u']==['https://cohub.jovianhome.com/guide.html']
-    assert 'Guest' not in translate and 'capsules' not in translate
-    assert page.evaluate('localStorage.getItem("cohub-language")')=='ms'
-    page.locator('#translation-cancel').click();page.goto(BASE+'guide.html');assert page.locator('#language').input_value()=='ms'
-    page.select_option('#language','read:fr');assert parse_qs(urlparse(page.locator('#translation-open').get_attribute('href')).query)['u']==['https://cohub.jovianhome.com/guide.html'];page.keyboard.press('Escape')
+    # Additional languages are served locally and preserve the selected language across pages.
+    page.select_option('#language','ja')
+    page.wait_for_function('document.documentElement.lang==="ja" && document.querySelector("#language-status").hidden')
+    assert page.locator('#translation-dialog').count()==0
+    assert page.evaluate('localStorage.getItem("cohub-language")')=='ja'
+    assert page.locator('#language option').count()==19
+    page.goto(BASE+'guide.html')
+    page.wait_for_function('document.documentElement.lang==="ja" && document.querySelector("#language-status").hidden')
+    assert page.locator('#language').input_value()=='ja'
+    page.select_option('#language','ms')
     page.goto(BASE+'stay.html');page.select_option('#language','zh');assert page.locator('.room-card').count()==7
     href=page.locator('.room-enquiry').first.get_attribute('href');assert href=='enquiry.html?type=stay&room=0'
     page.locator('.room-enquiry').first.click();assert page.locator('#stay-room').input_value()=='0'
@@ -76,5 +78,5 @@ with sync_playwright() as pw:
     for filename in ['index','community','guide','enquiry']:
         page.goto(BASE+filename+'.html');page.select_option('#language','zh');page.set_viewport_size({'width':1440,'height':1000});page.screenshot(path=str(out/(filename+'-desktop.png')),full_page=True)
         page.set_viewport_size({'width':390,'height':850});page.screenshot(path=str(out/(filename+'-mobile.png')),full_page=True)
-    print('PASS: 8 pages × 3 native languages × 4 widths; 7 activities; arrival/map links and check-in/out; conditional enquiry fields, date validation, room links, draft safety and WhatsApp payload; 16 translated-reading options isolate native language and omit personal data; Instagram links; coffee/beer cart regression; no page errors or missing local resources.')
+    print('PASS: 8 pages × 3 native languages × 4 widths; 7 activities; arrival/map links and check-in/out; conditional enquiry fields, date validation, room links, draft safety and WhatsApp payload; 19 built-in language options and cross-page Japanese persistence; Instagram links; coffee/beer cart regression; no page errors or missing local resources.')
     browser.close()

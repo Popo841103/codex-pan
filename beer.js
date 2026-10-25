@@ -1,6 +1,6 @@
 (() => {
   const products = window.COHUB_BEER_PRODUCTS;
-  const local = (en, zh, ms) => ({en,zh,ms}[document.querySelector("#language").value] || en);
+  const local = (en, zh, ms) => window.COHUB_I18N.local(en,zh,ms);
   const config = window.COHUB_BEER_PRICE_CONFIG;
   const byId = new Map(products.map(product => [product.id, product]));
   const storageKey = 'cohub-beer-enquiry-v1';
@@ -64,12 +64,12 @@
       return `<article class="cart-line"><div><h3>${escape(p.name)}</h3><p>${escape(unitLabel(p,line.unit))} · ${amount===null?'Quote required':money(amount)+' each'}</p></div><label>Qty<input class="cart-qty" type="number" min="1" max="999" step="1" value="${line.qty}" data-id="${line.id}" data-unit="${line.unit}" aria-label="Quantity for ${escape(p.name)}"></label><strong>${amount===null?'To be quoted':money(Math.round(amount*100)*line.qty/100)}</strong><button class="remove-line" type="button" data-id="${line.id}" data-unit="${line.unit}" aria-label="Remove ${escape(p.name)}">Remove</button></article>`;
     }).join('') : '<p class="cart-empty">Your enquiry cart is empty. Add products from the catalogue.</p>';
     document.querySelector('#cart-totals').innerHTML = cart.length ? `<p class="cart-subtotal">${unknown?'Priced items subtotal':'Reference subtotal'} <strong>${money(cents/100)}</strong></p>${unknown?`<p>${unknown} item line(s) require a separate quote and are not included in this subtotal.</p>`:''}<p class="small">Final quotation, availability, delivery and applicable taxes/charges are confirmed by CO-HUB. This is not a payable total.</p>` : '';
-    const link = shareURL(), message = local(`Hello CO-HUB, please quote my craft beverage selection (${cart.length} product/format lines). My enquiry cart: ${link}\nPlease confirm stock, delivery and final quotation. This is an enquiry, not a confirmed order.`, `你好CO-HUB，请为我的精酿产品清单报价（${cart.length}项产品／规格）。询价购物车：${link}\n请确认库存、配送和最终报价。这是采购咨询，不是已确认订单。`, `Helo CO-HUB, sila beri sebut harga untuk pilihan minuman kraf saya (${cart.length} baris produk/format). Troli pertanyaan: ${link}\nSila sahkan stok, penghantaran dan sebut harga akhir. Ini pertanyaan, bukan pesanan yang disahkan.`);
+    const link = shareURL(), message = local('Hello CO-HUB, please quote my craft beverage selection:','你好CO-HUB，请为我的精酿产品清单报价：','Helo CO-HUB, sila beri sebut harga untuk pilihan minuman kraf saya:')+'\n'+local('Product/format lines: ','产品／规格项数：','Baris produk/format: ')+cart.length+'\n'+local('My enquiry cart: ','询价购物车：','Troli pertanyaan: ')+link+'\n'+local('Please confirm stock, delivery and final quotation. This is an enquiry, not a confirmed order.','请确认库存、配送和最终报价。这是采购咨询，不是已确认订单。','Sila sahkan stok, penghantaran dan sebut harga akhir. Ini pertanyaan, bukan pesanan yang disahkan.');
     const whats = document.querySelector('#cart-whatsapp'), email = document.querySelector('#cart-email');
     whats.hidden = email.hidden = !cart.length;
     if (cart.length) {
       whats.href = 'https://wa.me/60178497319?text=' + encodeURIComponent(message);
-      email.href = 'mailto:cohubcom@gmail.com?subject=' + encodeURIComponent('CO-HUB craft beverage cart enquiry') + '&body=' + encodeURIComponent(message);
+      email.href = 'mailto:cohubcom@gmail.com?subject=' + encodeURIComponent(local('CO-HUB craft beverage cart enquiry','CO-HUB精酿采购咨询','Pertanyaan minuman kraf CO-HUB')) + '&body=' + encodeURIComponent(message);
     } else { whats.removeAttribute('href'); email.removeAttribute('href'); }
     document.querySelector('#copy-cart').disabled = !cart.length;
     document.querySelector('#clear-cart').disabled = !cart.length;
@@ -95,7 +95,7 @@
     const line=cart.find(item=>item.id===id&&item.unit===unit);
     if(line&&line.qty+qty>999){notify('Maximum quantity per product/format is 999.');return;}
     if(line)line.qty+=qty;else cart.push({id,unit,qty});
-    save();notify(`Added ${qty} × ${unitLabel(byId.get(id),unit)} to your enquiry cart.`);
+    save();notify(local('Added to your enquiry cart.','已加入询价购物车。','Ditambah ke troli pertanyaan.')+' '+qty+' × '+window.COHUB_I18N.t(unitLabel(byId.get(id),unit)));
   });
   document.querySelectorAll('.open-cart').forEach(button=>button.addEventListener('click',()=>{renderCart();dialog.showModal();}));
   document.querySelector('#cart-close').addEventListener('click',()=>dialog.close());
@@ -117,7 +117,7 @@
   document.querySelector('#language').addEventListener('change',()=>{if(dialog.open)renderCart();});
   window.addEventListener('hashchange',restoreSharedCart);
   const search=document.querySelector('#beer-search'),category=document.querySelector('#beer-category');
-  function filter(){const term=search.value.trim().toLowerCase();let visible=0;document.querySelectorAll('.beer-card').forEach(card=>{const match=(category.value==='all'||card.dataset.category===category.value)&&card.dataset.search.includes(term);card.hidden=!match;if(match)visible++;});document.querySelector('#beer-count').textContent=`${visible} product${visible===1?'':'s'}`;document.querySelector('#beer-empty').hidden=visible!==0;}
+  function filter(){const term=search.value.trim().toLowerCase();let visible=0;document.querySelectorAll('.beer-card').forEach(card=>{const match=(category.value==='all'||card.dataset.category===category.value)&&card.dataset.search.includes(term);card.hidden=!match;if(match)visible++;});document.querySelector('#beer-count').textContent=visible+' '+local('products','款产品','produk');document.querySelector('#beer-empty').hidden=visible!==0;}
   search.addEventListener('input',filter);category.addEventListener('change',filter);
   restoreSharedCart();
 })();

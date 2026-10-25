@@ -3,7 +3,7 @@
   const dictionary = window.COHUB_TRANSLATIONS || {};
   const originals = new WeakMap();
   const attrOriginals = new WeakMap();
-  const ui = (en, zh, ms) => ({en, zh, ms}[selector.value] || en);
+  const ui = (en, zh, ms) => window.COHUB_I18N.local(en,zh,ms);
   const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const labels = {
     'bottles':['瓶','botol'], 'bottle':['瓶','botol'], 'cans':['罐','tin'], 'can':['罐','tin'],
@@ -13,6 +13,7 @@
   };
   Object.assign(dictionary, labels);
   function translate(value) {
+    if (!['en','zh','ms'].includes(selector.value)) return window.COHUB_I18N.t(value);
     if (selector.value === 'en') return value;
     const lang = selector.value === 'zh' ? 0 : 1;
     const trimmed = value.trim();
@@ -42,6 +43,7 @@
     return result;
   }
   function applyTranslations(root = document.body) {
+    if(!['en','zh','ms'].includes(selector.value)){window.COHUB_I18N.apply();return;}
     const walker = document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
     let node;
     while ((node=walker.nextNode())) {
@@ -96,7 +98,7 @@
   // Remember language across every public page. App's existing handler still updates room details.
   applyTranslations();
   selector.addEventListener('change',changeLanguage);
-  try {const saved=localStorage.getItem('cohub-language');if(['en','zh','ms'].includes(saved))selector.value=saved;} catch{}
+  try {const saved=localStorage.getItem('cohub-language');if(window.COHUB_I18N.allowed.has(saved))selector.value=saved;} catch{}
   selector.dispatchEvent(new Event('change'));
   let pending=false;
   new MutationObserver(()=>{if(pending)return;pending=true;queueMicrotask(()=>{pending=false;applyTranslations();});}).observe(document.body,{childList:true,subtree:true,characterData:true});

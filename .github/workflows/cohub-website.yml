@@ -7,6 +7,8 @@ on:
       - '*.js'
       - '*.css'
       - community-activities.json
+      - 'locale-*.json'
+      - scripts/i18n/**
       - assets/**
       - scripts/deploy/**
       - tests/**
@@ -27,6 +29,7 @@ jobs:
           persist-credentials: false
       - name: Verify deployment safety and build website
         run: |
+          python3 scripts/i18n/check-locales.py
           python3 tests/deploy-release.py
           bash -n scripts/deploy/ci/setup-server.sh
           bash -n scripts/deploy/ci/receive-release.sh

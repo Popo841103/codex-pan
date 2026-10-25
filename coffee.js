@@ -4,8 +4,8 @@
   const selector=document.querySelector('#language');
   const dialog=document.querySelector('#coffee-cart');
   const storage='cohub-coffee-enquiry-v1';
-  const local=(en,zh,ms)=>({en,zh,ms}[selector.value]||en);
-  const name=p=>p.names[{en:0,zh:1,ms:2}[selector.value]||0];
+  const local=(en,zh,ms)=>window.COHUB_I18N.local(en,zh,ms);
+  const name=p=>window.COHUB_I18N.t(p.names[{en:0,zh:1,ms:2}[selector.value]||0]);
   const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=n=>'RM '+Number(n).toFixed(2);
   const format=unit=>unit==='box10'?local('Box · 10 bags','整盒 · 10袋','Kotak · 10 beg'):unit==='250g'?'250 g':'1 kg';

@@ -13,3 +13,11 @@ header{flex-wrap:wrap;row-gap:18px}
 .more-language-choice{display:flex;align-items:center;gap:8px;min-width:0}
 header .language-tools #language{width:160px;max-width:100%;padding:8px;border:1px solid #32271e40;border-radius:5px;background:var(--cream);font:inherit}
 @media(max-width:560px){.language-tools{justify-content:flex-start;flex-wrap:wrap;gap:10px}.language-tools-title{width:100%;margin:0}.native-language-options{width:100%}.more-language-choice{width:100%;justify-content:space-between}header .language-tools #language{width:195px;max-width:65vw}}
+/* Built-in locales: allow longer labels and right-to-left reading without overflow. */
+header nav{min-width:0;flex-wrap:wrap;max-width:100%}
+header nav a,header nav button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.section,.guide-page,.community-page,.enquiry-page{overflow-wrap:anywhere}
+.language-status{width:100%;font-size:12px;color:var(--muted);text-align:end}
+html[dir="rtl"] .brand,html[dir="rtl"] .company-details strong,html[dir="rtl"] .room-price strong,html[dir="rtl"] .product-prices strong,html[dir="rtl"] .coffee-prices strong,html[dir="rtl"] .cart-line>strong{direction:ltr;unicode-bidi:isolate}
+@media(max-width:560px){header>nav{width:100%;max-width:100%;justify-content:flex-start}.language-tools{min-width:0}.language-tools .more-language-choice span{overflow-wrap:anywhere}}
+@media(max-width:560px){header>nav{grid-template-columns:repeat(2,minmax(0,1fr))}header>nav .nav-book{min-width:0;align-items:center}header>nav .nav-book span{min-width:0;overflow-wrap:anywhere}}

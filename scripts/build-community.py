@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261025-languages1'
+VERSION='20261025-native1'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -208,4 +208,19 @@ for cls,src,alt,captions,href in [
  gallery+='<a class="cafe-photo '+cls+'" href="'+H.escape(href,quote=True)+'" target="_blank" rel="noopener noreferrer"><img src="'+src+'" alt="'+alt+'" loading="lazy" decoding="async" width="800" height="800">'+t('span',*captions,attrs='class="cafe-photo-caption"')+'</a>'
 gallery+='</div>'
 old.getparent().replace(old,html.fromstring(gallery))
+(R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Public business name approved by the owner; legal registered company is unchanged.
+for filename,label in [('index.html','Bukit Bintang, Kuala Lumpur'),('stay.html','Stay · Christmas 2026 Opening Planned'),('community.html','Community & Experiences'),('guide.html','Location & Arrival Guide'),('enquiry.html','Enquiries'),('supply.html','Hospitality Supply'),('beer.html','Craft Beer Supply'),('coffee.html','Coffee Beans & Drip Coffee')]:
+ tree=html.fromstring((R/filename).read_bytes())
+ tree.xpath('//title')[0].text='CO-HUB Hostel & Café · '+label
+ for brand in tree.xpath('//a[contains(concat(" ",normalize-space(@class)," ")," brand ")]'):
+  brand.set('aria-label','CO-HUB Hostel & Café')
+  for subtitle in brand.xpath('./span'):subtitle.text='HOSTEL & CAFÉ'
+ (R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Keep the future coworking area distinct from the café already in operation.
+tree=html.fromstring((R/'index.html').read_bytes());faq=tree.xpath('//section[@id="faq"]')[0]
+for old in faq.xpath('./details[summary/@data-en="Is coworking open?"]'):faq.remove(old)
+faq.append(html.fromstring('<details>'+t('summary','Is coworking open?','共享办公现在开放了吗？','Adakah ruang kerja bersama sudah dibuka?')+p('The coworking area is not open yet. Our café, food and craft beer are open now.','共享办公区尚未开放。餐饮、咖啡与精酿酒吧已营业。','Ruang kerja bersama belum dibuka. Kafe, makanan dan bar bir kraf kami kini dibuka.')+'</details>'))
 (R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))

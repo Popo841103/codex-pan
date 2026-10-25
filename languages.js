@@ -1,38 +1,85 @@
 (() => {
+  'use strict';
   const select=document.querySelector('#language');if(!select)return;
-  let native=['en','zh','ms'].includes(select.value)?select.value:'en';
-  const local=(en,zh,ms)=>({en,zh,ms}[native]||en);
-  const choices=[['zh-TW','繁體中文 · 自動翻譯'],['ja','日本語 · 自動翻訳'],['ko','한국어 · 자동 번역'],['th','ไทย · แปลอัตโนมัติ'],['id','Bahasa Indonesia · terjemahan otomatis'],['vi','Tiếng Việt · dịch tự động'],['fr','Français · traduction automatique'],['de','Deutsch · automatische Übersetzung'],['es','Español · traducción automática'],['pt','Português · tradução automática'],['ru','Русский · автоматический перевод'],['ar','العربية · ترجمة آلية'],['hi','हिन्दी · स्वचालित अनुवाद'],['it','Italiano · traduzione automatica'],['nl','Nederlands · automatische vertaling'],['tr','Türkçe · otomatik çeviri']];
-  const codes=new Set(choices.map(([code])=>code));
-  document.querySelectorAll('[data-native-language]').forEach(button=>button.addEventListener('click',()=>{select.value=button.dataset.nativeLanguage;select.dispatchEvent(new Event('change',{bubbles:true}));}));
-  const group=document.createElement('optgroup');
-  choices.forEach(([code,label])=>{const option=document.createElement('option');option.value='read:'+code;option.textContent=label;group.append(option);});select.append(group);
-  const dialog=document.createElement('dialog');dialog.id='translation-dialog';dialog.setAttribute('aria-labelledby','translation-title');
-  dialog.innerHTML='<button type="button" class="dialog-close" id="translation-close" aria-label="Close">×</button><h2 id="translation-title"></h2><p id="translation-language"></p><p id="translation-explanation"></p><p id="translation-confirmation" class="small"></p><div class="actions"><a id="translation-open" class="button" target="_blank" rel="noopener noreferrer"></a><button id="translation-cancel" class="copy-enquiry" type="button"></button></div>';
-  document.body.append(dialog);
-  function labels(){
-    document.querySelectorAll('[data-native-language]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.nativeLanguage===native)));
-    group.label=local('More languages · automatic reading','更多语言 · 自动翻译阅读','Bahasa lain · bacaan terjemahan automatik');
-    select.setAttribute('aria-label',local('Website language','网站语言','Bahasa laman web'));
-    document.querySelector('#translation-title').textContent=local('Automatic translation reading','自动翻译阅读','Bacaan terjemahan automatik');
-    document.querySelector('#translation-explanation').textContent=local('Open a reading version through Google Translate in a new tab. Automatic translations may contain errors. This is a third-party service.','将在新标签页通过Google Translate打开自动翻译阅读版。自动译文可能有误，这是第三方提供的服务。','Buka versi bacaan melalui Google Translate dalam tab baharu. Terjemahan automatik mungkin mengandungi kesilapan. Ini perkhidmatan pihak ketiga.');
-    document.querySelector('#translation-confirmation').textContent=local('Return to the original website for enquiry forms and carts. Confirm prices, room details and terms with CO-HUB before making arrangements. No form entries or cart selections are included in this translation link.','填写咨询表单或使用购物车请返回原站；价格、房型与条款请向CO-HUB确认。翻译链接不会包含你已填写的表单内容或购物车清单。','Kembali ke laman asal untuk borang pertanyaan dan troli. Sahkan harga, butiran bilik dan syarat dengan CO-HUB. Pautan terjemahan tidak mengandungi isian borang atau pilihan troli.');
-    document.querySelector('#translation-open').textContent=local('Open translated reading ↗','打开自动翻译阅读版 ↗','Buka bacaan terjemahan ↗');
-    document.querySelector('#translation-cancel').textContent=local('Stay on original website','留在原站','Kekal di laman asal');
-    document.querySelector('#translation-close').setAttribute('aria-label',local('Close','关闭','Tutup'));
+  const extra=[['zh-TW','繁體中文'],['ja','日本語'],['ko','한국어'],['th','ไทย'],['id','Bahasa Indonesia'],['vi','Tiếng Việt'],['fr','Français'],['de','Deutsch'],['es','Español'],['pt','Português'],['ru','Русский'],['ar','العربية'],['hi','हिन्दी'],['it','Italiano'],['nl','Nederlands'],['tr','Türkçe']];
+  const native=new Set(['en','zh','ms']),allowed=new Set([...native,...extra.map(([id])=>id)]);
+  select.querySelectorAll('optgroup').forEach(el=>el.remove());
+  const group=document.createElement('optgroup');group.label='Languages / 语言';
+  for(const [code,name] of extra){const option=document.createElement('option');option.value=code;option.textContent=name;group.append(option);}select.append(group);
+  let active='en',messages={},loading=null,revision=0,scheduled=false;
+  const cache=new Map(),sources=new WeakMap(),attributes=new WeakMap();
+  const normal=s=>String(s).replaceAll('\\n','\n').trim().replace(/\s+/g,' ');
+  const status=document.createElement('span');status.id='language-status';status.className='language-status';status.setAttribute('role','status');status.hidden=true;document.querySelector('.language-tools')?.append(status);
+  const protectedNode=el=>!el||el.closest('script,style,textarea,input,#language,[data-native-language],.language-tools-title,.brand');
+  function text(value){
+    if(native.has(active)||/^RM\s*\d/.test(String(value).trim()))return value;
+    const source=String(value),key=normal(source);
+    if(messages[key])return source.replace(source.trim(),messages[key]);
+    // Only fixed, prewritten phrases are substituted; personal inputs never enter this function.
+    let result=source;
+    const segments=source.split(/(\n|https?:\/\/\S+)/);
+    result=segments.map(segment=>{
+      if(segment.startsWith('http'))return segment;
+      if(messages[normal(segment)])return messages[normal(segment)];
+      let out=segment;
+      for(const [en,to] of window.COHUB_I18N.fragments||[]){
+        if(!out.includes(en))continue;
+        const escaped=en.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+        out=out.replace(new RegExp('(?<![A-Za-z])'+escaped+'(?![A-Za-z])','g'),()=>to);
+      }
+      return out;
+    }).join('');
+    return result;
   }
-  select.addEventListener('change',event=>{
-    if(!select.value.startsWith('read:')){if(['en','zh','ms'].includes(select.value))native=select.value;labels();return;}
-    event.stopImmediatePropagation();
-    const code=select.value.slice(5);select.value=native;if(!codes.has(code))return;
-    const current=location.pathname.split('/').pop()||'index.html';
-    const readable=new Set(['index.html','stay.html','supply.html','beer.html','coffee.html','community.html','guide.html']);
-    const filename=readable.has(current)?current:'guide.html';
-    const target=new URL(filename,'https://cohub.jovianhome.com/');
-    const url=new URL('https://translate.google.com/translate');url.searchParams.set('sl','auto');url.searchParams.set('tl',code);url.searchParams.set('u',target.href);
-    labels();document.querySelector('#translation-language').textContent=choices.find(([id])=>id===code)[1];document.querySelector('#translation-open').href=url.href;dialog.showModal();
+  function apply(){
+    document.documentElement.lang=active==='zh'?'zh-Hans':active==='zh-TW'?'zh-Hant':active;
+    document.documentElement.dir=active==='ar'?'rtl':'ltr';
+    document.querySelectorAll('[data-native-language]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.nativeLanguage===active)));
+    if(native.has(active))return;
+    document.querySelectorAll('[data-en]').forEach(el=>{if(protectedNode(el))return;const value=text(el.dataset.en.replaceAll('\\n','\n'));if(el.textContent!==value)el.textContent=value;});
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;
+    while((node=walker.nextNode())){
+      const parent=node.parentElement;if(!node.nodeValue.trim()||protectedNode(parent)||parent.closest('[data-en]')||parent===status)continue;
+      let state=sources.get(node);
+      if(!state||(node.nodeValue!==state.last&&node.nodeValue!==state.en))state={en:node.nodeValue};
+      const value=text(state.en);state.last=value;sources.set(node,state);if(value!==node.nodeValue)node.nodeValue=value;
+    }
+    document.querySelectorAll('[placeholder],[aria-label],[title],img[alt]').forEach(el=>{
+      if(protectedNode(el))return;let state=attributes.get(el);
+      if(!state){state={};for(const name of ['placeholder','aria-label','title','alt'])if(el.hasAttribute(name))state[name]=el.getAttribute(name);attributes.set(el,state);}
+      for(const [name,value] of Object.entries(state)){const target=text(value);if(el.getAttribute(name)!==target)el.setAttribute(name,target);}
+    });
+  }
+  function restore(){
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;
+    while((node=walker.nextNode())){const state=sources.get(node);if(state&&node.nodeValue===state.last&&node.nodeValue!==state.en)node.nodeValue=state.en;}
+    document.querySelectorAll('[placeholder],[aria-label],[title],img[alt]').forEach(el=>{const state=attributes.get(el);if(state)for(const [k,v]of Object.entries(state))el.setAttribute(k,v);});
+  }
+  function queue(){if(scheduled)return;scheduled=true;queueMicrotask(()=>{scheduled=false;apply();});}
+  async function load(code){
+    const request=++revision;loading=code;
+    if(native.has(code)){messages={};window.COHUB_I18N.fragments=[];loading=null;status.hidden=true;queue();return;}
+    status.hidden=false;status.textContent='Loading '+extra.find(([id])=>id===code)[1]+'…';
+    try{
+      let data=cache.get(code);
+      if(!data){const response=await fetch('locale-'+code+'.json?v=20261025-native1',{credentials:'same-origin'});if(!response.ok)throw Error('Language file unavailable');data=await response.json();if(!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid language file');cache.set(code,data);}
+      if(request!==revision||active!==code)return;
+      messages=Object.fromEntries(Object.entries(data).map(([k,v])=>[normal(k),String(v)]));
+      window.COHUB_I18N.fragments=Object.entries(messages).filter(([k])=>k.length>2&&k.length<120&&!k.includes('http')).sort((a,b)=>b[0].length-a[0].length);
+      loading=null;status.hidden=true;select.dispatchEvent(new Event('change',{bubbles:true}));
+    }catch{
+      if(request!==revision)return;loading=null;status.textContent='Could not load / 无法加载 · ';const retry=document.createElement('button');retry.type='button';retry.textContent='Retry / 重试';retry.addEventListener('click',()=>load(active));status.append(retry);status.hidden=false;
+    }
+  }
+  window.COHUB_I18N={get lang(){return active;},allowed,fragments:[],t:text,local(en,zh,ms){return active==='zh'?zh:active==='ms'?ms:active==='en'?en:text(en);},apply:queue};
+  select.addEventListener('change',()=>{
+    const next=allowed.has(select.value)?select.value:'en',changed=active!==next;
+    if(changed){restore();active=next;messages={};window.COHUB_I18N.fragments=[];try{localStorage.setItem('cohub-language',active);}catch{}if(native.has(active)||!cache.has(active))load(active);else{loading=null;revision++;status.hidden=true;messages=Object.fromEntries(Object.entries(cache.get(active)).map(([k,v])=>[normal(k),v]));window.COHUB_I18N.fragments=Object.entries(messages).filter(([k])=>k.length>2&&k.length<120).sort((a,b)=>b[0].length-a[0].length);}}
+    if(!changed&&!native.has(active)&&!cache.has(active)&&loading!==active)load(active);
+    queue();
   },true);
-  ['translation-close','translation-cancel'].forEach(id=>document.querySelector('#'+id).addEventListener('click',()=>dialog.close()));
-  document.querySelector('#translation-open').addEventListener('click',()=>dialog.close());
-  labels();
+  document.querySelectorAll('[data-native-language]').forEach(button=>button.addEventListener('click',()=>{select.value=button.dataset.nativeLanguage;select.dispatchEvent(new Event('change',{bubbles:true}));}));
+  new MutationObserver(queue).observe(document.body,{subtree:true,childList:true,characterData:true});
+  try{const saved=localStorage.getItem('cohub-language');if(allowed.has(saved))select.value=saved;}catch{}
+  // Existing page renderers dispatch the initial change after they attach their handlers.
 })();

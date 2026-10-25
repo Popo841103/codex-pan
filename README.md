@@ -1,8 +1,8 @@
 # CO-HUB website
 
-Static CO-HUB website in English, Chinese and Malay, with community activities, arrival guidance and supply enquiries. Accommodation is not open for booking; no online payments.
+Static CO-HUB website with 19 built-in language choices, with community activities, arrival guidance and supply enquiries. Accommodation is not open for booking; no online payments.
 
-Read `AGENTS.md`, `docs/project-brief.md` and `docs/deployment-policy.md` before making changes. The fixed publishing method is GitHub Actions, not downloadable update bundles.
+See `docs/localization.md` for language maintenance. Read `AGENTS.md`, `docs/project-brief.md` and `docs/deployment-policy.md` before making changes. The fixed publishing method is GitHub Actions, not downloadable update bundles.
 
 ## Development
 
