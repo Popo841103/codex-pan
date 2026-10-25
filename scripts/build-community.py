@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261024-community1'
+VERSION='20261025-cafephotos1'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -187,3 +187,17 @@ for filename in ['index.html','stay.html','community.html','guide.html']:
    if node.get('data-en','').startswith('Café hours:'):
     set_copy(node,['Our café, food and craft beer are open now, 09:00–23:30, Malaysia time. Scan the QR code at the café to order online, collect at the bar and pay at the front counter.','餐饮、咖啡与精酿酒吧现已营业，时间为马来西亚时间09:00–23:30。店内扫码线上点餐、吧台自取、前台买单。','Kafe, makanan dan bar bir kraf kini dibuka, 09:00–23:30, waktu Malaysia. Imbas kod QR di kafe untuk memesan dalam talian, ambil di bar dan bayar di kaunter.'])
  (R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Use existing coffee and menu photography instead of the decorative brown tile.
+tree=html.fromstring((R/'index.html').read_bytes())
+cafe=tree.xpath('//section[@id="cafe"]')[0]
+old=cafe.xpath('./div[contains(@class,"cafe-art")] | ./div[contains(@class,"cafe-gallery")]')[0]
+gallery='<div class="cafe-gallery">'
+for cls,src,alt,captions,href in [
+ ('cafe-photo-main','assets/coffee/cohub-espresso.jpg','Espresso pouring into a coffee cup',['A fresh pour. A good start.','一杯现萃，开启好时光。','Kopi segar, permulaan indah.'],'https://eats.jovianhome.com/menu.html?c=cohubkl'),
+ ('cafe-photo-food','assets/cafe/asam-pedas-pasta.jpg','Asam pedas pasta from the CO-HUB menu',['Asam pedas pasta','亚参辣意面','Pasta asam pedas'],'https://eats.jovianhome.com/menu.html?c=cohubkl'),
+ ('cafe-photo-pastry','assets/cafe/croissant-egg-sandwich.jpg','Croissant egg sandwich from the CO-HUB menu',['Croissant egg sandwich','可颂炒蛋三明治','Sandwic telur croissant'],'https://eats.jovianhome.com/menu.html?c=cohubkl')]:
+ gallery+='<a class="cafe-photo '+cls+'" href="'+H.escape(href,quote=True)+'" target="_blank" rel="noopener noreferrer"><img src="'+src+'" alt="'+alt+'" loading="lazy" decoding="async" width="800" height="800">'+t('span',*captions,attrs='class="cafe-photo-caption"')+'</a>'
+gallery+='</div>'
+old.getparent().replace(old,html.fromstring(gallery))
+(R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
