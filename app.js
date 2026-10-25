@@ -30,7 +30,7 @@ const malay = {
 'Indicative nightly rates, subject to confirmation. Taxes and booking policies will be published before reservations open. Dorms are sold by bed; there is no separate whole-dorm product.':'Kadar indikatif semalam, tertakluk pada pengesahan. Cukai dan polisi tempahan akan dipaparkan sebelum tempahan dibuka. Dorm dijual mengikut katil; tiada pilihan tempahan seluruh dorm yang berasingan.',
 '02 / THE GROUND FLOOR':'02 / TINGKAT BAWAH','Come for a coffee.\\nStay for the company.':'Singgah untuk kopi.\\nNikmati kebersamaan.',
 'Coffee, food and craft beer. A place for travellers and neighbours to take a seat and share a moment.':'Kopi, makanan dan bir kraf. Tempat untuk pengembara dan jiran duduk bersama dan menikmati masa santai.',
-'Explore the menu ↗':'Lihat menu ↗','Menu browsing only. Please order in-store and pay at the front counter.':'Untuk melihat menu sahaja. Sila pesan di premis dan bayar di kaunter.',
+'Explore the menu ↗':'Lihat menu ↗',
 '03 / FIND YOUR HUB':'03 / TEMUI KAMI','See you in Kuala Lumpur.':'Jumpa di Kuala Lumpur.',
 'Café hours · 09:00–23:30 (Malaysia time)':'Waktu kafe · 09:00–23:30 (waktu Malaysia)',
 'Contact us on WhatsApp ↗':'Hubungi melalui WhatsApp ↗','Get directions ↗':'Dapatkan arah ↗',
