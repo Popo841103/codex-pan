@@ -53,3 +53,6 @@ CO-HUB官网通过GitHub Actions40146936228正式更新成功，8项公网文件
 
 ## 餐饮点餐更新（2026-10-25，以此为准）
 用户确认可以线上点餐、吧台自取。现有公开menu.html?c=cohubkl提示需扫描店内二维码或吧台点餐，因此官网说明为店内扫码线上点餐、吧台自取，保留此前前台买单；未增加在线支付。公开菜单入口不能当作直接下单入口。如要支持客人到店前下单，需要餐饮系统的实际下单链接和配置。
+
+## Google Maps到店链接（2026-10-25）
+使用用户确认完整地址：38B Jalan Nagasari, Bukit Bintang, Wilayah Persekutuan, Kuala Lumpur 50200, Malaysia。首页与到店指南地址可点击，Google Maps搜索与导航均采用此完整目的地；导航不固定出发地，客人在Google Maps选择出发地或当前位置。Google Maps地址搜索返回HTTP200，但未独立确认CO-HUB商家Place ID／精确入口针点，不声称已核实商家定位，不推定楼层、出口或步行分钟数。
