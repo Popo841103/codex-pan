@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261025-cafephotos1'
+VERSION='20261025-languages1'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -26,6 +26,14 @@ A=[
 # Consistent navigation on existing and generated pages; keep supply and stay prominent.
 def prepare(tree,filename):
  nav=tree.xpath('//header/nav')[0]
+ select=tree.xpath('//*[@id="language"]')[0]
+ select.getparent().remove(select)
+ for old in tree.xpath('//header/div[@class="language-tools"]'):old.getparent().remove(old)
+ for value,label in [('en','English'),('zh','简体中文'),('ms','Bahasa Melayu')]:
+  select.xpath('./option[@value=$v]',v=value)[0].text=label
+ tools=html.fromstring('<div class="language-tools"><span class="language-tools-title">🌐 Language / 语言</span><div class="native-language-options"><button type="button" data-native-language="en">English</button><button type="button" data-native-language="zh">简体中文</button><button type="button" data-native-language="ms">Bahasa Melayu</button></div><label class="more-language-choice"><span data-en="More languages" data-zh="更多语言" data-ms="Bahasa lain">More languages</span></label></div>')
+ tools.xpath('.//label')[0].append(select)
+ tree.xpath('//header')[0].append(tools)
  for a in list(nav.xpath('./a')):
   if 'nav-book' not in a.get('class',''):nav.remove(a)
  anchors=[('community.html',['Community','社区与活动','Komuniti']),('guide.html',['Visit & guide','到店与入住指南','Lokasi & panduan']),('index.html#cafe',['Café & beer','咖啡与精酿','Kafe & bir'])]

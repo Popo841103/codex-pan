@@ -4,12 +4,14 @@
   const local=(en,zh,ms)=>({en,zh,ms}[native]||en);
   const choices=[['zh-TW','繁體中文 · 自動翻譯'],['ja','日本語 · 自動翻訳'],['ko','한국어 · 자동 번역'],['th','ไทย · แปลอัตโนมัติ'],['id','Bahasa Indonesia · terjemahan otomatis'],['vi','Tiếng Việt · dịch tự động'],['fr','Français · traduction automatique'],['de','Deutsch · automatische Übersetzung'],['es','Español · traducción automática'],['pt','Português · tradução automática'],['ru','Русский · автоматический перевод'],['ar','العربية · ترجمة آلية'],['hi','हिन्दी · स्वचालित अनुवाद'],['it','Italiano · traduzione automatica'],['nl','Nederlands · automatische vertaling'],['tr','Türkçe · otomatik çeviri']];
   const codes=new Set(choices.map(([code])=>code));
+  document.querySelectorAll('[data-native-language]').forEach(button=>button.addEventListener('click',()=>{select.value=button.dataset.nativeLanguage;select.dispatchEvent(new Event('change',{bubbles:true}));}));
   const group=document.createElement('optgroup');
   choices.forEach(([code,label])=>{const option=document.createElement('option');option.value='read:'+code;option.textContent=label;group.append(option);});select.append(group);
   const dialog=document.createElement('dialog');dialog.id='translation-dialog';dialog.setAttribute('aria-labelledby','translation-title');
   dialog.innerHTML='<button type="button" class="dialog-close" id="translation-close" aria-label="Close">×</button><h2 id="translation-title"></h2><p id="translation-language"></p><p id="translation-explanation"></p><p id="translation-confirmation" class="small"></p><div class="actions"><a id="translation-open" class="button" target="_blank" rel="noopener noreferrer"></a><button id="translation-cancel" class="copy-enquiry" type="button"></button></div>';
   document.body.append(dialog);
   function labels(){
+    document.querySelectorAll('[data-native-language]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.nativeLanguage===native)));
     group.label=local('More languages · automatic reading','更多语言 · 自动翻译阅读','Bahasa lain · bacaan terjemahan automatik');
     select.setAttribute('aria-label',local('Website language','网站语言','Bahasa laman web'));
     document.querySelector('#translation-title').textContent=local('Automatic translation reading','自动翻译阅读','Bacaan terjemahan automatik');
