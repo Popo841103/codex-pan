@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261025-native1'
+VERSION='20261026-events1'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -224,3 +224,22 @@ tree=html.fromstring((R/'index.html').read_bytes());faq=tree.xpath('//section[@i
 for old in faq.xpath('./details[summary/@data-en="Is coworking open?"]'):faq.remove(old)
 faq.append(html.fromstring('<details>'+t('summary','Is coworking open?','共享办公现在开放了吗？','Adakah ruang kerja bersama sudah dibuka?')+p('The coworking area is not open yet. Our café, food and craft beer are open now.','共享办公区尚未开放。餐饮、咖啡与精酿酒吧已营业。','Ruang kerja bersama belum dibuka. Kafe, makanan dan bar bir kraf kami kini dibuka.')+'</details>'))
 (R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Two community routes: join an activity, or propose one for team review.
+join=['Join an activity','参加活动','Sertai aktiviti']
+host=['Host an event','发起活动','Anjurkan aktiviti']
+proposal=['Activity proposal','活动提案','Cadangan aktiviti']
+help_copy=['Include the title, description, preferred date, location, participant limit, event language, fees and your contact details. Send your proposal to the team for review; it is not published automatically.','请填写活动名称、内容、期望日期、地点、人数上限、现场语言、费用和联系方式。发送给团队审核后确认，不会自动公开发布。','Sertakan tajuk, penerangan, tarikh pilihan, lokasi, had peserta, bahasa aktiviti, bayaran dan maklumat hubungan. Hantar cadangan kepada pasukan untuk semakan; cadangan tidak diterbitkan secara automatik.']
+for filename in ['community.html','index.html']:
+ tree=html.fromstring((R/filename).read_bytes())
+ target=tree.xpath('//section[contains(@class,"community-hero")]/div' if filename=='community.html' else '//section[@id="community-teaser"]')[0]
+ for old in target.xpath('./div[@id="activity-entry-actions"]'):target.remove(old)
+ actions='<div class="actions" id="activity-entry-actions">'+link('community.html#builders',*join)+link('enquiry.html?type=host',*host,cls='button button-secondary')+'</div>'
+ target.append(html.fromstring(actions))
+ (R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+tree=html.fromstring((R/'enquiry.html').read_bytes())
+topic=tree.xpath('//*[@id="enquiry-topic"]')[0]
+topic.append(html.fromstring(t('option',*host,attrs='value="host"')))
+field='<fieldset id="host-fields" hidden disabled><legend>'+t('span',*host)+'</legend>'+p(*help_copy)+('<label for="host-proposal">'+t('span',*proposal)+'<textarea id="host-proposal" rows="8" maxlength="3000" required></textarea></label>')+'</fieldset>'
+tree.xpath('//*[@id="activity-fields"]')[0].addnext(html.fromstring(field))
+(R/'enquiry.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
