@@ -47,3 +47,18 @@ SQL Editor入口：https://supabase.com/dashboard/project/qwdhiwghyclpkzwavhjf/s
 本地PGlite Postgres兼容执行tests/member-database.mjs验证：重复运行脚本、真实数据库规则验证邮箱身份、禁止伪造owner、禁止自行批准、私人记录隔离、幂等报名、禁止直接确认、人数上限、邀请归属。测试不是Supabase远端验收；远端脚本仍未执行。运行方式：安装固定版本@electric-sql/pglite@0.3.14，用PGLITE_MODULE指向其dist/index.js，再node tests/member-database.mjs。
 
 接下来：远端SQL成功后检查匿名只能看到approved活动；再完成并接入邮箱注册／密码登录／找回密码／我的活动前端，配置精确回调和可用SMTP，联调验证。Google OAuth及Ethereum钱包尚未开启，不能声称已接通。当前官网仍为点击弹窗和账号准备提示。
+
+## 会员前端实现与远端验收（2026-10-26最新）
+
+用户执行SQL后截图Success；只读远端再次核查：cohub_events匿名GET=200[]，cohub_registrations匿名GET=401 permission denied。符合公开已审核活动与私人报名隔离的设计。没有注册真实用户、没有代客发送邮件、没有发布活动或报名。
+
+前端host-event.js已接Supabase官方JS SDK2.99.1（member-sdk.js本地打包，MIT许可保留），浏览器仅使用公开URL和publishable key。scripts/member-system/build-ui.py维护注册、邮箱密码登录、重发确认、找回／更新密码、退出、结构化活动提交、我的活动五类及公开活动请求参加／关注。注册至少8位密码，发布前getUser核验邮箱确认，服务端RLS再次限制；提交活动固定pending，参加为requested，须团队确认。账号会话由官方SDK保存在当前浏览器localStorage，密码不保存；PKCE支持同一浏览器不同标签页验证回跳，SDK清理回调code。UI不接受或存储管理员密钥。会员用户内容不经过语言替换、以textContent显示，避免活动标题HTML执行。
+
+源码重新生成：完整运行scripts/build-community.py，勿单独重复运行build-ui.py。SDK重建：bash scripts/member-system/build-sdk.sh（固定直接版本和锁文件；node_modules不应提交或部署）。当前网站打包自动包含根目录JS，不打包scripts/member-system的SQL/依赖。
+
+验证：tests/member-browser.py使用真实打包SDK+隔离API fixture，无真实邮件或账号写入，覆盖注册待确认、错误密码、getUser后登录、pending保存、马来西亚时区、五类个人记录、申请参加、退出、找回密码PKCE回调、密码不进浏览器存储、多语不改用户文本及HTML注入不可执行。已通过原3语全页回归、16扩展语全页宽度回归、320固定文案覆盖、7部署测试以及PGlite权限测试。这些本地联调不等同于正式邮件/OAuth验收。
+
+尚需用户在Supabase URL Configuration设置Site URL=https://cohub.jovianhome.com，Redirect URLs加入https://cohub.jovianhome.com/community.html。生产SMTP未获管理端验证，默认Supabase发信有收件人/速率限制；需自有邮箱真实验证可送达，再决定公开推广注册。客户端对邮件限额/服务错误只显示可理解的错误，不冒充验证成功。
+Google提供商当前false，按钮保持隐藏，仅后台开启后显示；Ethereum钱包尚未接入。不能将当前邮箱功能宣称为Google/钱包已开通。
+
+团队暂通过Supabase Table Editor审核cohub_events.status为approved或rejected，确认cohub_registrations.status为confirmed（数据库检查名额），cohub_cohosts由团队创建邀请，接收者仅能接受或拒绝自己的邀请。不要在数据库未批准时宣称场地已经确认；也不要给前端service_role来绕过审核。初期只向已approved活动发出联合主办邀请。

@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 cohub-release.zip
 .env
+
+node_modules/

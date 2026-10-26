@@ -1,4 +1,4 @@
-"""Hosting opens on request; unconfigured accounts never pretend to authenticate."""
+"""Hosting opens on request; the member account window is hidden until requested."""
 from playwright.sync_api import sync_playwright
 BASE='http://127.0.0.1:8000/'
 with sync_playwright() as p:
@@ -10,7 +10,8 @@ with sync_playwright() as p:
  assert page.locator('#community-host-form').count()==0
  trigger=page.locator('#activity-entry-actions a[href="#host-event"]')
  trigger.click();assert page.locator('#host-event').is_visible()
- assert page.locator('#host-event input[type=password]').count()==0
+ assert page.locator('#host-event input[type=password]').count()==2
+ page.wait_for_function('!document.querySelector("#host-event").hasAttribute("aria-busy")')
  assert page.locator('#host-event a[href*="wa.me"]').count()==0
  page.keyboard.press('Escape');assert not page.locator('#host-event').is_visible()
  assert trigger.evaluate('(e)=>document.activeElement===e')
@@ -21,13 +22,13 @@ with sync_playwright() as p:
    page.set_viewport_size({'width':width,'height':900})
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),lang
    assert page.locator('#host-event').evaluate('(e)=>e.scrollWidth<=e.clientWidth+1'),lang
-  if lang!='en':assert page.locator('#host-account-title').inner_text()!='Sign in to host an event',lang
+  if lang!='en':assert page.locator('#member-auth-view h3').inner_text()!='Sign in',lang
   page.locator('#close-host-event').click()
  page.goto(BASE+'enquiry.html?type=host')
  page.wait_for_url('**/community.html#host-event')
  assert page.locator('#host-event').is_visible()
- page.locator('#host-contact-team').click()
+ page.locator('#close-host-event').click()
  assert not page.locator('#host-event').is_visible()
  assert not errors,errors
  b.close()
-print('PASS: closed on load, click-to-open, Escape/focus, 19 languages, mobile dialog, legacy host redirect; no fake account form.')
+print('PASS: closed on load, click-to-open, Escape/focus, 19 languages, mobile dialog, legacy host redirect; real email/password member forms.')

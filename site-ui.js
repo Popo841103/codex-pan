@@ -47,7 +47,7 @@
     const walker = document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
     let node;
     while ((node=walker.nextNode())) {
-      if (!node.nodeValue.trim() || node.parentElement.closest('script,style,[data-en]')) continue;
+      if (!node.nodeValue.trim() || node.parentElement.closest('script,style,input,textarea,[data-en],[data-user-content]')) continue;
       let state=originals.get(node);
       if (!state || (node.nodeValue!==state.last && node.nodeValue!==state.en)) state={en:node.nodeValue};
       const value=translate(state.en);

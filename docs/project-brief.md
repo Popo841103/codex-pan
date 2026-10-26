@@ -90,3 +90,6 @@ Google商家资料补充：用户已确认实体门头为CO-HUB Hostel & Café�
 
 ## Supabase项目已提供（2026-10-26）
 用户已创建项目并提供公开连接信息，见scripts/member-system/project.json；项目服务可达，邮箱确认开启，Google未开，活动表尚不存在。准备了scripts/member-system/setup.sql并经真实Postgres兼容引擎本地RLS测试通过；远端尚需用户在SQL Editor一次运行。不能把本地数据库测试当作远端已初始化，更不能声称会员注册和我的活动已经上线。接入步骤见docs/community-membership-setup.md最新小节。
+
+## 会员邮箱前端（2026-10-26最新）
+用户执行建表SQL显示Success，远端匿名活动表200、私人报名表401已核实。实现点击发起／我的活动后按需加载本地官方SDK，邮箱注册及确认、密码登录、重发验证、密码重置回调、结构化提案待审核、个人中心五分类、公开活动关注与报名请求。仅公开浏览器key，无后台管理密钥；Google未开启按钮隐藏，Ethereum未接。真实邮件尚待用户配置正确Site URL／回调及生产SMTP并实测，不能宣称所有注册渠道已可用。会话由SDK存localStorage，密码不保存；个人输入不翻译不执行HTML。完整测试与限制见docs/community-membership-setup.md最新小节。

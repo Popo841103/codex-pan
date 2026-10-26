@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261026-dialog1'
+VERSION='20261026-members1'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -324,3 +324,6 @@ dialog='<dialog id="host-event" class="host-account-dialog" aria-labelledby="hos
 tree.xpath('//body')[0].append(html.fromstring(dialog))
 etree.SubElement(tree.xpath('//body')[0],'script',src='host-event.js?v='+VERSION)
 (R/'community.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Member forms and dashboard are maintained alongside the database contract.
+__import__('runpy').run_path(str(R/'scripts/member-system/build-ui.py'))

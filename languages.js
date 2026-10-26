@@ -10,7 +10,7 @@
   const cache=new Map(),sources=new WeakMap(),attributes=new WeakMap();
   const normal=s=>String(s).replaceAll('\\n','\n').trim().replace(/\s+/g,' ');
   const status=document.createElement('span');status.id='language-status';status.className='language-status';status.setAttribute('role','status');status.hidden=true;document.querySelector('.language-tools')?.append(status);
-  const protectedNode=el=>!el||el.closest('script,style,textarea,input,#language,[data-native-language],.language-tools-title,.brand');
+  const protectedNode=el=>!el||el.closest('script,style,textarea,input,[data-user-content],#language,[data-native-language],.language-tools-title,.brand');
   function text(value){
     if(native.has(active)||/^RM\s*\d/.test(String(value).trim()))return value;
     const source=String(value),key=normal(source);
@@ -62,7 +62,7 @@
     status.hidden=false;status.textContent='Loading '+extra.find(([id])=>id===code)[1]+'…';
     try{
       let data=cache.get(code);
-      if(!data){const response=await fetch('locale-'+code+'.json?v=20261026-dialog1',{credentials:'same-origin'});if(!response.ok)throw Error('Language file unavailable');data=await response.json();if(!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid language file');cache.set(code,data);}
+      if(!data){const response=await fetch('locale-'+code+'.json?v=20261026-members1',{credentials:'same-origin'});if(!response.ok)throw Error('Language file unavailable');data=await response.json();if(!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid language file');cache.set(code,data);}
       if(request!==revision||active!==code)return;
       messages=Object.fromEntries(Object.entries(data).map(([k,v])=>[normal(k),String(v)]));
       window.COHUB_I18N.fragments=Object.entries(messages).filter(([k])=>k.length>2&&k.length<120&&!k.includes('http')).sort((a,b)=>b[0].length-a[0].length);
