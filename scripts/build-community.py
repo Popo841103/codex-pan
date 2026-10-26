@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261026-events1'
+VERSION='20261026-groups1'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -13,15 +13,88 @@ def p(*s,attrs=''):return t('p',*s,attrs)
 def h(level,*s):return t('h'+str(level),*s)
 def link(url,*s,cls='button',external=False):return t('a',*s,f'class="{cls}" href="{H.escape(url,quote=True)}"'+(' target="_blank" rel="noopener noreferrer"' if external else ''))
 def interest(code):return 'enquiry.html?'+urlencode({'type':'activities','interest':code})
-A=[
- {'id':'nomads','name':['CO-HUB Nomad Circle','CO-HUB 数字游民圈','CO-HUB Lingkaran Nomad'],'tag':['REMOTE WORK · COMMUNITY','远程工作 · 社群','KERJA JARAK JAUH · KOMUNITI'],'desc':['Meet remote workers, freelancers and creators. Exchange ideas about projects, collaboration and life in Kuala Lumpur.','认识远程工作者、自由职业者与创作者，交流项目、协作方式，以及在吉隆坡生活的经验。','Temui pekerja jarak jauh, pekerja bebas dan pencipta. Kongsi idea tentang projek, kerjasama dan kehidupan di Kuala Lumpur.']},
- {'id':'ai-agents','name':['AI Agent Lab','AI Agent 实用交流','Makmal AI Agent'],'tag':['BUILD · SHARE · LEARN','动手实践 · 分享交流','BINA · KONGSI · BELAJAR'],'desc':['Bring a use case or an idea. Share practical ways to use AI agents, automation and digital tools in work and everyday projects.','带一个真实需求或想法来，交流AI Agent、自动化与数字工具在工作和个人项目中的实际用法。','Bawa kegunaan sebenar atau idea. Kongsi cara praktikal menggunakan AI agent, automasi dan alat digital dalam kerja serta projek harian.']},
- {'id':'web3','name':['Web3 Builders Circle','Web3 构建者交流','Lingkaran Pembina Web3'],'tag':['TECHNOLOGY · IDEAS · COLLABORATION','技术 · 想法 · 协作','TEKNOLOGI · IDEA · KERJASAMA'],'desc':['A meeting point for developers, designers and curious minds to discuss Web3 tools, product ideas and possible collaborations.','面向开发者、设计师及感兴趣的朋友，聊Web3工具、产品想法与协作机会。','Ruang pertemuan untuk pembangun, pereka dan mereka yang ingin tahu bagi membincangkan alat Web3, idea produk dan peluang kerjasama.']},
- {'id':'city-walk','name':['KL Culture City Walk','吉隆坡宗教与文化漫步','City Walk Budaya Kuala Lumpur'],'tag':['CITY · CULTURE · CONNECTION','城市 · 文化 · 相遇','BANDAR · BUDAYA · HUBUNGAN'],'desc':['Explore Kuala Lumpur’s religious and cultural diversity together. The route, meeting point, visit arrangements and any fees will be shared when a walk is confirmed.','一起认识吉隆坡多元的宗教与城市文化。路线、集合点、参访安排及可能产生的费用，会在活动确定后说明。','Kenali kepelbagaian agama dan budaya Kuala Lumpur bersama-sama. Laluan, tempat berkumpul, aturan lawatan dan sebarang bayaran akan dikongsi apabila aktiviti disahkan.']},
- {'id':'travel-diving','name':['Travel & Diving','旅行与潜水','Pengembaraan & Selam Skuba'],'tag':['TRAVEL · OCEAN · CONNECTION','旅行 · 海洋 · 交流','PENGEMBARAAN · LAUT · KOMUNITI'],'desc':['Meet fellow travellers and diving enthusiasts to exchange destination ideas and ocean experiences. Trip plans, participation requirements, dates and any fees will be confirmed before an activity.','认识旅行与潜水爱好者，分享目的地灵感和海洋体验。具体行程、参加条件、日期及费用将在活动确定后说明。','Temui pengembara dan peminat selam skuba untuk berkongsi idea destinasi serta pengalaman laut. Jadual perjalanan, syarat penyertaan, tarikh dan sebarang bayaran akan disahkan sebelum aktiviti.']},
- {'id':'coffee','name':['Coffee & Latte Art Experience','咖啡制作与拉花体验','Pengalaman Kopi & Seni Latte'],'tag':['COFFEE · HANDS-ON','咖啡 · 动手体验','KOPI · PRAKTIKAL'],'desc':['Explore coffee preparation, espresso and latte art with others who enjoy a good cup. Session details and participation fees will be announced when confirmed.','和喜欢咖啡的朋友一起认识咖啡制作、意式萃取与拉花。具体体验内容和费用确定后公布。','Terokai penyediaan kopi, espresso dan seni latte bersama peminat kopi lain. Butiran sesi dan bayaran penyertaan akan diumumkan selepas disahkan.']},
- {'id':'beer-pour','name':['Craft Beer Pouring Experience','精酿啤酒打酒体验','Pengalaman Menuang Bir Kraf'],'tag':['CRAFT BEER · HANDS-ON','精酿 · 打酒体验','BIR KRAF · PRAKTIKAL'],'desc':['Discover the beer tap, pouring technique and foam control in a guided hands-on session. Beer selections, dates and fees will be confirmed before participation.','在引导下体验酒头操作、倒酒方法与泡沫控制。体验酒款、日期和费用将在参加前确认。','Kenali paip bir, teknik menuang dan kawalan buih melalui pengalaman berpandu. Pilihan bir, tarikh dan bayaran akan disahkan sebelum penyertaan.']}
-]
+A=[{'id': 'ai-meetup',
+  'name': ['AI Meetup', 'AI 交流局', 'Pertemuan AI'],
+  'tag': ['AI · IDEAS · CONVERSATION', 'AI · 想法 · 交流', 'AI · IDEA · PERBUALAN'],
+  'desc': ['Share AI tools, practical tips and questions. Beginners are welcome. Session topics, hosts, '
+           'dates and fees will be confirmed before participation.',
+           '分享AI工具、实际用法与遇到的问题，欢迎初学者。每场主题、主持人、日期和费用将在参加前确认。',
+           'Kongsi alat AI, petua praktikal dan soalan. Pemula dialu-alukan. Topik, hos, tarikh dan bayaran '
+           'akan disahkan sebelum penyertaan.']},
+ {'id': 'ai-agents',
+  'name': ['AI Build Lab', 'AI 动手实验室', 'Makmal Amali AI'],
+  'tag': ['BUILD · SHARE · LEARN', '动手实践 · 分享交流', 'BINA · KONGSI · BELAJAR'],
+  'desc': ['Bring a use case or an idea. Share practical ways to use AI agents, automation and digital tools '
+           'in work and everyday projects.',
+           '带一个真实需求或想法来，交流AI Agent、自动化与数字工具在工作和个人项目中的实际用法。',
+           'Bawa kegunaan sebenar atau idea. Kongsi cara praktikal menggunakan AI agent, automasi dan alat '
+           'digital dalam kerja serta projek harian.']},
+ {'id': 'language-exchange',
+  'name': ['Language & Culture Exchange', '语言文化交流桌', 'Pertukaran Bahasa & Budaya'],
+  'tag': ['LANGUAGE · CULTURE · CONNECTION', '语言 · 文化 · 相遇', 'BAHASA · BUDAYA · HUBUNGAN'],
+  'desc': ['Practise languages, meet people from around the world and share stories about travel and life in '
+           'Kuala Lumpur. Languages, hosts, dates and fees will be confirmed for each session.',
+           '练习语言，认识世界各地的朋友，分享旅行与吉隆坡生活。每场使用语言、主持人、日期和费用将另行确认。',
+           'Berlatih bahasa, kenali rakan dari seluruh dunia dan kongsi kisah perjalanan serta kehidupan di '
+           'Kuala Lumpur. Bahasa, hos, tarikh dan bayaran akan disahkan bagi setiap sesi.']},
+ {'id': 'nomads',
+  'name': ['CO-HUB Nomad Circle', 'CO-HUB 数字游民圈', 'CO-HUB Lingkaran Nomad'],
+  'tag': ['REMOTE WORK · COMMUNITY', '远程工作 · 社群', 'KERJA JARAK JAUH · KOMUNITI'],
+  'desc': ['Meet remote workers, freelancers and creators. Exchange ideas about projects, collaboration and '
+           'life in Kuala Lumpur.',
+           '认识远程工作者、自由职业者与创作者，交流项目、协作方式，以及在吉隆坡生活的经验。',
+           'Temui pekerja jarak jauh, pekerja bebas dan pencipta. Kongsi idea tentang projek, kerjasama dan '
+           'kehidupan di Kuala Lumpur.']},
+ {'id': 'web3',
+  'name': ['Web3 Builders Circle', 'Web3 构建者交流', 'Lingkaran Pembina Web3'],
+  'tag': ['TECHNOLOGY · IDEAS · COLLABORATION', '技术 · 想法 · 协作', 'TEKNOLOGI · IDEA · KERJASAMA'],
+  'desc': ['A meeting point for developers, designers and curious minds to discuss Web3 tools, product ideas '
+           'and possible collaborations.',
+           '面向开发者、设计师及感兴趣的朋友，聊Web3工具、产品想法与协作机会。',
+           'Ruang pertemuan untuk pembangun, pereka dan mereka yang ingin tahu bagi membincangkan alat Web3, '
+           'idea produk dan peluang kerjasama.']},
+ {'id': 'women-yoga',
+  'name': ['Women’s Yoga & Meditation', '女性瑜伽与冥想', 'Yoga & Meditasi Wanita'],
+  'tag': ['WELLBEING · MOVEMENT · MINDFULNESS', '身心放松 · 瑜伽 · 冥想', 'KESEJAHTERAAN · PERGERAKAN · KESEDARAN'],
+  'desc': ['Register your interest in yoga, breathing and meditation sessions for women. The instructor, '
+           'level, venue, equipment, dates and fees will be confirmed before participation.',
+           '面向女性的瑜伽、呼吸练习与冥想活动，现开放兴趣登记。带领人、适合程度、场地、用品、日期和费用将在参加前确认。',
+           'Daftar minat untuk sesi yoga, pernafasan dan meditasi bagi wanita. Pengajar, tahap, tempat, '
+           'peralatan, tarikh dan bayaran akan disahkan sebelum penyertaan.']},
+ {'id': 'coffee',
+  'name': ['Coffee & Latte Art Experience', '咖啡制作与拉花体验', 'Pengalaman Kopi & Seni Latte'],
+  'tag': ['COFFEE · HANDS-ON', '咖啡 · 动手体验', 'KOPI · PRAKTIKAL'],
+  'desc': ['Explore coffee preparation, espresso and latte art with others who enjoy a good cup. Session '
+           'details and participation fees will be announced when confirmed.',
+           '和喜欢咖啡的朋友一起认识咖啡制作、意式萃取与拉花。具体体验内容和费用确定后公布。',
+           'Terokai penyediaan kopi, espresso dan seni latte bersama peminat kopi lain. Butiran sesi dan '
+           'bayaran penyertaan akan diumumkan selepas disahkan.']},
+ {'id': 'beer-pour',
+  'name': ['Craft Beer Pouring Experience', '精酿啤酒打酒体验', 'Pengalaman Menuang Bir Kraf'],
+  'tag': ['CRAFT BEER · HANDS-ON', '精酿 · 打酒体验', 'BIR KRAF · PRAKTIKAL'],
+  'desc': ['Discover the beer tap, pouring technique and foam control in a guided hands-on session. Beer '
+           'selections, dates and fees will be confirmed before participation.',
+           '在引导下体验酒头操作、倒酒方法与泡沫控制。体验酒款、日期和费用将在参加前确认。',
+           'Kenali paip bir, teknik menuang dan kawalan buih melalui pengalaman berpandu. Pilihan bir, '
+           'tarikh dan bayaran akan disahkan sebelum penyertaan.']},
+ {'id': 'city-walk',
+  'name': ['KL Culture City Walk', '吉隆坡宗教与文化漫步', 'City Walk Budaya Kuala Lumpur'],
+  'tag': ['CITY · CULTURE · CONNECTION', '城市 · 文化 · 相遇', 'BANDAR · BUDAYA · HUBUNGAN'],
+  'desc': ['Explore Kuala Lumpur’s religious and cultural diversity together. The route, meeting point, '
+           'visit arrangements and any fees will be shared when a walk is confirmed.',
+           '一起认识吉隆坡多元的宗教与城市文化。路线、集合点、参访安排及可能产生的费用，会在活动确定后说明。',
+           'Kenali kepelbagaian agama dan budaya Kuala Lumpur bersama-sama. Laluan, tempat berkumpul, aturan '
+           'lawatan dan sebarang bayaran akan dikongsi apabila aktiviti disahkan.']},
+ {'id': 'travel-diving',
+  'name': ['Travel & Diving', '旅行与潜水', 'Pengembaraan & Selam Skuba'],
+  'tag': ['TRAVEL · OCEAN · CONNECTION', '旅行 · 海洋 · 交流', 'PENGEMBARAAN · LAUT · KOMUNITI'],
+  'desc': ['Meet fellow travellers and diving enthusiasts to exchange destination ideas and ocean '
+           'experiences. Trip plans, participation requirements, dates and any fees will be confirmed before '
+           'an activity.',
+           '认识旅行与潜水爱好者，分享目的地灵感和海洋体验。具体行程、参加条件、日期及费用将在活动确定后说明。',
+           'Temui pengembara dan peminat selam skuba untuk berkongsi idea destinasi serta pengalaman laut. '
+           'Jadual perjalanan, syarat penyertaan, tarikh dan sebarang bayaran akan disahkan sebelum '
+           'aktiviti.']}]
 (R/'community-activities.json').write_text(json.dumps(A,ensure_ascii=False,indent=2))
 # Consistent navigation on existing and generated pages; keep supply and stay prominent.
 def prepare(tree,filename):
@@ -70,7 +143,7 @@ def cards(items):
  s='<div class="experience-grid">'
  for a in items:s+='<article class="experience-card">'+p(*a['tag'],attrs='class="eyebrow"')+h(3,*a['name'])+p(*a['desc'])+p('In planning · Details to be confirmed','筹备中 · 详情待确认','Dalam perancangan · Butiran akan disahkan',attrs='class="planning-label"')+link(interest(a['id']),'I’m interested ↗','我感兴趣 ↗','Saya berminat ↗',cls='text-link')+'</article>'
  return s+'</div>'
-main='<main class="community-page">'+intro+'<section class="section" id="builders">'+p('01 / CONNECT & BUILD','01 / 连接与共创','01 / BERHUBUNG & MEMBINA',attrs='class="eyebrow"')+h(2,'Your next conversation\ncould spark something.','下一次交流，\n也许就有新灵感。','Perbualan seterusnya\nmungkin mencetuskan idea.')+cards(A[:3])+'</section><section class="section experience-section">'+p('02 / EXPLORE & CREATE','02 / 城市与创作','02 / TEROKA & CIPTA',attrs='class="eyebrow"')+h(2,'Make room for a new experience.','留点时间，体验新事物。','Luangkan masa untuk pengalaman baharu.')+cards(A[3:])+'</section><section class="section community-end">'+h(2,'You don’t need to stay\nto start a conversation.','不必先入住，\n也可以先认识。','Tidak perlu menginap\nuntuk mula berkenalan.')+p('Accommodation is not open for booking yet. You can still ask about the community and café visits. Contact the team before coming over so we can confirm the arrangements.','住宿尚未开放预订。你仍可咨询社区活动及咖啡餐饮到店安排，请来访前先联系团队确认。','Tempahan penginapan belum dibuka. Anda masih boleh bertanya tentang komuniti dan lawatan kafe. Hubungi pasukan sebelum datang untuk mengesahkan aturan.')+'<div class="actions">'+link('enquiry.html?type=activities','Ask the team ↗','联系团队咨询 ↗','Tanya pasukan ↗')+link('https://www.instagram.com/cohub.kl/','Follow @cohub.kl ↗','关注 @cohub.kl ↗','Ikuti @cohub.kl ↗',cls='text-link',external=True)+'</div></section></main>'
+main='<main class="community-page">'+intro+'<section class="section" id="builders">'+p('01 / CONVERSATION & COLLABORATION','01 / 交流与共创','01 / PERBUALAN & KERJASAMA',attrs='class="eyebrow"')+h(2,'Your next conversation\ncould spark something.','下一次交流，\n也许就有新灵感。','Perbualan seterusnya\nmungkin mencetuskan idea.')+cards(A[:5])+'</section><section class="section experience-section">'+p('02 / LIFESTYLE & EXPERIENCES','02 / 生活方式与体验','02 / GAYA HIDUP & PENGALAMAN',attrs='class="eyebrow"')+h(2,'Make room for a new experience.','留点时间，体验新事物。','Luangkan masa untuk pengalaman baharu.')+cards(A[5:])+'</section><section class="section community-end">'+h(2,'You don’t need to stay\nto start a conversation.','不必先入住，\n也可以先认识。','Tidak perlu menginap\nuntuk mula berkenalan.')+p('Accommodation is not open for booking yet. You can still ask about the community and café visits. Contact the team before coming over so we can confirm the arrangements.','住宿尚未开放预订。你仍可咨询社区活动及咖啡餐饮到店安排，请来访前先联系团队确认。','Tempahan penginapan belum dibuka. Anda masih boleh bertanya tentang komuniti dan lawatan kafe. Hubungi pasukan sebelum datang untuk mengesahkan aturan.')+'<div class="actions">'+link('enquiry.html?type=activities','Ask the team ↗','联系团队咨询 ↗','Tanya pasukan ↗')+link('https://www.instagram.com/cohub.kl/','Follow @cohub.kl ↗','关注 @cohub.kl ↗','Ikuti @cohub.kl ↗',cls='text-link',external=True)+'</div></section></main>'
 page('community.html','CO-HUB Community · Nomads, AI & Web3 · Kuala Lumpur','Explore CO-HUB community interests: digital nomads, AI agents, Web3 builders, cultural city walks, travel and diving, coffee and craft beer.',main)
 ADDRESS='38B Jalan Nagasari, Bukit Bintang, Wilayah Persekutuan, Kuala Lumpur 50200, Malaysia'
 def maps(origin=None,mode=None):
@@ -108,7 +181,7 @@ for e in list(main):
  if e.get('id') in ['opening-status','community-teaser','about-cohub']:main.remove(e)
 status='<section class="section opening-status" id="opening-status"><div>'+h(3,'Hostel · In preparation','住宿 · 筹备中','Hostel · Dalam persediaan')+p('Accommodation bookings are not open yet. Ask about future stays or request opening updates.','住宿尚未开放预订，可咨询未来行程或申请开业通知。','Tempahan penginapan belum dibuka. Tanya tentang penginapan akan datang atau minta berita pembukaan。')+link('enquiry.html?type=opening','Request opening updates ↗','接收开业通知 ↗','Minta berita pembukaan ↗',cls='text-link')+'</div><div>'+h(3,'Café · Let’s arrange your visit','咖啡餐饮 · 先联系再到店','Kafe · Aturkan lawatan anda')+p('09:00–23:30, Malaysia time. Contact us before coming over to confirm the arrangements.','马来西亚时间09:00–23:30，来访前请联系团队确认安排。','09:00–23:30, waktu Malaysia. Hubungi kami sebelum datang untuk mengesahkan aturan。')+link('guide.html','Plan your visit ↗','查看到店指南 ↗','Rancang lawatan ↗',cls='text-link')+'</div></section>'
 main.insert(2,html.fromstring(status))
-teaser='<section class="section community-teaser" id="community-teaser">'+p('CO-HUB / COMMUNITY','CO-HUB / 社区与活动','CO-HUB / KOMUNITI',attrs='class="eyebrow"')+h(2,'A place to meet.\nA reason to return.','认识新朋友，\n找到再来的理由。','Tempat berkenalan.\nSebab untuk kembali.')+p('Digital nomads · AI agents · Web3 builders · Culture walks · Travel & diving · Coffee · Craft beer','数字游民 · AI Agent · Web3共创 · 文化漫步 · 旅行与潜水 · 咖啡 · 精酿','Nomad digital · AI agent · Pembina Web3 · Jelajah budaya · Pengembaraan & selam skuba · Kopi · Bir kraf')+p('We’re planning a community around conversations, projects and shared experiences. Tell us what you would like to join; dates and fees will follow when confirmed.','我们正在筹备围绕交流、项目与共同体验的社区活动。先告诉我们你的兴趣，具体日期与费用确定后再公布。','Kami sedang merancang komuniti berasaskan perbualan, projek dan pengalaman bersama. Kongsi minat anda; tarikh serta bayaran akan diumumkan selepas disahkan。')+'<div class="actions">'+link('community.html','Explore community & experiences ↗','了解社区与体验 ↗','Terokai komuniti & pengalaman ↗')+link('enquiry.html?type=activities','Share your interests ↗','登记活动兴趣 ↗','Kongsi minat ↗',cls='text-link')+'</div></section>'
+teaser='<section class="section community-teaser" id="community-teaser">'+p('CO-HUB / COMMUNITY','CO-HUB / 社区与活动','CO-HUB / KOMUNITI',attrs='class="eyebrow"')+h(2,'A place to meet.\nA reason to return.','认识新朋友，\n找到再来的理由。','Tempat berkenalan.\nSebab untuk kembali.')+p('AI meetups · AI workshops · Language exchange · Nomads · Web3 · Women’s yoga & meditation · Coffee · Craft beer · City walks · Travel & diving','AI交流 · AI实操 · 语言交换 · 数字游民 · Web3 · 女性瑜伽与冥想 · 咖啡 · 精酿 · 城市漫步 · 旅行与潜水','Pertemuan AI · Bengkel AI · Pertukaran bahasa · Nomad · Web3 · Yoga & meditasi wanita · Kopi · Bir kraf · Jelajah bandar · Pengembaraan & selam skuba')+p('We’re planning a community around conversations, projects and shared experiences. Tell us what you would like to join; dates and fees will follow when confirmed.','我们正在筹备围绕交流、项目与共同体验的社区活动。先告诉我们你的兴趣，具体日期与费用确定后再公布。','Kami sedang merancang komuniti berasaskan perbualan, projek dan pengalaman bersama. Kongsi minat anda; tarikh serta bayaran akan diumumkan selepas disahkan。')+'<div class="actions">'+link('community.html','Explore community & experiences ↗','了解社区与体验 ↗','Terokai komuniti & pengalaman ↗')+link('enquiry.html?type=activities','Share your interests ↗','登记活动兴趣 ↗','Kongsi minat ↗',cls='text-link')+'</div></section>'
 # Community leads the guest journey after the opening status.
 tree.xpath('//section[@id="opening-status"]')[0].addnext(html.fromstring(teaser))
 about='<section class="section about-cohub" id="about-cohub">'+p('ABOUT CO-HUB','关于CO-HUB','TENTANG CO-HUB',attrs='class="eyebrow"')+h(2,'Rest upstairs.\nConnect over a good conversation.','楼上安心休息，\n楼下相聚交流。','Berehat di atas.\nBerhubung melalui perbualan.')+p('CO-HUB brings together hostel stays, a café and craft beer in Bukit Bintang, Kuala Lumpur. We are preparing women’s capsules, men’s dorms and private rooms, while building a community for travellers, neighbours and people working on new ideas.','CO-HUB位于吉隆坡Bukit Bintang，结合青旅、咖啡餐饮与精酿。我们正在筹备女士胶囊、男士宿舍与独立房间，也连接旅人、邻里和正在实践新想法的朋友。','CO-HUB menggabungkan hostel, kafe dan bir kraf di Bukit Bintang, Kuala Lumpur. Kami sedang menyediakan kapsul wanita, dorm lelaki dan bilik persendirian, sambil membina komuniti pengembara, jiran dan mereka yang menghasilkan idea baharu。')+p('We also supply coffee, craft beverages, guest essentials and hospitality equipment to business customers.','我们也面向企业客户提供咖啡、精酿、住宿用品及相关设备供应。','Kami turut membekalkan kopi, minuman kraf, keperluan tetamu dan peralatan hospitaliti kepada pelanggan perniagaan。')+link('https://www.instagram.com/cohub.kl/','Follow our progress on Instagram ↗','在Instagram关注我们的进展 ↗','Ikuti perkembangan di Instagram ↗',cls='text-link',external=True)+'</section>'
@@ -243,3 +316,18 @@ topic.append(html.fromstring(t('option',*host,attrs='value="host"')))
 field='<fieldset id="host-fields" hidden disabled><legend>'+t('span',*host)+'</legend>'+p(*help_copy)+('<label for="host-proposal">'+t('span',*proposal)+'<textarea id="host-proposal" rows="8" maxlength="3000" required></textarea></label>')+'</fieldset>'
 tree.xpath('//*[@id="activity-fields"]')[0].addnext(html.fromstring(field))
 (R/'enquiry.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Make visitor-led proposals the first task on the community page.
+tree=html.fromstring((R/'community.html').read_bytes())
+hero=tree.xpath('//section[contains(@class,"community-hero")]')[0]
+lead=hero.xpath('./div')[0]
+lead.clear()
+lead.append(html.fromstring(p('CO-HUB / COMMUNITY','CO-HUB / 社区与活动','CO-HUB / KOMUNITI',attrs='class="eyebrow"')))
+lead.append(html.fromstring(h(1,*host)))
+lead.append(html.fromstring(p(*help_copy)))
+lead.append(html.fromstring('<div class="actions" id="activity-entry-actions">'+link('#host-event',*host)+link('#builders',*join,cls='button button-secondary')+'</div>'))
+aside=hero.xpath('./aside')[0]
+aside.clear();aside.set('class','community-note community-host');aside.set('id','host-event')
+aside.append(html.fromstring('<form id="community-host-form">'+h(2,*proposal)+'<label for="community-proposal">'+t('span',*proposal)+'<textarea id="community-proposal" rows="6" maxlength="3000" required></textarea></label><label for="community-reply">'+t('span','Reply contact (optional: phone or email)','回复联系方式（选填：电话或邮箱）','Hubungan balasan (pilihan: telefon atau e-mel)')+'<input id="community-reply" maxlength="150" autocomplete="off"></label><div class="actions">'+t('button','Continue to WhatsApp ↗','前往WhatsApp发送 ↗','Teruskan ke WhatsApp ↗','class="button" type="submit" value="whatsapp"')+t('button','Continue to email ↗','前往邮件发送 ↗','Teruskan ke e-mel ↗','class="button button-secondary" type="submit" value="email"')+'</div>'+p('Only include information you want to share with the CO-HUB team. Your request is sent when you confirm it in WhatsApp or your email app.','只填写你愿意向CO-HUB团队提供的信息；在WhatsApp或邮件应用中确认发送后，团队才会收到。','Hanya isi maklumat yang ingin dikongsi dengan pasukan CO-HUB. Permintaan dihantar apabila anda mengesahkannya dalam WhatsApp atau aplikasi e-mel。',attrs='class="form-help"')+'<p id="community-host-status" role="status"></p></form>'))
+etree.SubElement(tree.xpath('//body')[0],'script',src='host-event.js?v='+VERSION)
+(R/'community.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))

@@ -20,9 +20,17 @@ with sync_playwright() as pw:
                 assert page.locator('header .nav-supply').is_visible()
         assert page.locator('footer a[href="https://www.instagram.com/cohub.kl/"]').count()==1
     page.goto(BASE+'community.html');page.select_option('#language','zh')
-    assert page.locator('.experience-card').count()==7
-    assert [page.locator('.experience-card h3').nth(i).inner_text() for i in range(3)]==['CO-HUB 数字游民圈','AI Agent 实用交流','Web3 构建者交流']
+    assert page.locator('.experience-card').count()==10
+    assert [page.locator('.experience-card h3').nth(i).inner_text() for i in range(3)]==['AI 交流局','AI 动手实验室','语言文化交流桌']
     assert '筹备中' in page.locator('.experience-card').first.inner_text()
+    assert page.locator('#builders .experience-card').count()==5
+    assert page.locator('.experience-section .experience-card').count()==5
+    assert '女性瑜伽与冥想' in page.locator('.experience-section .experience-card').first.inner_text()
+    yoga=page.locator('.experience-section .experience-card').first.locator('a').get_attribute('href')
+    page.goto(BASE+yoga)
+    assert page.locator('[name=activity][value=women-yoga]').is_checked()
+    assert page.locator('[name=activity]:checked').count()==1
+    assert '女性瑜伽与冥想' in page.locator('#enquiry-preview').input_value()
     page.goto(BASE+'guide.html');assert '15:00' in page.locator('.guide-stay').inner_text() and '12:00' in page.locator('.guide-stay').inner_text()
     direction=page.locator('a[href*="maps/dir"]').first.get_attribute('href');args=parse_qs(urlparse(direction).query)
     assert args['destination']==['38B Jalan Nagasari, Bukit Bintang, Wilayah Persekutuan, Kuala Lumpur 50200, Malaysia']
@@ -41,7 +49,7 @@ with sync_playwright() as pw:
     page.evaluate('window.open=(url,target,features)=>{window.lastOpened={url,target,features};return null}')
     page.locator('#enquiry-form button[type="submit"][value="whatsapp"]').click()
     opened=page.evaluate('window.lastOpened');assert urlparse(opened['url']).netloc=='wa.me' and urlparse(opened['url']).path=='/60178497319'
-    message=parse_qs(urlparse(opened['url']).query)['text'][0];assert 'AI Agent' in message and 'Guest Example' in message
+    message=parse_qs(urlparse(opened['url']).query)['text'][0];assert 'AI 动手实验室' in message and 'Guest Example' in message
     assert 'noopener' in opened['features'];assert '发送' in page.locator('#enquiry-status').inner_text()
     page.select_option('#language','ms');assert 'Minat komuniti' in page.locator('#enquiry-preview').input_value()
     page.select_option('#enquiry-topic','stay');page.locator('#stay-arrival').fill('2027-02-10');page.locator('#stay-departure').fill('2027-02-09')
@@ -78,5 +86,5 @@ with sync_playwright() as pw:
     for filename in ['index','community','guide','enquiry']:
         page.goto(BASE+filename+'.html');page.select_option('#language','zh');page.set_viewport_size({'width':1440,'height':1000});page.screenshot(path=str(out/(filename+'-desktop.png')),full_page=True)
         page.set_viewport_size({'width':390,'height':850});page.screenshot(path=str(out/(filename+'-mobile.png')),full_page=True)
-    print('PASS: 8 pages × 3 native languages × 4 widths; 7 activities; arrival/map links and check-in/out; conditional enquiry fields, date validation, room links, draft safety and WhatsApp payload; 19 built-in language options and cross-page Japanese persistence; Instagram links; coffee/beer cart regression; no page errors or missing local resources.')
+    print('PASS: 8 pages × 3 native languages × 4 widths; 10 activities; arrival/map links and check-in/out; conditional enquiry fields, date validation, room links, draft safety and WhatsApp payload; 19 built-in language options and cross-page Japanese persistence; Instagram links; coffee/beer cart regression; no page errors or missing local resources.')
     browser.close()

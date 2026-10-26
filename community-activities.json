@@ -1,5 +1,59 @@
 [
   {
+    "id": "ai-meetup",
+    "name": [
+      "AI Meetup",
+      "AI 交流局",
+      "Pertemuan AI"
+    ],
+    "tag": [
+      "AI · IDEAS · CONVERSATION",
+      "AI · 想法 · 交流",
+      "AI · IDEA · PERBUALAN"
+    ],
+    "desc": [
+      "Share AI tools, practical tips and questions. Beginners are welcome. Session topics, hosts, dates and fees will be confirmed before participation.",
+      "分享AI工具、实际用法与遇到的问题，欢迎初学者。每场主题、主持人、日期和费用将在参加前确认。",
+      "Kongsi alat AI, petua praktikal dan soalan. Pemula dialu-alukan. Topik, hos, tarikh dan bayaran akan disahkan sebelum penyertaan."
+    ]
+  },
+  {
+    "id": "ai-agents",
+    "name": [
+      "AI Build Lab",
+      "AI 动手实验室",
+      "Makmal Amali AI"
+    ],
+    "tag": [
+      "BUILD · SHARE · LEARN",
+      "动手实践 · 分享交流",
+      "BINA · KONGSI · BELAJAR"
+    ],
+    "desc": [
+      "Bring a use case or an idea. Share practical ways to use AI agents, automation and digital tools in work and everyday projects.",
+      "带一个真实需求或想法来，交流AI Agent、自动化与数字工具在工作和个人项目中的实际用法。",
+      "Bawa kegunaan sebenar atau idea. Kongsi cara praktikal menggunakan AI agent, automasi dan alat digital dalam kerja serta projek harian."
+    ]
+  },
+  {
+    "id": "language-exchange",
+    "name": [
+      "Language & Culture Exchange",
+      "语言文化交流桌",
+      "Pertukaran Bahasa & Budaya"
+    ],
+    "tag": [
+      "LANGUAGE · CULTURE · CONNECTION",
+      "语言 · 文化 · 相遇",
+      "BAHASA · BUDAYA · HUBUNGAN"
+    ],
+    "desc": [
+      "Practise languages, meet people from around the world and share stories about travel and life in Kuala Lumpur. Languages, hosts, dates and fees will be confirmed for each session.",
+      "练习语言，认识世界各地的朋友，分享旅行与吉隆坡生活。每场使用语言、主持人、日期和费用将另行确认。",
+      "Berlatih bahasa, kenali rakan dari seluruh dunia dan kongsi kisah perjalanan serta kehidupan di Kuala Lumpur. Bahasa, hos, tarikh dan bayaran akan disahkan bagi setiap sesi."
+    ]
+  },
+  {
     "id": "nomads",
     "name": [
       "CO-HUB Nomad Circle",
@@ -15,24 +69,6 @@
       "Meet remote workers, freelancers and creators. Exchange ideas about projects, collaboration and life in Kuala Lumpur.",
       "认识远程工作者、自由职业者与创作者，交流项目、协作方式，以及在吉隆坡生活的经验。",
       "Temui pekerja jarak jauh, pekerja bebas dan pencipta. Kongsi idea tentang projek, kerjasama dan kehidupan di Kuala Lumpur."
-    ]
-  },
-  {
-    "id": "ai-agents",
-    "name": [
-      "AI Agent Lab",
-      "AI Agent 实用交流",
-      "Makmal AI Agent"
-    ],
-    "tag": [
-      "BUILD · SHARE · LEARN",
-      "动手实践 · 分享交流",
-      "BINA · KONGSI · BELAJAR"
-    ],
-    "desc": [
-      "Bring a use case or an idea. Share practical ways to use AI agents, automation and digital tools in work and everyday projects.",
-      "带一个真实需求或想法来，交流AI Agent、自动化与数字工具在工作和个人项目中的实际用法。",
-      "Bawa kegunaan sebenar atau idea. Kongsi cara praktikal menggunakan AI agent, automasi dan alat digital dalam kerja serta projek harian."
     ]
   },
   {
@@ -54,39 +90,21 @@
     ]
   },
   {
-    "id": "city-walk",
+    "id": "women-yoga",
     "name": [
-      "KL Culture City Walk",
-      "吉隆坡宗教与文化漫步",
-      "City Walk Budaya Kuala Lumpur"
+      "Women’s Yoga & Meditation",
+      "女性瑜伽与冥想",
+      "Yoga & Meditasi Wanita"
     ],
     "tag": [
-      "CITY · CULTURE · CONNECTION",
-      "城市 · 文化 · 相遇",
-      "BANDAR · BUDAYA · HUBUNGAN"
+      "WELLBEING · MOVEMENT · MINDFULNESS",
+      "身心放松 · 瑜伽 · 冥想",
+      "KESEJAHTERAAN · PERGERAKAN · KESEDARAN"
     ],
     "desc": [
-      "Explore Kuala Lumpur’s religious and cultural diversity together. The route, meeting point, visit arrangements and any fees will be shared when a walk is confirmed.",
-      "一起认识吉隆坡多元的宗教与城市文化。路线、集合点、参访安排及可能产生的费用，会在活动确定后说明。",
-      "Kenali kepelbagaian agama dan budaya Kuala Lumpur bersama-sama. Laluan, tempat berkumpul, aturan lawatan dan sebarang bayaran akan dikongsi apabila aktiviti disahkan."
-    ]
-  },
-  {
-    "id": "travel-diving",
-    "name": [
-      "Travel & Diving",
-      "旅行与潜水",
-      "Pengembaraan & Selam Skuba"
-    ],
-    "tag": [
-      "TRAVEL · OCEAN · CONNECTION",
-      "旅行 · 海洋 · 交流",
-      "PENGEMBARAAN · LAUT · KOMUNITI"
-    ],
-    "desc": [
-      "Meet fellow travellers and diving enthusiasts to exchange destination ideas and ocean experiences. Trip plans, participation requirements, dates and any fees will be confirmed before an activity.",
-      "认识旅行与潜水爱好者，分享目的地灵感和海洋体验。具体行程、参加条件、日期及费用将在活动确定后说明。",
-      "Temui pengembara dan peminat selam skuba untuk berkongsi idea destinasi serta pengalaman laut. Jadual perjalanan, syarat penyertaan, tarikh dan sebarang bayaran akan disahkan sebelum aktiviti."
+      "Register your interest in yoga, breathing and meditation sessions for women. The instructor, level, venue, equipment, dates and fees will be confirmed before participation.",
+      "面向女性的瑜伽、呼吸练习与冥想活动，现开放兴趣登记。带领人、适合程度、场地、用品、日期和费用将在参加前确认。",
+      "Daftar minat untuk sesi yoga, pernafasan dan meditasi bagi wanita. Pengajar, tahap, tempat, peralatan, tarikh dan bayaran akan disahkan sebelum penyertaan."
     ]
   },
   {
@@ -123,6 +141,42 @@
       "Discover the beer tap, pouring technique and foam control in a guided hands-on session. Beer selections, dates and fees will be confirmed before participation.",
       "在引导下体验酒头操作、倒酒方法与泡沫控制。体验酒款、日期和费用将在参加前确认。",
       "Kenali paip bir, teknik menuang dan kawalan buih melalui pengalaman berpandu. Pilihan bir, tarikh dan bayaran akan disahkan sebelum penyertaan."
+    ]
+  },
+  {
+    "id": "city-walk",
+    "name": [
+      "KL Culture City Walk",
+      "吉隆坡宗教与文化漫步",
+      "City Walk Budaya Kuala Lumpur"
+    ],
+    "tag": [
+      "CITY · CULTURE · CONNECTION",
+      "城市 · 文化 · 相遇",
+      "BANDAR · BUDAYA · HUBUNGAN"
+    ],
+    "desc": [
+      "Explore Kuala Lumpur’s religious and cultural diversity together. The route, meeting point, visit arrangements and any fees will be shared when a walk is confirmed.",
+      "一起认识吉隆坡多元的宗教与城市文化。路线、集合点、参访安排及可能产生的费用，会在活动确定后说明。",
+      "Kenali kepelbagaian agama dan budaya Kuala Lumpur bersama-sama. Laluan, tempat berkumpul, aturan lawatan dan sebarang bayaran akan dikongsi apabila aktiviti disahkan."
+    ]
+  },
+  {
+    "id": "travel-diving",
+    "name": [
+      "Travel & Diving",
+      "旅行与潜水",
+      "Pengembaraan & Selam Skuba"
+    ],
+    "tag": [
+      "TRAVEL · OCEAN · CONNECTION",
+      "旅行 · 海洋 · 交流",
+      "PENGEMBARAAN · LAUT · KOMUNITI"
+    ],
+    "desc": [
+      "Meet fellow travellers and diving enthusiasts to exchange destination ideas and ocean experiences. Trip plans, participation requirements, dates and any fees will be confirmed before an activity.",
+      "认识旅行与潜水爱好者，分享目的地灵感和海洋体验。具体行程、参加条件、日期及费用将在活动确定后说明。",
+      "Temui pengembara dan peminat selam skuba untuk berkongsi idea destinasi serta pengalaman laut. Jadual perjalanan, syarat penyertaan, tarikh dan sebarang bayaran akan disahkan sebelum aktiviti."
     ]
   }
 ]
