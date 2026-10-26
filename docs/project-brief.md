@@ -87,3 +87,6 @@ Google商家资料补充：用户已确认实体门头为CO-HUB Hostel & Café�
 
 ## 社区会员需求升级（2026-10-26最新，以此为准）
 用户不满意首屏一直展开的右侧提案框，明确点击“发起活动”才弹窗；进一步要求Sola式注册登录和个人活动中心（已参加、我发起的、已关注、联合主办、待处理），支持邮箱、Google及以太坊钱包身份。用户尚无Supabase项目，已提供一次性创建cohub-community／Singapore免费项目的步骤。当前只有弹窗及未开通提示，没有真实认证、数据库、个人活动记录或审批；旧未认证host咨询入口重定向弹窗。后续接入与具体限制见docs/community-membership-setup.md，不能把之前的WhatsApp提案窗口当作完整会员系统。
+
+## Supabase项目已提供（2026-10-26）
+用户已创建项目并提供公开连接信息，见scripts/member-system/project.json；项目服务可达，邮箱确认开启，Google未开，活动表尚不存在。准备了scripts/member-system/setup.sql并经真实Postgres兼容引擎本地RLS测试通过；远端尚需用户在SQL Editor一次运行。不能把本地数据库测试当作远端已初始化，更不能声称会员注册和我的活动已经上线。接入步骤见docs/community-membership-setup.md最新小节。

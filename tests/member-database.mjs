@@ -1,0 +1,35 @@
+// Run with PGLITE_MODULE pointing to an installed @electric-sql/pglite module.
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const {PGlite}=await import(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+const db=new PGlite();
+await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
+create schema auth; grant usage on schema auth,public to anon,authenticated,service_role;
+create table auth.users(id uuid primary key,email_confirmed_at timestamptz);
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+grant execute on function auth.uid() to anon,authenticated,service_role;`);
+const sql=readFileSync(new URL('../scripts/member-system/setup.sql',import.meta.url),'utf8');
+await db.exec(sql);await db.exec(sql); // additive migration can be rerun
+const users=['11111111-1111-1111-1111-111111111111','22222222-2222-2222-2222-222222222222','33333333-3333-3333-3333-333333333333'];
+await db.exec(`insert into auth.users values ('${users[0]}',now()),('${users[1]}',now()),('${users[2]}',null)`);
+const as=async(uid,role='authenticated')=>{await db.exec('reset role');await db.query(`select set_config('request.jwt.claim.sub',$1,false)`,[uid]);await db.exec('set role '+role)};
+const fail=async(fn)=>{let denied=false;try{await fn()}catch{denied=true}assert.ok(denied,'operation should be denied')};
+const create=async(owner,status='pending')=>db.query(`insert into public.cohub_events(owner_id,title,description,starts_at,location,language,capacity,status) values($1,'Test','Details',now()+interval '2 days','KL','English',1,$2) returning id`,[owner,status]);
+await as(users[0]);const event=(await create(users[0])).rows[0].id;
+await fail(()=>create(users[1]));await fail(()=>create(users[0],'approved'));
+await as(users[1]);assert.equal((await db.query('select * from public.cohub_events')).rows.length,0);
+await fail(()=>db.query(`update public.cohub_events set status='approved' where id=$1`,[event]));
+await as(users[2]);await fail(()=>create(users[2]));
+await as('','anon');assert.equal((await db.query('select * from public.cohub_events')).rows.length,0);
+await db.exec('reset role');await db.query(`update public.cohub_events set status='approved' where id=$1`,[event]);
+await as(users[1]);await db.query('select public.cohub_request_join($1)',[event]);await db.query('select public.cohub_request_join($1)',[event]);
+assert.equal((await db.query('select * from public.cohub_registrations')).rows.length,1);
+await fail(()=>db.query(`insert into public.cohub_registrations(event_id,user_id,status) values($1,$2,'confirmed')`,[event,users[1]]));
+await db.exec('reset role');await db.query(`update public.cohub_registrations set status='confirmed' where event_id=$1`,[event]);
+await fail(()=>db.query(`insert into public.cohub_registrations(event_id,user_id,status) values($1,$2,'confirmed')`,[event,users[0]]));
+await db.query(`insert into public.cohub_cohosts(event_id,user_id) values($1,$2)`,[event,users[1]]);
+await as(users[0]);await fail(()=>db.query('select public.cohub_answer_invitation($1,true)',[event]));
+assert.equal((await db.query('select * from public.cohub_registrations')).rows.length,0);
+await as(users[1]);await db.query('select public.cohub_answer_invitation($1,true)',[event]);
+assert.equal((await db.query('select * from public.cohub_cohosts')).rows[0].status,'accepted');
+await db.close();console.log('PASS: migration rerun, verified identity, cross-account privacy, no self-approval, registration idempotency, team-only confirmation, capacity and invitation ownership.');

@@ -34,3 +34,16 @@ Sola公开https://sola.day/signin 可见Email+Go、Google Auth、Ethereum Wallet
 - profiles、events、participations、follows、cohost invitations等数据，逐表行级权限；普通人只改自己的草稿、不能自行审核，报名人数和状态服务端原子处理。
 - 重置密码、验证链接失效、限流、错误提示、退出及跨设备个人活动；验证他人记录不可读写和未验证账号不可发布。
 - 完整联调后使用既有GitHub自动部署。未配置前不对外展示可工作的注册/Google/钱包按钮，也不声称“我的活动”已可用。
+
+## 已创建项目与初始化步骤（2026-10-26最新）
+
+用户已创建自己的Supabase项目，提供Project URL与publishable key；公开连接信息保存scripts/member-system/project.json，均为浏览器可见信息，不是后台管理密钥。2026-10-26只读检查auth/settings：email=true、disable_signup=false、mailer_autoconfirm=false，Google=false；REST查询cohub_events返回PGRST205（表不存在）。未注册任何真实会员、未向客人发验证邮件、未修改该项目。
+
+SQL Editor入口：https://supabase.com/dashboard/project/qwdhiwghyclpkzwavhjf/sql/new
+脚本：scripts/member-system/setup.sql。用户须在自己的Supabase SQL Editor粘贴全文并Run，原因是公开密钥无权创建表、函数和权限；不能用它伪装项目管理员。无需终端、数据库密码或service_role。
+
+该增量脚本可重复运行，不删除现有数据，包含活动、报名请求、关注、联合主办邀请；RLS与服务端邮箱验证、本人数据权限、活动待审核、报名请求幂等、管理员确认和人数上限。活动新提交必须pending，普通用户无审核权限；正式报名先requested，非自动占位或支付。管理员暂在Supabase Table Editor处理；尚未实现后台审批网页。
+
+本地PGlite Postgres兼容执行tests/member-database.mjs验证：重复运行脚本、真实数据库规则验证邮箱身份、禁止伪造owner、禁止自行批准、私人记录隔离、幂等报名、禁止直接确认、人数上限、邀请归属。测试不是Supabase远端验收；远端脚本仍未执行。运行方式：安装固定版本@electric-sql/pglite@0.3.14，用PGLITE_MODULE指向其dist/index.js，再node tests/member-database.mjs。
+
+接下来：远端SQL成功后检查匿名只能看到approved活动；再完成并接入邮箱注册／密码登录／找回密码／我的活动前端，配置精确回调和可用SMTP，联调验证。Google OAuth及Ethereum钱包尚未开启，不能声称已接通。当前官网仍为点击弹窗和账号准备提示。
