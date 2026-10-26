@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261026-covers1'
+VERSION='20261026-editorial2'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -95,11 +95,7 @@ A=[{'id': 'ai-meetup',
            'Temui pengembara dan peminat selam skuba untuk berkongsi idea destinasi serta pengalaman laut. '
            'Jadual perjalanan, syarat penyertaan, tarikh dan sebarang bayaran akan disahkan sebelum '
            'aktiviti.']}]
-cover_rows=[(4,282),(294,270),(572,278),(858,302),(1168,364)]
-for index,activity in enumerate(A):
- row,col=divmod(index,2);y,height=cover_rows[row]
- activity['cover']='assets/coffee/cohub-activity-graphic-atlas.webp'
- activity['coverViewBox']=f'{col*512+4} {y} 504 {height}'
+for activity in A:activity['cover']='assets/coffee/cohub-event-'+activity['id']+'-v2.webp'
 (R/'community-activities.json').write_text(json.dumps(A,ensure_ascii=False,indent=2))
 # Consistent navigation on existing and generated pages; keep supply and stay prominent.
 def prepare(tree,filename):
@@ -146,7 +142,7 @@ def page(filename,title,description,main,scripts=[]):
 intro='<section class="section community-hero"><div>'+p('CO-HUB / NOMADS & BUILDERS','CO-HUB / 数字游民与共创者','CO-HUB / NOMAD & PEMBINA',attrs='class="eyebrow"')+h(1,'Meet people.\nShare ideas.\nBuild something.','认识新朋友，\n交流新想法，\n一起创造。','Kenali orang baharu.\nKongsi idea.\nCipta sesuatu.')+p('A community for remote workers, creators and curious minds in Kuala Lumpur. Start with conversations about AI, Web3 and projects; stay for culture, travel, diving, coffee and craft beer.','在吉隆坡，连接远程工作者、创作者和充满好奇心的朋友。从AI、Web3与项目交流开始，也一起体验城市文化、旅行、潜水、咖啡与精酿。','Komuniti untuk pekerja jarak jauh, pencipta dan mereka yang ingin tahu di Kuala Lumpur. Mulakan dengan AI, Web3 dan projek; nikmati budaya, pengembaraan, selam skuba, kopi serta bir kraf.')+link('#builders','Explore the community ↓','认识我们的社区 ↓','Terokai komuniti ↓')+'</div><aside class="community-note">'+p('INTEREST REGISTRATION OPEN','开放兴趣登记','PENDAFTARAN MINAT DIBUKA',attrs='class="eyebrow"')+h(2,'Tell us what\nyou want to join.','告诉我们，\n你想参与什么。','Beritahu kami\naktiviti pilihan anda.')+p('Activities are being planned. Dates, fees, capacity and arrangements will be confirmed before participation. Sending an interest enquiry does not reserve a place.','活动正在筹备。日期、费用、名额及安排会在参加前确认。提交兴趣咨询不代表已经报名成功或保留名额。','Aktiviti sedang dirancang. Tarikh, bayaran, kapasiti dan aturan akan disahkan sebelum penyertaan. Pertanyaan minat tidak menempah tempat.')+link('enquiry.html?type=activities','Register your interests ↗','登记活动兴趣 ↗','Daftar minat ↗')+'</aside></section>'
 def cards(items):
  s='<div class="experience-grid">'
- for a in items:s+='<article class="experience-card activity-theme-card"><div class="activity-cover"><svg viewBox="'+a['coverViewBox']+'" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><image href="'+H.escape(a['cover'],quote=True)+'" width="1024" height="1536"></image></svg></div><div class="activity-card-content">'+p(*a['tag'],attrs='class="eyebrow"')+h(3,*a['name'])+p(*a['desc'])+p('In planning · Details to be confirmed','筹备中 · 详情待确认','Dalam perancangan · Butiran akan disahkan',attrs='class="planning-label"')+link(interest(a['id']),'I’m interested ↗','我感兴趣 ↗','Saya berminat ↗',cls='text-link')+'</div></article>'
+ for a in items:s+='<article class="experience-card activity-theme-card"><div class="activity-cover"><img src="'+H.escape(a['cover'],quote=True)+'" alt="" aria-hidden="true" loading="lazy" decoding="async" width="1672" height="941"></div><div class="activity-card-content">'+p(*a['tag'],attrs='class="eyebrow"')+h(3,*a['name'])+p(*a['desc'])+p('In planning · Details to be confirmed','筹备中 · 详情待确认','Dalam perancangan · Butiran akan disahkan',attrs='class="planning-label"')+link(interest(a['id']),'I’m interested ↗','我感兴趣 ↗','Saya berminat ↗',cls='text-link')+'</div></article>'
  return s+'</div>'
 main='<main class="community-page">'+intro+'<section class="section" id="builders">'+p('01 / CONVERSATION & COLLABORATION','01 / 交流与共创','01 / PERBUALAN & KERJASAMA',attrs='class="eyebrow"')+h(2,'Your next conversation\ncould spark something.','下一次交流，\n也许就有新灵感。','Perbualan seterusnya\nmungkin mencetuskan idea.')+cards(A[:5])+'</section><section class="section experience-section">'+p('02 / LIFESTYLE & EXPERIENCES','02 / 生活方式与体验','02 / GAYA HIDUP & PENGALAMAN',attrs='class="eyebrow"')+h(2,'Make room for a new experience.','留点时间，体验新事物。','Luangkan masa untuk pengalaman baharu.')+cards(A[5:])+'</section><section class="section community-end">'+h(2,'You don’t need to stay\nto start a conversation.','不必先入住，\n也可以先认识。','Tidak perlu menginap\nuntuk mula berkenalan.')+p('Accommodation is not open for booking yet. You can still ask about the community and café visits. Contact the team before coming over so we can confirm the arrangements.','住宿尚未开放预订。你仍可咨询社区活动及咖啡餐饮到店安排，请来访前先联系团队确认。','Tempahan penginapan belum dibuka. Anda masih boleh bertanya tentang komuniti dan lawatan kafe. Hubungi pasukan sebelum datang untuk mengesahkan aturan.')+'<div class="actions">'+link('enquiry.html?type=activities','Ask the team ↗','联系团队咨询 ↗','Tanya pasukan ↗')+link('https://www.instagram.com/cohub.kl/','Follow @cohub.kl ↗','关注 @cohub.kl ↗','Ikuti @cohub.kl ↗',cls='text-link',external=True)+'</div></section></main>'
 page('community.html','CO-HUB Community · Nomads, AI & Web3 · Kuala Lumpur','Explore CO-HUB community interests: digital nomads, AI agents, Web3 builders, cultural city walks, travel and diving, coffee and craft beer.',main)

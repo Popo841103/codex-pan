@@ -16,8 +16,7 @@
       "分享AI工具、实际用法与遇到的问题，欢迎初学者。每场主题、主持人、日期和费用将在参加前确认。",
       "Kongsi alat AI, petua praktikal dan soalan. Pemula dialu-alukan. Topik, hos, tarikh dan bayaran akan disahkan sebelum penyertaan."
     ],
-    "cover": "assets/coffee/cohub-activity-graphic-atlas.webp",
-    "coverViewBox": "4 4 504 282"
+    "cover": "assets/coffee/cohub-event-ai-meetup-v2.webp"
   },
   {
     "id": "ai-agents",
@@ -36,8 +35,7 @@
       "带一个真实需求或想法来，交流AI Agent、自动化与数字工具在工作和个人项目中的实际用法。",
       "Bawa kegunaan sebenar atau idea. Kongsi cara praktikal menggunakan AI agent, automasi dan alat digital dalam kerja serta projek harian."
     ],
-    "cover": "assets/coffee/cohub-activity-graphic-atlas.webp",
-    "coverViewBox": "516 4 504 282"
+    "cover": "assets/coffee/cohub-event-ai-agents-v2.webp"
   },
   {
     "id": "language-exchange",
@@ -56,8 +54,7 @@
       "练习语言，认识世界各地的朋友，分享旅行与吉隆坡生活。每场使用语言、主持人、日期和费用将另行确认。",
       "Berlatih bahasa, kenali rakan dari seluruh dunia dan kongsi kisah perjalanan serta kehidupan di Kuala Lumpur. Bahasa, hos, tarikh dan bayaran akan disahkan bagi setiap sesi."
     ],
-    "cover": "assets/coffee/cohub-activity-graphic-atlas.webp",
-    "coverViewBox": "4 294 504 270"
+    "cover": "assets/coffee/cohub-event-language-exchange-v2.webp"
   },
   {
     "id": "nomads",
@@ -76,8 +73,7 @@
       "认识远程工作者、自由职业者与创作者，交流项目、协作方式，以及在吉隆坡生活的经验。",
       "Temui pekerja jarak jauh, pekerja bebas dan pencipta. Kongsi idea tentang projek, kerjasama dan kehidupan di Kuala Lumpur."
     ],
-    "cover": "assets/coffee/cohub-activity-graphic-atlas.webp",
-    "coverViewBox": "516 294 504 270"
+    "cover": "assets/coffee/cohub-event-nomads-v2.webp"
   },
   {
     "id": "web3",
@@ -96,8 +92,7 @@
       "面向开发者、设计师及感兴趣的朋友，聊Web3工具、产品想法与协作机会。",
       "Ruang pertemuan untuk pembangun, pereka dan mereka yang ingin tahu bagi membincangkan alat Web3, idea produk dan peluang kerjasama."
     ],
-    "cover": "assets/coffee/cohub-activity-graphic-atlas.webp",
-    "coverViewBox": "4 572 504 278"
+    "cover": "assets/coffee/cohub-event-web3-v2.webp"
   },
   {
     "id": "women-yoga",
@@ -116,8 +111,7 @@
       "面向女性的瑜伽、呼吸练习与冥想活动，现开放兴趣登记。带领人、适合程度、场地、用品、日期和费用将在参加前确认。",
       "Daftar minat untuk sesi yoga, pernafasan dan meditasi bagi wanita. Pengajar, tahap, tempat, peralatan, tarikh dan bayaran akan disahkan sebelum penyertaan."
     ],
-    "cover": "assets/coffee/cohub-activity-graphic-atlas.webp",
-    "coverViewBox": "516 572 504 278"
+    "cover": "assets/coffee/cohub-event-women-yoga-v2.webp"
   },
   {
     "id": "coffee",
@@ -136,8 +130,7 @@
       "和喜欢咖啡的朋友一起认识咖啡制作、意式萃取与拉花。具体体验内容和费用确定后公布。",
       "Terokai penyediaan kopi, espresso dan seni latte bersama peminat kopi lain. Butiran sesi dan bayaran penyertaan akan diumumkan selepas disahkan."
     ],
-    "cover": "assets/coffee/cohub-activity-graphic-atlas.webp",
-    "coverViewBox": "4 858 504 302"
+    "cover": "assets/coffee/cohub-event-coffee-v2.webp"
   },
   {
     "id": "beer-pour",
@@ -156,8 +149,7 @@
       "在引导下体验酒头操作、倒酒方法与泡沫控制。体验酒款、日期和费用将在参加前确认。",
       "Kenali paip bir, teknik menuang dan kawalan buih melalui pengalaman berpandu. Pilihan bir, tarikh dan bayaran akan disahkan sebelum penyertaan."
     ],
-    "cover": "assets/coffee/cohub-activity-graphic-atlas.webp",
-    "coverViewBox": "516 858 504 302"
+    "cover": "assets/coffee/cohub-event-beer-pour-v2.webp"
   },
   {
     "id": "city-walk",
@@ -176,8 +168,7 @@
       "一起认识吉隆坡多元的宗教与城市文化。路线、集合点、参访安排及可能产生的费用，会在活动确定后说明。",
       "Kenali kepelbagaian agama dan budaya Kuala Lumpur bersama-sama. Laluan, tempat berkumpul, aturan lawatan dan sebarang bayaran akan dikongsi apabila aktiviti disahkan."
     ],
-    "cover": "assets/coffee/cohub-activity-graphic-atlas.webp",
-    "coverViewBox": "4 1168 504 364"
+    "cover": "assets/coffee/cohub-event-city-walk-v2.webp"
   },
   {
     "id": "travel-diving",
@@ -196,7 +187,6 @@
       "认识旅行与潜水爱好者，分享目的地灵感和海洋体验。具体行程、参加条件、日期及费用将在活动确定后说明。",
       "Temui pengembara dan peminat selam skuba untuk berkongsi idea destinasi serta pengalaman laut. Jadual perjalanan, syarat penyertaan, tarikh dan sebarang bayaran akan disahkan sebelum aktiviti."
     ],
-    "cover": "assets/coffee/cohub-activity-graphic-atlas.webp",
-    "coverViewBox": "516 1168 504 364"
+    "cover": "assets/coffee/cohub-event-travel-diving-v2.webp"
   }
 ]

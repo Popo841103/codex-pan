@@ -33,7 +33,7 @@ tree.xpath('//*[@id="builders"]')[0].addprevious(html.fromstring(section))
 config=json.loads((R/'scripts/member-system/project.json').read_text())
 (R/'member-config.js').write_text('window.COHUB_MEMBER_CONFIG='+json.dumps(config)+';\n')
 script=tree.xpath('//script[starts-with(@src,"host-event.js")]')[0]
-script.addprevious(etree.Element('script',src='member-config.js?v=20261026-covers1'))
+script.addprevious(etree.Element('script',src='member-config.js?v=20261026-editorial2'))
 # Host interaction script initializes the SDK lazily on demand.
 (R/'community.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
 (R/'scripts/member-system/ui-copy.json').write_text(json.dumps(COPY,ensure_ascii=False,indent=2))
