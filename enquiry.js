@@ -1,4 +1,5 @@
 (() => {
+  if(new URLSearchParams(location.search).get('type')==='host'){location.replace('community.html#host-event');return;}
   const form=document.querySelector('#enquiry-form');if(!form)return;
   const languageSelect=document.querySelector('#language');
   const topic=document.querySelector('#enquiry-topic');
@@ -9,7 +10,7 @@
   const languageIndex=()=>({en:0,zh:1,ms:2}[languageSelect.value]||0);
   const field=id=>document.querySelector('#'+id);
   const value=id=>field(id).value.trim();
-  const topicNames={host:['Host an event','发起活动','Anjurkan aktiviti'],general:['General enquiry','一般咨询','Pertanyaan umum'],stay:['Future accommodation enquiry','未来住宿咨询','Pertanyaan penginapan akan datang'],activities:['Community & activity interests','社区与活动兴趣','Minat komuniti & aktiviti'],opening:['Request opening updates','申请接收开业通知','Minta berita pembukaan'],supply:['Business supply enquiry','企业采购咨询','Pertanyaan bekalan perniagaan']};
+  const topicNames={general:['General enquiry','一般咨询','Pertanyaan umum'],stay:['Future accommodation enquiry','未来住宿咨询','Pertanyaan penginapan akan datang'],activities:['Community & activity interests','社区与活动兴趣','Minat komuniti & aktiviti'],opening:['Request opening updates','申请接收开业通知','Minta berita pembukaan'],supply:['Business supply enquiry','企业采购咨询','Pertanyaan bekalan perniagaan']};
   // Product names are confirmed room types, not a live inventory.
   if(typeof inventory!=='undefined')inventory.forEach((room,index)=>{
     const option=document.createElement('option');option.value=String(index);
@@ -40,7 +41,6 @@
       if(value('activity-date'))lines.push(local('Preferred date: ','期望日期：','Tarikh pilihan: ')+value('activity-date'));
       lines.push(local('Please let me know when dates, participation arrangements and fees are confirmed. This does not reserve a place.','请在日期、参加安排和费用确定后联系我。本次不保留活动名额。','Sila maklumkan apabila tarikh, aturan penyertaan dan bayaran disahkan. Ini tidak menempah tempat.'));
     }
-    if(topic.value==='host')lines.push(value('host-proposal'));
     if(topic.value==='supply'){
       lines.push(local('Category: ','采购品类：','Kategori: ')+selectedText('supply-category'));
       [['supply-quantity',['Quantity / specification: ','数量／规格：','Kuantiti / spesifikasi: ']],['supply-area',['Delivery area: ','配送地区：','Kawasan penghantaran: ']],['supply-business',['Business / project: ','公司／项目：','Perniagaan / projek: ']]].forEach(([id,labels])=>{if(value(id))lines.push(window.COHUB_I18N.t(labels[languageIndex()])+value(id));});
@@ -52,7 +52,7 @@
     return lines.join('\n');
   }
   function update(){
-    ['stay','activity','supply','opening','host'].forEach(key=>{
+    ['stay','activity','supply','opening'].forEach(key=>{
       const section=field(key+'-fields');const active=topic.value===(key==='activity'?'activities':key);
       section.hidden=!active;section.disabled=!active;
     });

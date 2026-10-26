@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261026-groups1'
+VERSION='20261026-dialog1'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -310,24 +310,17 @@ for filename in ['community.html','index.html']:
  actions='<div class="actions" id="activity-entry-actions">'+link('community.html#builders',*join)+link('enquiry.html?type=host',*host,cls='button button-secondary')+'</div>'
  target.append(html.fromstring(actions))
  (R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
-tree=html.fromstring((R/'enquiry.html').read_bytes())
-topic=tree.xpath('//*[@id="enquiry-topic"]')[0]
-topic.append(html.fromstring(t('option',*host,attrs='value="host"')))
-field='<fieldset id="host-fields" hidden disabled><legend>'+t('span',*host)+'</legend>'+p(*help_copy)+('<label for="host-proposal">'+t('span',*proposal)+'<textarea id="host-proposal" rows="8" maxlength="3000" required></textarea></label>')+'</fieldset>'
-tree.xpath('//*[@id="activity-fields"]')[0].addnext(html.fromstring(field))
-(R/'enquiry.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
-
-# Make visitor-led proposals the first task on the community page.
+# Keep discovery visible; account-gated hosting opens only on request.
 tree=html.fromstring((R/'community.html').read_bytes())
 hero=tree.xpath('//section[contains(@class,"community-hero")]')[0]
-lead=hero.xpath('./div')[0]
-lead.clear()
+hero.set('class','section community-hero community-discovery')
+lead=hero.xpath('./div')[0];lead.clear()
 lead.append(html.fromstring(p('CO-HUB / COMMUNITY','CO-HUB / 社区与活动','CO-HUB / KOMUNITI',attrs='class="eyebrow"')))
-lead.append(html.fromstring(h(1,*host)))
-lead.append(html.fromstring(p(*help_copy)))
-lead.append(html.fromstring('<div class="actions" id="activity-entry-actions">'+link('#host-event',*host)+link('#builders',*join,cls='button button-secondary')+'</div>'))
-aside=hero.xpath('./aside')[0]
-aside.clear();aside.set('class','community-note community-host');aside.set('id','host-event')
-aside.append(html.fromstring('<form id="community-host-form">'+h(2,*proposal)+'<label for="community-proposal">'+t('span',*proposal)+'<textarea id="community-proposal" rows="6" maxlength="3000" required></textarea></label><label for="community-reply">'+t('span','Reply contact (optional: phone or email)','回复联系方式（选填：电话或邮箱）','Hubungan balasan (pilihan: telefon atau e-mel)')+'<input id="community-reply" maxlength="150" autocomplete="off"></label><div class="actions">'+t('button','Continue to WhatsApp ↗','前往WhatsApp发送 ↗','Teruskan ke WhatsApp ↗','class="button" type="submit" value="whatsapp"')+t('button','Continue to email ↗','前往邮件发送 ↗','Teruskan ke e-mel ↗','class="button button-secondary" type="submit" value="email"')+'</div>'+p('Only include information you want to share with the CO-HUB team. Your request is sent when you confirm it in WhatsApp or your email app.','只填写你愿意向CO-HUB团队提供的信息；在WhatsApp或邮件应用中确认发送后，团队才会收到。','Hanya isi maklumat yang ingin dikongsi dengan pasukan CO-HUB. Permintaan dihantar apabila anda mengesahkannya dalam WhatsApp atau aplikasi e-mel。',attrs='class="form-help"')+'<p id="community-host-status" role="status"></p></form>'))
+lead.append(html.fromstring(h(1,'A place to meet.\nA reason to return.','认识新朋友，\n找到再来的理由。','Tempat berkenalan.\nSebab untuk kembali.')))
+lead.append(html.fromstring(p('A community for remote workers, creators and curious minds in Kuala Lumpur. Start with conversations about AI, Web3 and projects; stay for culture, travel, diving, coffee and craft beer.','在吉隆坡，连接远程工作者、创作者和充满好奇心的朋友。从AI、Web3与项目交流开始，也一起体验城市文化、旅行、潜水、咖啡与精酿。','Komuniti untuk pekerja jarak jauh, pencipta dan mereka yang ingin tahu di Kuala Lumpur. Mulakan dengan AI, Web3 dan projek; nikmati budaya, pengembaraan, selam skuba, kopi serta bir kraf.')))
+lead.append(html.fromstring('<div class="actions" id="activity-entry-actions">'+link('#builders',*join)+link('#host-event',*host,cls='button button-secondary')+'</div>'))
+aside=hero.xpath('./aside')[0];aside.getparent().remove(aside)
+dialog='<dialog id="host-event" class="host-account-dialog" aria-labelledby="host-account-title"><div class="host-dialog-top">'+h(2,*host)+t('button','Close','关闭','Tutup','type="button" id="close-host-event" class="host-dialog-close"')+'</div>'+t('h3','Sign in to host an event','登录后发起活动','Log masuk untuk menganjurkan aktiviti','id="host-account-title"')+p('Account registration is being prepared. Please contact the team.','账号注册正在准备中，请先联系团队。','Pendaftaran akaun sedang disediakan. Sila hubungi pasukan.')+t('button','Contact us','联系我们','Hubungi kami','type="button" id="host-contact-team" class="button"')+'</dialog>'
+tree.xpath('//body')[0].append(html.fromstring(dialog))
 etree.SubElement(tree.xpath('//body')[0],'script',src='host-event.js?v='+VERSION)
 (R/'community.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
