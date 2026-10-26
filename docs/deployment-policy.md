@@ -32,4 +32,4 @@ GitHub运行40146936228重跑成功，实际部署步骤完成；提交61a548d05
 GitHub Actions40181279754部署a20b174成功。新增16份locale-*.json与既有3语合计19语，本地切换、不调用Google实时翻译。官网名称CO-HUB Hostel & Café，新增共享办公未开放FAQ。262固定文案覆盖检查、7部署测试、既有3语浏览器回归以及8页×16扩展语×3宽度检查通过，包含RTL、语言记忆、购物车金额、WhatsApp与原始用户输入不变；请求失败重试也验证。部署备份/var/backups/cohub/cohub-20261025T093544Z-tgkgybra/site-before.tar.gz；公网26文件（8页、2脚本、16语言包）HTTP与SHA256全一致。长篇专业译文为预置初稿，非全量母语专业审校，后续继续润色。Google商家资料只整理成docs/google-business-profile-staff-en.md，未提交后台。
 
 ## 会员邮箱前端上线（2026-10-26）
-GitHub运行40279423892成功部署162a82b。会员弹窗、邮箱密码表单、个人活动中心与本地官方SDK已发布；公网10个HTML/JS/CSS/语言文件HTTP与SHA256匹配，并以真实浏览器核查HTTPS中文注册窗口、SDK加载及未配置Google入口隐藏。未代用户注册、未发真实验证邮件。用户已发截图确认Site URL和community.html Redirect URL填写正确；SMTP及真实注册送达仍待用户邮箱测试，Google/钱包未开通，不宣称所有渠道可用。
+GitHub运行40279423892成功部署162a82b。会员弹窗、邮箱密码表单、个人活动中心与本地官方SDK已发布；公网10个HTML/JS/CSS/语言文件HTTP与SHA256匹配，中文注册窗口、真实SDK加载及未配置Google入口隐藏已由本地浏览器验证。云端Chromium公网检查因执行环境代理CA不在浏览器信任库而停止；公网内容校验使用受信HTTPS客户端，未关闭TLS验证。未代用户注册、未发真实验证邮件。用户已发截图确认Site URL和community.html Redirect URL填写正确；SMTP及真实注册送达仍待用户邮箱测试，Google/钱包未开通，不宣称所有渠道可用。
