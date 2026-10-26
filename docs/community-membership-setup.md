@@ -62,3 +62,6 @@ SQL Editor入口：https://supabase.com/dashboard/project/qwdhiwghyclpkzwavhjf/s
 Google提供商当前false，按钮保持隐藏，仅后台开启后显示；Ethereum钱包尚未接入。不能将当前邮箱功能宣称为Google/钱包已开通。
 
 团队暂通过Supabase Table Editor审核cohub_events.status为approved或rejected，确认cohub_registrations.status为confirmed（数据库检查名额），cohub_cohosts由团队创建邀请，接收者仅能接受或拒绝自己的邀请。不要在数据库未批准时宣称场地已经确认；也不要给前端service_role来绕过审核。初期只向已approved活动发出联合主办邀请。
+
+## 注册反馈修正（2026-10-26）
+用户注册后截图只看到密码已清空、弹窗仍英文，没有显示结果。定位为主语言脚本在后置dialog解析前已执行，初次打开中文页面时弹窗未翻译；结果位于长表单底部。修正host-event.js首次初始化／切换／打开时同步dialog文案，状态提示移至内容顶部并滚动可见，SMTP报错识别覆盖Error sending confirmation email。密码清空不作为注册成功证据，未查询或枚举截图中的邮箱账号。新增真实SDK fixture回归覆盖记忆中文初次加载和SMTP失败提示可见；没有发送真实邮件。

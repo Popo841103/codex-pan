@@ -5,15 +5,15 @@
  const phrases=new Map([...document.querySelectorAll('#member-copy [data-en]')].map(e=>[e.dataset.en,e.dataset]));
  const local=en=>{const d=phrases.get(en);return d?window.COHUB_I18N.local(d.en,d.zh,d.ms):window.COHUB_I18N.t(en);};
  let client,loading,trigger=null,user=null,mode='host',tab='joined',pendingAction=null,recovery=false,busy=false;
- const status=en=>{$('member-status').dataset.message=en;$('member-status').textContent=local(en);};
+ const status=en=>{const node=$('member-status');node.dataset.message=en;node.textContent=local(en);if(en!=='Loading…'&&dialog.open)node.scrollIntoView({block:'nearest'});};
  const clear=()=>{$('member-status').textContent='';delete $('member-status').dataset.message;};
- const action=async fn=>{if(busy)return;busy=true;dialog.setAttribute('aria-busy','true');try{await fn();}catch(e){status(e?.status===429||/email.*(rate|sending)|smtp/i.test(e?.message||'')?'Email delivery is unavailable or limited. Please contact the team.':'We could not complete this request. Please try again or contact the team.');}finally{busy=false;dialog.removeAttribute('aria-busy');}};
+ const action=async fn=>{if(busy)return;busy=true;dialog.setAttribute('aria-busy','true');try{await fn();}catch(e){status(e?.status===429||/email.*(rate|sending|not.*allowed|authorized)|sending.*email|smtp/i.test(e?.message||'')?'Email delivery is unavailable or limited. Please contact the team.':'We could not complete this request. Please try again or contact the team.');}finally{busy=false;dialog.removeAttribute('aria-busy');}};
  function copyNode(tag,text){const el=document.createElement(tag),d=phrases.get(text);el.textContent=local(text);if(d){for(const k of ['en','zh','ms'])el.dataset[k]=d[k];}return el;}
  const textNode=(tag,text)=>{const e=document.createElement(tag);e.dataset.userContent='';e.textContent=String(text??'');return e;};
  async function init(){
   if(client)return client;if(loading)return loading;
   loading=(async()=>{
-   if(!window.CohubSupabase)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='member-sdk.js?v=20261026-members1';s.onload=resolve;s.onerror=reject;document.body.append(s);});
+   if(!window.CohubSupabase)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='member-sdk.js?v=20261026-memberfeedback2';s.onload=resolve;s.onerror=reject;document.body.append(s);});
    let passwordReturn=false;
    try{const verifier=JSON.parse(localStorage.getItem('sb-'+new URL(cfg.projectUrl).hostname.split('.')[0]+'-auth-token-code-verifier')||'null');passwordReturn=new URLSearchParams(location.search).has('code')&&typeof verifier==='string'&&verifier.endsWith('/PASSWORD_RECOVERY');}catch{}
    client=CohubSupabase.createClient(cfg.projectUrl,cfg.publishableKey,{auth:{persistSession:true,storage:localStorage,flowType:'pkce',detectSessionInUrl:true},global:{fetch:(url,opts={})=>fetch(url,{...opts,signal:opts.signal||AbortSignal.timeout(20000)})}});
@@ -30,7 +30,9 @@
   if(!user)throw Error('Unverified user');
  }
  async function providers(){try{const r=await fetch(cfg.projectUrl+'/auth/v1/settings',{headers:{apikey:cfg.publishableKey},signal:AbortSignal.timeout(15000)});if(r.ok){const s=await r.json();$('member-google').hidden=!s.external?.google;}}catch{/* Email remains available; do not expose an unconfigured OAuth button. */}}
+ function syncDialogCopy(){dialog.querySelectorAll('[data-en]').forEach(el=>{el.textContent=window.COHUB_I18N.local(el.dataset.en,el.dataset.zh||el.dataset.en,el.dataset.ms||el.dataset.en);});}
  function showViews(){
+  syncDialogCopy();
   $('member-auth-view').hidden=!!user||recovery;
   $('member-session').hidden=!user;
   $('member-email-display').textContent=user?.email||'';
@@ -120,6 +122,7 @@
  }));
  $('language').addEventListener('change',()=>{if($('member-status').dataset.message)status($('member-status').dataset.message);showViews();});
  addEventListener('hashchange',()=>{if(location.hash==='#host-event')void open('host');if(location.hash==='#my-activities')void open('mine');});
+ syncDialogCopy();
  if(new URLSearchParams(location.search).has('code'))void open('mine');
  else if(location.hash==='#host-event')void open('host');else if(location.hash==='#my-activities')void open('mine');
 })();

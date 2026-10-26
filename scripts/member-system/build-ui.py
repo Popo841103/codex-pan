@@ -19,21 +19,21 @@ form='<div id="member-auth-view">'+el('h3','Sign in')+'<form id="member-auth-for
 form+='<div id="member-session" hidden><p id="member-email-display" data-user-content></p>'+btn('Sign out','id="member-logout"')+'</div>'
 form+='<form id="member-create-form" hidden>'+el('h3','Host an event')+label('Event title','<input id="member-title" maxlength="160" required>')+label('Event description','<textarea id="member-description" rows="4" maxlength="5000" required></textarea>')+label('Date and time (Malaysia time)','<input id="member-date" type="datetime-local" required>')+label('Location','<input id="member-location" maxlength="300" required>')+label('Participant limit','<input id="member-capacity" type="number" min="1" max="1000" step="1" required>')+label('Event language','<input id="member-event-language" maxlength="100" required>')+label('Fees and what is included','<input id="member-fees" maxlength="300" required>')+el('p','Submitting an event does not confirm the venue, date or fees.')+el('button','Submit for review','class="button" type="submit"')+'</form>'
 form+='<div id="member-mine-view" hidden>'+el('h3','My activities')+'<div class="member-tabs" role="group">'+''.join(btn(name,'data-member-tab="'+key+'"') for key,name in [('joined','Joined'),('hosting','Hosting'),('following','Following'),('cohosting','Co-hosting'),('pending','Pending')])+'</div><div id="member-list"></div></div>'
-form+='<form id="member-recovery-form" hidden>'+label('Password','<input id="member-new-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>')+el('button','Update password','class="button" type="submit"')+'</form><p id="member-status" role="status"></p>'
+form+='<form id="member-recovery-form" hidden>'+label('Password','<input id="member-new-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>')+el('button','Update password','class="button" type="submit"')+'</form>'
 # Keep fixed status phrases in dictionaries, not raw provider errors or user content.
 form+='<div hidden id="member-copy">'+''.join(el('span',x[0]) for x in COPY)+'</div>'
 tree=html.fromstring((R/'community.html').read_bytes());dialog=tree.xpath('//*[@id="host-event"]')[0]
 for old in list(dialog):
  if 'host-dialog-top' not in old.get('class',''):dialog.remove(old)
 dialog.set('aria-labelledby','member-dialog-title');dialog.xpath('.//h2')[0].set('id','member-dialog-title')
-dialog.append(html.fromstring('<div class="member-content">'+form+'</div>'))
+dialog.append(html.fromstring('<div class="member-content"><p id="member-status" role="status" aria-live="polite"></p>'+form+'</div>'))
 lead=tree.xpath('//section[contains(@class,"community-discovery")]/div')[0];lead.append(html.fromstring(btn('My activities','id="member-open-mine"')))
 section='<section class="section" id="member-events">'+el('h2','Upcoming events')+el('p','Confirmed events will appear here. You can register your interests below.')+'<button type="button" class="button button-secondary" id="member-load-events" data-en="Upcoming events" data-zh="即将举行的活动" data-ms="Aktiviti akan datang">Upcoming events</button><div id="member-public-list"></div></section>'
 tree.xpath('//*[@id="builders"]')[0].addprevious(html.fromstring(section))
 config=json.loads((R/'scripts/member-system/project.json').read_text())
 (R/'member-config.js').write_text('window.COHUB_MEMBER_CONFIG='+json.dumps(config)+';\n')
 script=tree.xpath('//script[starts-with(@src,"host-event.js")]')[0]
-script.addprevious(etree.Element('script',src='member-config.js?v=20261026-members1'))
+script.addprevious(etree.Element('script',src='member-config.js?v=20261026-memberfeedback2'))
 # Host interaction script initializes the SDK lazily on demand.
 (R/'community.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
 (R/'scripts/member-system/ui-copy.json').write_text(json.dumps(COPY,ensure_ascii=False,indent=2))

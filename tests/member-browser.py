@@ -12,13 +12,15 @@ public={'id':'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','owner_id':other,'title':'Op
 events=[public];registrations=[];follows=[];calls=[]
 with sync_playwright() as p:
  browser=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
- context=browser.new_context();page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+ context=browser.new_context();context.add_init_script("if(!localStorage.getItem('cohub-language'))localStorage.setItem('cohub-language','zh');");page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  def handler(route):
   req=route.request;u=urlparse(req.url);q=parse_qs(u.query);path=u.path;body=req.post_data_json if req.post_data else None;calls.append((path,req.method,body))
   def reply(data,status=200):route.fulfill(status=status,json=data,headers={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-expose-headers':'*'})
   if req.method=='OPTIONS':return reply({})
   if path=='/auth/v1/settings':return reply({'external':{'google':False}})
-  if path=='/auth/v1/signup':return reply(member)
+  if path=='/auth/v1/signup':
+   if body['email']=='mail-unavailable@example.com':return reply({'msg':'Error sending confirmation email'},500)
+   return reply(member)
   if path=='/auth/v1/token':
    if body.get('password')=='incorrect':return reply({'code':'invalid_credentials','msg':'Invalid login credentials'},400)
    return reply({'access_token':token,'refresh_token':'fake-refresh','token_type':'bearer','expires_in':3600,'user':member})
@@ -39,7 +41,7 @@ with sync_playwright() as p:
   if path=='/rest/v1/rpc/cohub_request_join':registrations.append({'event_id':body['target_event'],'user_id':uid,'status':'requested'});return reply(None)
   raise AssertionError((req.method,req.url,body))
  page.route(PROJECT+'/**',handler)
- page.goto(BASE+'community.html');page.select_option('#language','en')
+ page.goto(BASE+'community.html');assert page.locator('#member-auth-form button[value=signup]').inner_text()=='注册账号';assert page.locator('#close-host-event').inner_text()=='关闭';page.select_option('#language','en')
  assert not page.locator('#host-event').is_visible()
  page.locator('a[href="#host-event"]').click();page.wait_for_selector('#member-auth-form')
  page.wait_for_function('!document.querySelector("#host-event").hasAttribute("aria-busy")')
@@ -85,6 +87,12 @@ with sync_playwright() as p:
  page.locator('#member-recovery-form button').click()
  page.wait_for_function('document.querySelector("#member-status").textContent.includes("password was updated")')
  assert all('new-test-password' not in v for v in page.evaluate('Object.values(localStorage)'))
+ page.locator('#member-logout').click();page.wait_for_selector('#member-auth-view',state='visible')
+ page.locator('#member-email').fill('mail-unavailable@example.com');page.locator('#member-password').fill('valid-password')
+ page.locator('#member-auth-form button[value=signup]').click()
+ page.wait_for_function('document.querySelector("#member-status").textContent.includes("Email delivery")')
+ box=page.locator('#member-status').bounding_box();win=page.locator('#host-event').bounding_box()
+ assert win['y']<=box['y'] and box['y']+box['height']<=win['y']+win['height']
  assert not errors,errors
  browser.close()
 print('PASS: actual bundled SDK; signup confirmation, rejected login, verified login, pending event persistence, MY timezone, five tabs, request-to-join, logout, input privacy and multilingual XSS-safe rendering. Real Supabase mail/OAuth not simulated as live validation.')
