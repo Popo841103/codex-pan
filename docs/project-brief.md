@@ -93,3 +93,7 @@ Google商家资料补充：用户已确认实体门头为CO-HUB Hostel & Café�
 
 ## 会员邮箱前端（2026-10-26最新）
 用户执行建表SQL显示Success，远端匿名活动表200、私人报名表401已核实。实现点击发起／我的活动后按需加载本地官方SDK，邮箱注册及确认、密码登录、重发验证、密码重置回调、结构化提案待审核、个人中心五分类、公开活动关注与报名请求。仅公开浏览器key，无后台管理密钥；Google未开启按钮隐藏，Ethereum未接。真实邮件尚待用户配置正确Site URL／回调及生产SMTP并实测，不能宣称所有注册渠道已可用。会话由SDK存localStorage，密码不保存；个人输入不翻译不执行HTML。完整测试与限制见docs/community-membership-setup.md最新小节。
+
+## 活动封面风格（2026-10-26最新）
+用户要求十类活动各有封面，随后明确“不要有人的”，参考Sola的建筑插画、抽象图形和图案式活动海报。最终采用新生成无人图形封面：AI对话气泡、AI模块窗口、语言气泡与地球、游民电脑日出、Web3几何网络、女性瑜伽莲花、拉花咖啡杯、啤酒麦穗、吉隆坡建筑、潜水面镜海洋。不要使用之前生成的人物场景照片。
+十幅原创图形合成原图保留/workspace/generated_images/exec-3495149d-9637-4c6a-9426-7719581868f2.png，网页为assets/coffee/cohub-activity-graphic-atlas.webp（约328KB）。卡片上图下文，使用不同SVG viewBox展示各自图案；比例响应式，不包含文字，无需逐语翻译。每个活动的兴趣入口保持独立。内部来源与各viewBox保存docs/activity-cover-sources.json。图形是主题插画，非现场实拍。源目录沿用assets/coffee避免服务器新目录权限问题。

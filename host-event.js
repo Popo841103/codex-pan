@@ -13,7 +13,7 @@
  async function init(){
   if(client)return client;if(loading)return loading;
   loading=(async()=>{
-   if(!window.CohubSupabase)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='member-sdk.js?v=20261026-memberfeedback2';s.onload=resolve;s.onerror=reject;document.body.append(s);});
+   if(!window.CohubSupabase)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='member-sdk.js?v=20261026-covers1';s.onload=resolve;s.onerror=reject;document.body.append(s);});
    let passwordReturn=false;
    try{const verifier=JSON.parse(localStorage.getItem('sb-'+new URL(cfg.projectUrl).hostname.split('.')[0]+'-auth-token-code-verifier')||'null');passwordReturn=new URLSearchParams(location.search).has('code')&&typeof verifier==='string'&&verifier.endsWith('/PASSWORD_RECOVERY');}catch{}
    client=CohubSupabase.createClient(cfg.projectUrl,cfg.publishableKey,{auth:{persistSession:true,storage:localStorage,flowType:'pkce',detectSessionInUrl:true},global:{fetch:(url,opts={})=>fetch(url,{...opts,signal:opts.signal||AbortSignal.timeout(20000)})}});
