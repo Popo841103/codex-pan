@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261027-calendar1'
+VERSION='20261027-faq1'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -186,7 +186,14 @@ teaser='<section class="section community-teaser" id="community-teaser">'+p('CO-
 # Community leads the guest journey after the opening status.
 tree.xpath('//section[@id="opening-status"]')[0].addnext(html.fromstring(teaser))
 about='<section class="section about-cohub" id="about-cohub">'+p('ABOUT CO-HUB','关于CO-HUB','TENTANG CO-HUB',attrs='class="eyebrow"')+h(2,'Rest upstairs.\nConnect over a good conversation.','楼上安心休息，\n楼下相聚交流。','Berehat di atas.\nBerhubung melalui perbualan.')+p('CO-HUB brings together hostel stays, a café and craft beer in Bukit Bintang, Kuala Lumpur. We are preparing women’s capsules, men’s dorms and private rooms, while building a community for travellers, neighbours and people working on new ideas.','CO-HUB位于吉隆坡Bukit Bintang，结合青旅、咖啡餐饮与精酿。我们正在筹备女士胶囊、男士宿舍与独立房间，也连接旅人、邻里和正在实践新想法的朋友。','CO-HUB menggabungkan hostel, kafe dan bir kraf di Bukit Bintang, Kuala Lumpur. Kami sedang menyediakan kapsul wanita, dorm lelaki dan bilik persendirian, sambil membina komuniti pengembara, jiran dan mereka yang menghasilkan idea baharu。')+p('We also supply coffee, craft beverages, guest essentials and hospitality equipment to business customers.','我们也面向企业客户提供咖啡、精酿、住宿用品及相关设备供应。','Kami turut membekalkan kopi, minuman kraf, keperluan tetamu dan peralatan hospitaliti kepada pelanggan perniagaan。')+link('https://www.instagram.com/cohub.kl/','Follow our progress on Instagram ↗','在Instagram关注我们的进展 ↗','Ikuti perkembangan di Instagram ↗',cls='text-link',external=True)+'</section>'
-faq=tree.xpath('//section[@id="faq"]')[0];faq.addprevious(html.fromstring(about))
+faq=tree.xpath('//section[@id="faq"]')[0]
+# Unwrap the compact FAQ before updating individual questions on rebuild.
+for group in faq.xpath('./details[@id="faq-disclosure"]'):
+ heading=group.xpath('./summary/h2')[0];faq.append(heading)
+ for child in list(group):
+  if child.tag!='summary':faq.append(child)
+ faq.remove(group)
+faq.addprevious(html.fromstring(about))
 # New confirmed facts and clear forthcoming policies in FAQ.
 extra=[('When will accommodation open?','住宿什么时候开放？','Bilakah penginapan dibuka?','The hostel is under preparation. We will announce the opening date and booking arrangements when confirmed. You can request opening updates.','青旅仍在筹备，开业日期及预订安排确定后公布，可先申请接收开业通知。','Hostel sedang disediakan. Tarikh pembukaan dan aturan tempahan akan diumumkan selepas disahkan. Anda boleh meminta berita pembukaan。'),('Can I join activities without staying?','不住店可以参加活动吗？','Bolehkah saya menyertai tanpa menginap?','You can enquire about community activities without an accommodation booking. Dates, fees and participation arrangements will be confirmed before joining.','可以先咨询社区活动，无需先订住宿；日期、费用和参加安排将在活动前确认。','Anda boleh bertanya tentang aktiviti komuniti tanpa tempahan penginapan. Tarikh, bayaran dan aturan penyertaan akan disahkan sebelum menyertai。'),('Where can I find arrival information?','在哪里查看到店指南？','Di manakah panduan ketibaan?','Use the Visit & guide page for the address, airport rail information, map directions and upcoming stay guidance. Contact us before coming over.','到店与入住指南页提供地址、机场快线信息、地图导航及未来入住说明，来访前请联系团队确认。','Gunakan halaman Lokasi & panduan untuk alamat, maklumat tren lapangan terbang, arah peta dan panduan penginapan akan datang. Hubungi kami sebelum datang。')]
 for q1,q2,q3,a1,a2,a3 in extra:
@@ -330,3 +337,14 @@ etree.SubElement(tree.xpath('//body')[0],'script',src='host-event.js?v='+VERSION
 __import__('runpy').run_path(str(R/'scripts/member-system/build-ui.py'))
 
 __import__('runpy').run_path(str(R/'scripts/member-system/build-calendar.py'))
+
+# Home FAQ: one compact, initially collapsed entry, with individual answers inside.
+tree=html.fromstring((R/'index.html').read_bytes());faq=tree.xpath('//section[@id="faq"]')[0]
+for eyebrow in faq.xpath('./p[@class="eyebrow"]'):faq.remove(eyebrow)
+group=etree.SubElement(faq,'details',id='faq-disclosure')
+summary=etree.SubElement(group,'summary')
+summary.append(faq.xpath('./h2')[0])
+for question in list(faq):
+ if question is not group:
+  question.attrib.pop('open',None);group.append(question)
+(R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
