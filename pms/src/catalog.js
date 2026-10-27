@@ -14,6 +14,7 @@ export function upgradeCatalog(state) {
   const next = structuredClone(state);
   next.roomTypes ??= [];
   next.physicalRooms ??= [];
+  next.reservations ??= [];
   for (const resource of next.resources) {
     resource.archived ??= false;
     resource.sortOrder ??= 0;

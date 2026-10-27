@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {seed,preview,apply,folio} from '../src/demo-store.js';
+import {isBoxed,blockType} from '../src/inventory-actions.js';
 import {typeName} from '../src/catalog.js';
 // Execute the actual renderer with deterministic state; no copied rendering logic.
 const source=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
 const renderer=source.slice(source.indexOf('function calendar('),source.indexOf("\n$('#content').addEventListener('change'"));
 function render(state,options={}){
- const context=vm.createContext({state,propertyId:'TEST-KL',lang:'zh',calendarSpan:7,calendarProduct:'all',calendarGender:'all',calendarQuery:'',calendarGroup:'product',calendarStatus:'all',calendarSource:'all',displaySource:true,displayBalance:true,displayAvailability:true,compactRows:false,view:'calendar',sourceValues:['direct','walkin','booking','airbnb','agoda','tripcom','other'],businessDate:()=> '2027-01-30',folio,t:k=>k,can:()=>true,currency:n=>String(n),escape:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),nextDay:d=>new Date(Date.parse(d+'T00:00:00Z')+86400000).toISOString().slice(0,10),...options});
+ const context=vm.createContext({state,isBoxed,blockType,propertyId:'TEST-KL',lang:'zh',calendarSpan:7,calendarProduct:'all',calendarGender:'all',calendarQuery:'',calendarGroup:'product',calendarStatus:'all',calendarSource:'all',displaySource:true,displayBalance:true,displayAvailability:true,compactRows:false,view:'calendar',sourceValues:['direct','walkin','booking','airbnb','agoda','tripcom','other'],businessDate:()=> '2027-01-30',folio,t:k=>k,can:()=>true,currency:n=>String(n),escape:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),nextDay:d=>new Date(Date.parse(d+'T00:00:00Z')+86400000).toISOString().slice(0,10),...options});
  context.typeName=typeName;context.calendarRoomType=options.calendarRoomType||'all';
  vm.runInContext(renderer,context);
  return context.calendar(state.resources.filter(r=>r.propertyId==='TEST-KL'),state.orders,preview(state,'TEST-KL'),'2027-01-30');

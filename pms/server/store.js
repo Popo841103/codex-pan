@@ -8,9 +8,13 @@ export class ServiceError extends Error {
 }
 const error = (status, code) => { throw new ServiceError(status, code); };
 const hash = value => createHash('sha256').update(value).digest('hex');
+const changedBlocks = (before,after) => {
+  const a=new Map(before.map(b=>[b.id,JSON.stringify(b)])),b=new Map(after.map(b=>[b.id,JSON.stringify(b)]));
+  return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
+};
 const roleTypes = {
-  admin: ['create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive'],
-  operations: ['create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
+  admin: ['box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive'],
+  operations: ['box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
   finance: ['payment'], viewer: []
 };
 export class Store {
@@ -18,13 +22,17 @@ export class Store {
     this.db = new DatabaseSync(path);
     // Persistent triggers reject writes from an older runtime after a code rollback.
     // Registration belongs to this connection; old code cannot accidentally inherit it.
-    this.db.function('jovian_writer_generation', { deterministic: true }, () => 6);
+    this.db.function('jovian_writer_generation', { deterministic: true }, () => 8);
     this.db.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY);
       INSERT OR IGNORE INTO schema_version VALUES(1);
       CREATE TABLE IF NOT EXISTS properties (id TEXT PRIMARY KEY, revision INTEGER NOT NULL, body TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS properties_runtime_guard BEFORE UPDATE OF body ON properties
         WHEN jovian_writer_generation() < 6 BEGIN SELECT RAISE(ABORT,'incompatible_runtime'); END;
+      CREATE TRIGGER IF NOT EXISTS properties_runtime_guard_v7 BEFORE UPDATE OF body ON properties
+        WHEN jovian_writer_generation() < 7 BEGIN SELECT RAISE(ABORT,'incompatible_runtime'); END;
+      CREATE TRIGGER IF NOT EXISTS properties_runtime_guard_v8 BEFORE UPDATE OF body ON properties
+        WHEN jovian_writer_generation() < 8 BEGIN SELECT RAISE(ABORT,'incompatible_runtime'); END;
       CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, salt TEXT NOT NULL, password_hash TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('admin','operations','finance','viewer')), active INTEGER NOT NULL DEFAULT 1);
       CREATE TABLE IF NOT EXISTS user_properties (user_id TEXT NOT NULL REFERENCES users(id), property_id TEXT NOT NULL REFERENCES properties(id),
@@ -120,11 +128,11 @@ export class Store {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
     const ids=this.publicUser(fresh).propertyIds;
-    const result={version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],orders:[],blocks:[],audit:[],revisions:{}};
+    const result={version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{}};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
-      for(const field of ['properties','resources','roomTypes','physicalRooms','orders','blocks'])result[field].push(...body[field].filter(item=>(field==='properties'?item.id:item.propertyId)===id));
+      for(const field of ['properties','resources','roomTypes','physicalRooms','reservations','orders','blocks'])result[field].push(...body[field].filter(item=>(field==='properties'?item.id:item.propertyId)===id));
       result.revisions[id]=row.revision;
     }
     result.audit=this.db.prepare(`SELECT a.*,u.username actor FROM audit a JOIN users u ON u.id=a.actor_id
@@ -147,6 +155,7 @@ export class Store {
       const propertyId=command.propertyId;
       if(typeof propertyId!=='string')error(400,'input');
       this.authorize(user,propertyId);
+      if(command.type==='create_reservation'&&command.mode==='checkin'&&!roleTypes[rowUser.role].includes('checkin'))error(403,'forbidden');
       if(!roleTypes[rowUser.role].includes(command.type))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
@@ -178,12 +187,14 @@ export class Store {
       const catalogEntity = body => cmd.type==='room_type_save' ? body.roomTypes.find(t=>t.id===(cmd.roomTypeId||cmd.id)) :
         cmd.type==='physical_room_save' ? body.physicalRooms.find(r=>r.id===(cmd.physicalRoomId||`${cmd.id}-space`)) :
         body.resources.find(r=>r.id===(cmd.resourceId||cmd.id));
-      const summary={orderId:cmd.type==='create'?cmd.id:cmd.orderId||null,resourceId:cmd.resourceId||null,
+      const summary={...(cmd.type==='create_reservation'?{reservationId:cmd.id,stayIds:next.reservations.find(r=>r.id===cmd.id).stayIds}:{}),orderId:cmd.type==='create'?cmd.id:cmd.orderId||null,resourceId:cmd.resourceId||null,
         ...(cmd.roomTypeId?{roomTypeId:cmd.roomTypeId}:{}),
         ...(cmd.physicalRoomId?{physicalRoomId:cmd.physicalRoomId}:{}),
         ...(['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'].includes(cmd.type)?{catalogChange:{
           before:catalogEntity(before)||null,after:catalogEntity(next)||null}}:{}),
         ...(cmd.resourceIds?{resourceIds:cmd.resourceIds,cleaning:cmd.cleaning||null,start:cmd.start||null,end:cmd.end||null}:{}),
+        ...(['box_stays','restore_stays'].includes(cmd.type)?{stayIds:cmd.orderIds,inventoryChange:{before:before.orders.filter(o=>cmd.orderIds.includes(o.id)).map(o=>({id:o.id,inventoryStatus:o.inventoryStatus||'reserved',resourceId:o.resourceId})),after:next.orders.filter(o=>cmd.orderIds.includes(o.id)).map(o=>({id:o.id,inventoryStatus:o.inventoryStatus,resourceId:o.resourceId})),reason:cmd.reason}}:{}),
+        ...(['block','unblock','bulk_block','bulk_unblock'].includes(cmd.type)?{blockChange:changedBlocks(before.blocks,next.blocks)}:{}),
         fields:Object.keys(command).filter(k=>!['type','propertyId'].includes(k)),
         ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{})};
       this.db.prepare('INSERT INTO audit VALUES(?,?,?,?,?,?,?)').run(cmd.id,propertyId,user.id,cmd.type,cmd.at,revision,JSON.stringify(summary));

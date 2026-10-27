@@ -160,3 +160,13 @@ CO-HUB青旅与JOVIAN酒店式公寓共用一套JOVIAN PMS、一套代码和统�
 公网已确认0.6.0 shared-development、healthz及manifest200，首页/app/catalog-ui/catalog源码哈希与发布相同；匿名api/state401；server源码与恢复配置404；CO-HUB官网200。入口https://pms.jovianhome.com/web/，原账号沿用。GUI/手机实机、真实10房30床布局、PostgreSQL及NOBEDS/Google/支付/TTHotel仍未验证或连接。
 
 兼容回退：新版SQLite连接注册jovian_writer_generation=6，properties_runtime_guard持久触发器阻止旧版无函数或低generation连接更新body。旧代码回退可健康/读取，业务写入会拒绝，须修复重发兼容版本；不删除触发器、不自动用旧备份覆盖新数据。现有root固定更新器保留一致性备份和失败代码回退，未更换该可信脚本。详见docs/pms/deployment-2026-10-27.md。下一阶段多房多人和分段换房。
+
+
+## 最新调研与本地0.7（2026-10-27，未部署）
+
+已从本机调研聊天恢复SmartOrder-深度调研增量-2026-10-27.md，最新第13节优先，不要求用户重拍已有资料。首页工作台和多房多人订单在既有代码上继续：共享备忘录和真实队列、房床分开统计、独立日期逐夜价格和人数、批量草稿、原子主子单、分别入住与账务；writer generation7防止旧代码不理解新账务时写入。88项Node＋5项Python和可选进程内DOM检查通过。操作和差距见docs/pms/development-v07-2026-10-27.md、pms/README.md与使用说明。尚未推送或部署0.7，线上最后确认0.6.0；GUI／手机、PostgreSQL、设备和外部服务未验证。完整日历分段换房、价格计划／财务报表、网站自助入住聊天仍待继续，不能声称全部复刻完成。
+
+
+## 续做本地0.8（2026-10-27，未部署）
+
+用户“继续JOVIAN PMS”，接续本地0.7补日历空格预订／今日入住／关房菜单、同房跨日选择、三类关房与按记录部分释放。真正订单盒子独立于已占库存的待分房单；可批量移入／恢复，保留报价及收退款押金，恢复重验库存，不默认原房号。首页、列表、日历和服务端权限同步；writer generation8拒绝旧运行时写入。98项Node＋5项Python及进程内DOM流程通过，尚未推送、部署或修改线上。记录docs/pms/development-v08-2026-10-27.md；下一项历史分段换房换床。实际Edge／手机、专用PostgreSQL、NOBEDS／Google／支付／TTHotel仍未验证，完整功能尚未完成。

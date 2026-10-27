@@ -1,5 +1,7 @@
+import { isBoxed, occupiesInventory, operationalBlock, changeOrderBox } from './inventory-actions.js';
 import { planInventory } from './inventory.js';
 import { upgradeCatalog, configureCatalog, saleResources, overlapsAtoms, isClean, setCleaning } from './catalog.js';
+import { createReservation, stayDays, prepareStay } from './reservations.js';
 export class DemoError extends Error {}
 const reject = code => { throw new DemoError(code); };
 export function seed() {
@@ -12,14 +14,14 @@ export function seed() {
 }
 export function preview(state, propertyId) {
   state = upgradeCatalog(state);
-  const demands = state.orders.filter(o => o.propertyId === propertyId && !['checked_out','cancelled'].includes(o.status)).map(o => ({ id: o.id, propertyId, productId: o.productId, roomTypeId: o.roomTypeId, gender: o.gender, start: o.start, end: o.end, fixedResourceId: o.resourceId || undefined, sameRoomGroup: o.group || undefined }));
+  const demands = state.orders.filter(o => o.propertyId === propertyId && occupiesInventory(o)).map(o => ({ id: o.id, propertyId, productId: o.productId, roomTypeId: o.roomTypeId, gender: o.gender, start: o.start, end: o.end, fixedResourceId: o.resourceId || undefined, sameRoomGroup: o.group || undefined }));
   const available = new Set(saleResources(state, propertyId).map(r => r.id));
   return planInventory({ propertyId, resources: state.resources.filter(r => r.propertyId === propertyId).map(r => ({ ...r, archived: !available.has(r.id) })), demands, blocks: state.blocks.filter(b => b.propertyId === propertyId) });
 }
 // Mutations are copy-on-write: a failed operation leaves the original state intact.
 // Shared mode wraps this pure reducer in Store's authorized database transaction.
 export function apply(state, command) {
-  const next = upgradeCatalog(state);
+  let next = upgradeCatalog(state);
   for (const o of next.orders) { o.nightly ??= 0; o.transactions ??= []; o.notes ??= ''; o.source ??= 'direct'; o.locked ??= false; }
   const { type, propertyId } = command;
   if (['checkin','checkout'].includes(type) && (typeof command.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(command.date))) reject('date');
@@ -31,7 +33,14 @@ export function apply(state, command) {
   const catalogActions = ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'];
   const needsOrder = ['assign','checkin','checkout','edit','payment','cancel','lock'].includes(type);
   if (needsOrder && !order) reject('scope');
-  if (catalogActions.includes(type)) {
+  if (order && isBoxed(order) && ['assign','checkin','checkout','lock'].includes(type)) reject('box_state');
+  if (['box_stays','restore_stays'].includes(type)) {
+    changeOrderBox(next,command,preview);
+  } else if(type==='create_reservation') {
+    next=createReservation(next,command,apply,preview);
+  } else if(type==='memo_save') {
+    next.properties.find(p=>p.id===propertyId).memo={text:text(command.text,3000),at:command.at,actor:command.actor||'local'};
+  } else if (catalogActions.includes(type)) {
     configureCatalog(next, command);
   } else if (type === 'create') {
     if (!command.id || next.orders.some(o => o.id === command.id)) reject('duplicate');
@@ -56,11 +65,13 @@ export function apply(state, command) {
     if (order.status === 'checked_in' && command.start !== order.start) reject('state');
     if (typeof command.guest !== 'string' || !command.guest.trim()) reject('guest');
     order.guest = text(command.guest.trim(),100);
+    if(order.nightlyRates){const days=stayDays(command.start,command.end),rates=new Map(order.nightlyRates.map(r=>[r.date,r.amount]));order.nightlyRates=days.map(date=>({date,amount:command.nightly===order.nightly?(rates.get(date)??command.nightly):command.nightly}));}
     order.start = command.start; order.end = command.end;
     order.nightly = money(command.nightly);
     order.notes = text(command.notes || '',2000);
     order.source = validSource(command.source);
     Object.assign(order,guestFields(command,order));
+    if(command.occupants!==undefined&&order.reservationId)Object.assign(order,prepareStay(next,propertyId,{...order,occupants:command.occupants,arrivalTime:command.arrivalTime??order.arrivalTime,departureTime:command.departureTime??order.departureTime}));
   } else if (type === 'lock') {
     if (!order.resourceId || ['checked_out','cancelled'].includes(order.status)) reject('state');
     order.locked = !order.locked;
@@ -71,13 +82,14 @@ export function apply(state, command) {
     const balance = folio(order);
     if (command.kind === 'refund' && amount > balance.paid) reject('refund');
     if (command.kind === 'deposit_out' && amount > balance.deposit) reject('refund');
-    order.transactions.push({ id:command.id, kind:command.kind, amount, method:command.method, note:text(command.note||'',500), at:command.at });
+    order.transactions.push({ id:command.id, kind:command.kind, amount, method:command.method, reference:text(command.reference||'',100),note:text(command.note||'',500), at:command.at });
   } else if (type === 'cancel') {
     if (order.status !== 'confirmed' || !command.reason?.trim()) reject('state');
     order.finalCharge = money(command.finalCharge);
     order.status = 'cancelled'; order.cancelReason = text(command.reason,500);
   } else if (type === 'checkin') {
     if (order.status !== 'confirmed' || !order.resourceId) reject('state');
+    if(order.occupants){prepareStay(next,propertyId,order);if(order.occupants.some(p=>!p.name))reject('occupant_names');}
     resource = next.resources.find(r => r.id === order.resourceId);
     if (!isClean(next, resource)) reject('dirty');
     // Explicit simulated business date; do not use browser UTC date as property date.
@@ -102,14 +114,16 @@ export function apply(state, command) {
       validRange(command.start,command.end);
       const atoms=[...new Set(selected.flatMap(r=>r.atoms))];
       if(type==='bulk_block'){
-        const reason=text(command.reason||'',500);
+        const detail=operationalBlock(command);
         // Never displace an in-house guest, including when their planned departure is overdue.
         if(next.orders.some(o=>o.status==='checked_in'&&next.resources.find(r=>r.id===o.resourceId)?.atoms.some(a=>atoms.includes(a))))reject('occupied');
-        next.blocks.push({id:command.id,propertyId,atoms,start:command.start,end:command.end,reason});
+        next.blocks.push({id:command.id,propertyId,atoms,start:command.start,end:command.end,...detail});
       }else{
         // Release only selected atoms during the requested range. Preserve other dates/atoms.
+        const blockIds=command.blockIds;
+        if(blockIds!==undefined&&(!Array.isArray(blockIds)||!blockIds.length||new Set(blockIds).size!==blockIds.length||blockIds.some(id=>!next.blocks.some(b=>b.id===id&&b.propertyId===propertyId))))reject('scope');
         next.blocks=next.blocks.flatMap((b,index)=>{
-          if(b.propertyId!==propertyId||b.end<=command.start||b.start>=command.end||!b.atoms.some(a=>atoms.includes(a)))return [b];
+          if(b.propertyId!==propertyId||blockIds&&!blockIds.includes(b.id)||b.end<=command.start||b.start>=command.end||!b.atoms.some(a=>atoms.includes(a)))return [b];
           const parts=[],remaining=b.atoms.filter(a=>!atoms.includes(a));
           if(remaining.length)parts.push({...b,id:`${command.id}-${index}-other`,atoms:remaining});
           const hit=b.atoms.filter(a=>atoms.includes(a));
@@ -126,7 +140,7 @@ export function apply(state, command) {
     if (!resource) reject('scope');
     validRange(command.start,command.end);
     if(next.orders.some(o=>o.status==='checked_in'&&next.resources.find(r=>r.id===o.resourceId)?.atoms.some(a=>resource.atoms.includes(a))))reject('occupied');
-    next.blocks.push({ id: command.id, propertyId, atoms: resource.atoms, start: command.start, end: command.end });
+    next.blocks.push({ id: command.id, propertyId, atoms: resource.atoms, start: command.start, end: command.end, ...operationalBlock(command) });
   } else if (type === 'unblock') {
     const block = next.blocks.find(b => b.id === command.blockId && b.propertyId === propertyId);
     if (!block) reject('scope');
@@ -139,10 +153,12 @@ export function apply(state, command) {
 
 const text = (value, max) => { if(typeof value !== 'string' || value.length > max) reject('input'); return value; };
 const money = value => { if (!Number.isSafeInteger(value) || value < 0 || value > 100000000) reject('amount'); return value; };
-const validSource = value => { if (!['direct','walkin','booking','airbnb','agoda','tripcom','other'].includes(value)) reject('input'); return value; };
+const validSource = value => { if (!['direct','walkin','booking','airbnb','agoda','tripcom','expedia','traveloka','tiket','bookingengine','chinesesite','rednote','neppan','hostelworld','tujia','vrbo','xiaozhu','temairazu','rakuten','klook','other'].includes(value)) reject('input'); return value; };
 export function folio(order) {
   const nights = Math.round((Date.parse(order.end)-Date.parse(order.start))/86400000);
-  const charge = order.finalCharge ?? nights*(order.nightly||0);
+  const roomCharge=order.nightlyRates?order.nightlyRates.reduce((n,r)=>n+r.amount,0):nights*(order.nightly||0);
+  const extras=(order.extraCharges||[]).reduce((n,r)=>n+(r.kind==='charge'?1:-1)*r.quantity*r.unitAmount,0);
+  const charge = order.finalCharge ?? roomCharge+extras;
   const transactions = order.transactions || [];
   const sum = kind => transactions.filter(t=>t.kind===kind).reduce((n,t)=>n+t.amount,0);
   const paid = sum('payment')-sum('refund');

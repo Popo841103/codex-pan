@@ -51,8 +51,10 @@ test('rollback connections cannot write incompatible state and failed writes pre
     assert.deepEqual(current.read(admin),before);
     assert.equal(current.db.prepare('SELECT COUNT(*) AS n FROM claims WHERE owner=?').get(result.id).n,2);
     // A future older runtime that registers its own lower generation is also rejected.
-    old.function('jovian_writer_generation',{deterministic:true},()=>5);
-    assert.throws(()=>old.prepare('UPDATE properties SET body=? WHERE id=?').run(row.body,'TEST-KL'),/incompatible_runtime/);
+    for(const generation of [5,6,7]){
+      old.function('jovian_writer_generation',{deterministic:true},()=>generation);
+      assert.throws(()=>old.prepare('UPDATE properties SET body=? WHERE id=?').run(row.body,'TEST-KL'),/incompatible_runtime/);
+    }
     current.command(admin,{key:randomUUID(),expectedRevision:1,command:{type:'resource_archive',propertyId:'TEST-KL',resourceId:'TEST-KL-R2',archived:true}});
     assert.equal(current.read(admin).resources.find(r=>r.id==='TEST-KL-R2').archived,true);
   }finally{old?.close();current.close();rmSync(dir,{recursive:true,force:true});}
