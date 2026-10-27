@@ -12,7 +12,14 @@ writer generation升到8。新盒子状态及关房类型不被旧版正确理�
 
 ## 发布结果
 
-发布准备中，尚未将本段作为成功证据。部署提交、Actions运行、备份位置及公网独立核验结果在完成后追加。
+**已部署成功**，2026-10-27约16:40（Asia/Singapore）。
+
+- 代码提交：`6ae390e66bb8e34abfe7657d1335038854db2b43`；分支：`jovian-pms-test`。
+- Actions：https://github.com/Popo841103/codex-pan/actions/runs/40475081719；任务`122091222326`的Verify PMS、Check deployment setup、Deploy existing PMS test service均success。CI日志确认98项Node通过、0失败和5项Python通过。
+- 数据库备份：`/var/backups/jovian-pms-test/update-QKnwNAny/jovian.sqlite`；同目录保留上一发布路径和新代码提交。沿用原账号、会话和业务数据库，没有重建账号或覆盖数据库。
+- 发布树54个目标文件Git blob哈希与本地一致，30个新增／修改文件，其他原文件保留。main与旧部署分支仍为发布前SHA，未修改。文档收尾单独提交docs路径，不再次触发PMS部署。
+- 公网独立核验：api/mode返回0.8.0 shared-development；healthz200且test-only；manifest200且standalone；未登录api/state401；server/store.js和account-recovery.json404；CO-HUB官网200。
+- 新版首页、app、首页UI、多房UI、日历操作、库存操作、订单、统计、catalog、reducer、CSS及catalog-ui共12个静态文件均200且SHA256／字节与本次发布相同。详见[公网检查原始结果](deployment-v08-public-checks-2026-10-27.json)。
 
 ## 验证边界
 

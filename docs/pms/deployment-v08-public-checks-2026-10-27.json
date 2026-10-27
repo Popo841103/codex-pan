@@ -1,0 +1,112 @@
+[
+  {
+    "path": "/api/mode",
+    "status": 200,
+    "json": {
+      "mode": "shared-development",
+      "version": "0.8.0"
+    }
+  },
+  {
+    "path": "/healthz",
+    "status": 200,
+    "json": {
+      "ok": true,
+      "service": "jovian-pms",
+      "data": "test-only"
+    }
+  },
+  {
+    "path": "/web/manifest.webmanifest",
+    "status": 200,
+    "display": "standalone"
+  },
+  {
+    "path": "/api/state",
+    "status": 401
+  },
+  {
+    "path": "/server/store.js",
+    "status": 404
+  },
+  {
+    "path": "/server/account-recovery.json",
+    "status": 404
+  },
+  {
+    "path": "/web/",
+    "status": 200,
+    "sha256": "419df91a607357e352dc38b32deff6ddaf69a8c68789dbca7bcc91dbfc2eea2d",
+    "matchesRelease": true
+  },
+  {
+    "path": "/web/app.js",
+    "status": 200,
+    "sha256": "79a284cd97849867a0c4fa6bb279af3280657bed66bbc590372394991df5ce84",
+    "matchesRelease": true
+  },
+  {
+    "path": "/web/reservation-ui.js",
+    "status": 200,
+    "sha256": "8d4f70a2608b45409f7aed79e0e9320f4433d2cef2ce8877c1d25ee9e8701ff2",
+    "matchesRelease": true
+  },
+  {
+    "path": "/web/dashboard-ui.js",
+    "status": 200,
+    "sha256": "feb24b686f4ccb0f7e4f32de1ab5e931d4c476d566f2c8d0cda0b88d8aff95d7",
+    "matchesRelease": true
+  },
+  {
+    "path": "/web/calendar-actions.js",
+    "status": 200,
+    "sha256": "4670f45f9c01d622af541b7c35135158bd7e4ec2fb88d2db3bb813c7f393bd50",
+    "matchesRelease": true
+  },
+  {
+    "path": "/src/inventory-actions.js",
+    "status": 200,
+    "sha256": "8aad602063deacec03aec408e500a67f7e13cc80c4e5aea7a37054e4190fe9bf",
+    "matchesRelease": true
+  },
+  {
+    "path": "/src/reservations.js",
+    "status": 200,
+    "sha256": "db838eaa44185606d9348ab9f19de78992e961efb7735811d69bb6ad092f1596",
+    "matchesRelease": true
+  },
+  {
+    "path": "/src/dashboard.js",
+    "status": 200,
+    "sha256": "9e039d3494d8fc96daf0112899e143c43e45a9427ad1991e8eac6c9850f1ce5a",
+    "matchesRelease": true
+  },
+  {
+    "path": "/src/catalog.js",
+    "status": 200,
+    "sha256": "89751eaa95af9c5d63205715f2cc0889efa710b1228dadc481324905d31028da",
+    "matchesRelease": true
+  },
+  {
+    "path": "/src/demo-store.js",
+    "status": 200,
+    "sha256": "c7960542d9d35b0822041d8d819d575ba43e82e0eac282b6b7f87b95d7fc8bdb",
+    "matchesRelease": true
+  },
+  {
+    "path": "/web/style.css",
+    "status": 200,
+    "sha256": "db9d37d7a5816e735976089a8d667b961dcbbee9bfa836a3abac1c9a40daa42a",
+    "matchesRelease": true
+  },
+  {
+    "path": "/web/catalog-ui.js",
+    "status": 200,
+    "sha256": "9aeb0701703d599b61bf3c1df85106123a42f454cfcf566df690f84bdb389efb",
+    "matchesRelease": true
+  },
+  {
+    "site": "CO-HUB",
+    "status": 200
+  }
+]
