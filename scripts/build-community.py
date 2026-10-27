@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261027-faq1'
+VERSION='20261027-nav1'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -109,9 +109,13 @@ def prepare(tree,filename):
  tools.xpath('.//label')[0].append(select)
  tree.xpath('//header')[0].append(tools)
  for a in list(nav.xpath('./a')):
-  if 'nav-book' not in a.get('class',''):nav.remove(a)
- anchors=[('community.html',['Community','社区与活动','Komuniti']),('guide.html',['Visit & guide','到店与入住指南','Lokasi & panduan']),('index.html#cafe',['Café & beer','咖啡与精酿','Kafe & bir'])]
+  if 'nav-book' not in a.get('class','') or a.get('href')=='community.html':nav.remove(a)
+ anchors=[('guide.html',['Visit & guide','到店与入住指南','Lokasi & panduan']),('index.html#cafe',['Café & beer','咖啡与精酿','Kafe & bir'])]
  for i,(url,s) in enumerate(anchors):nav.insert(i,html.fromstring(link(url,*s,cls='nav-link')))
+ community_button=html.fromstring('<a class="nav-book nav-community" href="community.html"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M7 3v4m10-4v4M3 11h18M7 15h3m4 0h3M7 18h3"></path></svg>'+t('span','Community','社区活动','Komuniti')+'</a>')
+ supply=nav.xpath('./a[@href="supply.html"]')
+ if supply:supply[0].addprevious(community_button)
+ else:nav.append(community_button)
  for a in tree.xpath('//header/a[contains(@class,"brand")]'):a.set('href','index.html')
  for old in tree.xpath('//*[contains(concat(" ",normalize-space(@class)," ")," site-shortcuts ")]'):old.getparent().remove(old)
  shortcuts='<div class="site-shortcuts" role="navigation" aria-label="Explore CO-HUB">'+''.join(link(url,*s,cls='shortcut') for url,s in [('stay.html',['Stay','住宿','Menginap']),('community.html',['Community','社区活动','Komuniti']),('guide.html',['Arrival guide','到店指南','Panduan tiba']),('supply.html',['Supply','供应链','Bekalan'])])+'</div>'

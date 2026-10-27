@@ -44,3 +44,4 @@ header nav{gap:16px}.nav-book{display:inline-flex;align-items:center;gap:8px;whi
 @media(prefers-reduced-motion:reduce){.cafe-photo img{transition:none}}
 /* One compact FAQ entry on the homepage; questions open only on request. */
 #faq.section{padding-block:24px}#faq>#faq-disclosure{padding:0;border-block:1px solid #32271e25}#faq-disclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 0;list-style:none}#faq-disclosure>summary::-webkit-details-marker{display:none}#faq-disclosure>summary h2{font-size:clamp(20px,3vw,28px);margin:0}#faq-disclosure>summary::after{content:'+';font-size:26px;font-weight:400}#faq-disclosure[open]>summary::after{content:'−'}#faq-disclosure>details{padding:16px 0}#faq-disclosure>details:last-child{border-bottom:0}
+.nav-community{background:#ddd0b5;color:var(--ink)}
