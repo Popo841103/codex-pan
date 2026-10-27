@@ -33,3 +33,6 @@ GitHub Actions40181279754部署a20b174成功。新增16份locale-*.json与既有
 
 ## 会员邮箱前端上线（2026-10-26）
 GitHub运行40279423892成功部署162a82b。会员弹窗、邮箱密码表单、个人活动中心与本地官方SDK已发布；公网10个HTML/JS/CSS/语言文件HTTP与SHA256匹配，中文注册窗口、真实SDK加载及未配置Google入口隐藏已由本地浏览器验证。云端Chromium公网检查因执行环境代理CA不在浏览器信任库而停止；公网内容校验使用受信HTTPS客户端，未关闭TLS验证。未代用户注册、未发真实验证邮件。用户已发截图确认Site URL和community.html Redirect URL填写正确；SMTP及真实注册送达仍待用户邮箱测试，Google/钱包未开通，不宣称所有渠道可用。
+
+## 日历页面已部署（2026-10-27）
+官网提交4828ecb3ca7894337d5c91dc8b12ef4652eda60d通过Actions40503627424部署成功；公网community.html、community-admin.html、calendar.js/css、host-event.js、languages.js与locale-zh-TW.json的HTTP及SHA256与提交文件一致。周/月视图、详情与复用报名接口已部署；线上数据库仍缺ends_at/category字段（公开只读探测HTTP400），增量迁移及管理员授权尚未执行。因此不能把管理页上线称为生产后台已经启用。操作见docs/community-calendar.md，SQL见scripts/member-system/calendar.sql。
