@@ -1,0 +1,216 @@
+{
+  "checkedAt": "2026-10-27T12:52:54.123922+00:00",
+  "commit": "6486e490296048a21338688c74c485b88780a4a6",
+  "checks": [
+    {
+      "path": "/healthz",
+      "status": 200,
+      "response": {
+        "ok": true,
+        "service": "jovian-pms",
+        "data": "test-only"
+      }
+    },
+    {
+      "path": "/api/mode",
+      "status": 200,
+      "response": {
+        "mode": "shared-development",
+        "version": "0.9.0"
+      }
+    },
+    {
+      "path": "/web/manifest.webmanifest",
+      "status": 200,
+      "response": {
+        "id": "/web/",
+        "name": "JOVIAN PMS",
+        "short_name": "JOVIAN",
+        "description": "Hotel and hostel operations",
+        "lang": "en",
+        "start_url": "/web/",
+        "scope": "/web/",
+        "display": "standalone",
+        "background_color": "#f5f6f2",
+        "theme_color": "#163c32",
+        "icons": [
+          {
+            "src": "icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+          },
+          {
+            "src": "icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+          },
+          {
+            "src": "icon-maskable.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+          }
+        ]
+      }
+    },
+    {
+      "path": "/api/state",
+      "status": 401
+    },
+    {
+      "path": "/api/support?propertyId=TEST-KL",
+      "status": 401
+    },
+    {
+      "path": "/api/guest-messages?propertyId=TEST-KL",
+      "status": 401
+    },
+    {
+      "path": "/api/checkin-admin?propertyId=TEST-KL",
+      "status": 401
+    },
+    {
+      "path": "/api/self-checkin/session",
+      "status": 401
+    },
+    {
+      "path": "/server/self-checkin.js",
+      "status": 404
+    },
+    {
+      "path": "/server/nobeds-messages.js",
+      "status": 404
+    },
+    {
+      "path": "/server/account-recovery.json",
+      "status": 404
+    },
+    {
+      "path": "/.data/self-checkin.key",
+      "status": 404
+    },
+    {
+      "path": "/self-checkin.key",
+      "status": 404
+    },
+    {
+      "path": "/web/",
+      "status": 200,
+      "sha256": "6862a7b8d4cf1f32786467ae0a1efd91a279c13cac41922e9bdc982413170475",
+      "matches": true
+    },
+    {
+      "path": "/web/app.js",
+      "status": 200,
+      "sha256": "a392f5c1eb4771d1160fba00362625c07dded3975fb78c4aaa677f1637e9eb55",
+      "matches": true
+    },
+    {
+      "path": "/web/style.css",
+      "status": 200,
+      "sha256": "e4a77f3866c9595a32df9472572077444242a6996e3f061d45bf828dfaeece4d",
+      "matches": true
+    },
+    {
+      "path": "/web/backend.js",
+      "status": 200,
+      "sha256": "bca805ea62b9b012c6945ce9a2bf106454969d8886ddee97bf44169fcd659f47",
+      "matches": true
+    },
+    {
+      "path": "/web/communication-ui.js",
+      "status": 200,
+      "sha256": "c9e76b7f8b797c7ddb7edc0e77c924cfa3f7a1944e679932ac3adb5a2d20dadc",
+      "matches": true
+    },
+    {
+      "path": "/web/checkin-admin-ui.js",
+      "status": 200,
+      "sha256": "5a07e94b44687ab4c362efb9583d137b519c40dd7357f42452f104a2523d83e1",
+      "matches": true
+    },
+    {
+      "path": "/web/self-checkin.js",
+      "status": 200,
+      "sha256": "6924926b5c78517d3684caeb9d255b67ac8ed1d258679be5fbc53bd392886bcd",
+      "matches": true
+    },
+    {
+      "path": "/web/vendor/qrcode.js",
+      "status": 200,
+      "sha256": "b870e9c9b05057ccc324dba71c8f532673c025a4a9995b8680c7f696a5f35282",
+      "matches": true
+    },
+    {
+      "path": "/checkin/",
+      "status": 200,
+      "sha256": "fccb5270d1067e892346c511569462f31eed527d62454a273bb0ee27a87cfa7b",
+      "matches": true,
+      "referrerPolicy": "no-referrer",
+      "cacheControl": "no-store"
+    },
+    {
+      "path": "/web/calendar-actions.js",
+      "status": 200,
+      "sha256": "4670f45f9c01d622af541b7c35135158bd7e4ec2fb88d2db3bb813c7f393bd50",
+      "matches": true
+    },
+    {
+      "path": "/web/catalog-ui.js",
+      "status": 200,
+      "sha256": "9aeb0701703d599b61bf3c1df85106123a42f454cfcf566df690f84bdb389efb",
+      "matches": true
+    },
+    {
+      "path": "/web/dashboard-ui.js",
+      "status": 200,
+      "sha256": "feb24b686f4ccb0f7e4f32de1ab5e931d4c476d566f2c8d0cda0b88d8aff95d7",
+      "matches": true
+    },
+    {
+      "path": "/web/reservation-ui.js",
+      "status": 200,
+      "sha256": "8d4f70a2608b45409f7aed79e0e9320f4433d2cef2ce8877c1d25ee9e8701ff2",
+      "matches": true
+    },
+    {
+      "path": "/src/catalog.js",
+      "status": 200,
+      "sha256": "89751eaa95af9c5d63205715f2cc0889efa710b1228dadc481324905d31028da",
+      "matches": true
+    },
+    {
+      "path": "/src/reservations.js",
+      "status": 200,
+      "sha256": "db838eaa44185606d9348ab9f19de78992e961efb7735811d69bb6ad092f1596",
+      "matches": true
+    },
+    {
+      "path": "/src/inventory-actions.js",
+      "status": 200,
+      "sha256": "8aad602063deacec03aec408e500a67f7e13cc80c4e5aea7a37054e4190fe9bf",
+      "matches": true
+    },
+    {
+      "path": "/src/demo-store.js",
+      "status": 200,
+      "sha256": "c7960542d9d35b0822041d8d819d575ba43e82e0eac282b6b7f87b95d7fc8bdb",
+      "matches": true
+    },
+    {
+      "path": "/src/inventory.js",
+      "status": 200,
+      "sha256": "80bd3f9a246ef37ef2b24c40625f13304cd69ae4dee65b7ac221b76ea6efd9a9",
+      "matches": true
+    },
+    {
+      "path": "/src/dashboard.js",
+      "status": 200,
+      "sha256": "9e039d3494d8fc96daf0112899e143c43e45a9427ad1991e8eac6c9850f1ce5a",
+      "matches": true
+    }
+  ],
+  "cohubStatus": 200
+}
