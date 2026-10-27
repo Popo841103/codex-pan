@@ -13,7 +13,7 @@
  async function init(){
   if(client)return client;if(loading)return loading;
   loading=(async()=>{
-   if(!window.CohubSupabase)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='member-sdk.js?v=20261026-editorial2';s.onload=resolve;s.onerror=reject;document.body.append(s);});
+   if(!window.CohubSupabase)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='member-sdk.js?v=20261027-calendar1';s.onload=resolve;s.onerror=reject;document.body.append(s);});
    let passwordReturn=false;
    try{const verifier=JSON.parse(localStorage.getItem('sb-'+new URL(cfg.projectUrl).hostname.split('.')[0]+'-auth-token-code-verifier')||'null');passwordReturn=new URLSearchParams(location.search).has('code')&&typeof verifier==='string'&&verifier.endsWith('/PASSWORD_RECOVERY');}catch{}
    client=CohubSupabase.createClient(cfg.projectUrl,cfg.publishableKey,{auth:{persistSession:true,storage:localStorage,flowType:'pkce',detectSessionInUrl:true},global:{fetch:(url,opts={})=>fetch(url,{...opts,signal:opts.signal||AbortSignal.timeout(20000)})}});
@@ -120,6 +120,18 @@
    ['Follow',()=>memberAction(async()=>{const {error}=await client.from('cohub_follows').upsert({event_id:event.id,user_id:user.id},{onConflict:'event_id,user_id',ignoreDuplicates:true});if(error)throw error;if(!dialog.open)dialog.showModal();mode='mine';tab='following';showViews();await loadMine();status('Saved to your activities.');})]
   ]));
  }));
+
+ // Shared authenticated actions for the calendar. No token or password is exposed.
+ window.COHUB_MEMBER={
+  client:async()=>{await init();return client;},
+  login:()=>open('mine'),
+  host:()=>open('host'),
+  join:id=>action(()=>memberAction(async()=>{
+   const {error}=await client.rpc('cohub_request_join',{target_event:id});if(error)throw error;
+   if(!dialog.open)dialog.showModal();mode='mine';tab='pending';showViews();await loadMine();
+   status('Your request was saved. The team will confirm participation.');
+  }))
+ };
  $('language').addEventListener('change',()=>{if($('member-status').dataset.message)status($('member-status').dataset.message);showViews();});
  addEventListener('hashchange',()=>{if(location.hash==='#host-event')void open('host');if(location.hash==='#my-activities')void open('mine');});
  syncDialogCopy();

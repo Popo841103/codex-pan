@@ -4,7 +4,7 @@ from lxml import html, etree
 from urllib.parse import urlencode
 import html as H, json
 R=Path(__file__).resolve().parents[1]
-VERSION='20261026-editorial2'
+VERSION='20261027-calendar1'
 def t(tag,en,zh,ms,attrs=''):
  esc=H.escape
  ms=ms.replace('。','.')
@@ -328,3 +328,5 @@ etree.SubElement(tree.xpath('//body')[0],'script',src='host-event.js?v='+VERSION
 
 # Member forms and dashboard are maintained alongside the database contract.
 __import__('runpy').run_path(str(R/'scripts/member-system/build-ui.py'))
+
+__import__('runpy').run_path(str(R/'scripts/member-system/build-calendar.py'))
