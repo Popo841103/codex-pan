@@ -2,23 +2,29 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { seed, apply, preview } from '../src/demo-store.js';
 import { InventoryConflict } from '../src/inventory.js';
+import { upgradeCatalog } from '../src/catalog.js';
 export class ServiceError extends Error {
   constructor(status, code) { super(code); this.status = status; }
 }
 const error = (status, code) => { throw new ServiceError(status, code); };
 const hash = value => createHash('sha256').update(value).digest('hex');
 const roleTypes = {
-  admin: ['create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
+  admin: ['create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive'],
   operations: ['create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
   finance: ['payment'], viewer: []
 };
 export class Store {
   constructor(path) {
     this.db = new DatabaseSync(path);
+    // Persistent triggers reject writes from an older runtime after a code rollback.
+    // Registration belongs to this connection; old code cannot accidentally inherit it.
+    this.db.function('jovian_writer_generation', { deterministic: true }, () => 6);
     this.db.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY);
       INSERT OR IGNORE INTO schema_version VALUES(1);
       CREATE TABLE IF NOT EXISTS properties (id TEXT PRIMARY KEY, revision INTEGER NOT NULL, body TEXT NOT NULL);
+      CREATE TRIGGER IF NOT EXISTS properties_runtime_guard BEFORE UPDATE OF body ON properties
+        WHEN jovian_writer_generation() < 6 BEGIN SELECT RAISE(ABORT,'incompatible_runtime'); END;
       CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, salt TEXT NOT NULL, password_hash TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('admin','operations','finance','viewer')), active INTEGER NOT NULL DEFAULT 1);
       CREATE TABLE IF NOT EXISTS user_properties (user_id TEXT NOT NULL REFERENCES users(id), property_id TEXT NOT NULL REFERENCES properties(id),
@@ -46,7 +52,8 @@ export class Store {
     return this.transaction(() => {
       const s = seed();
       for (const p of s.properties) {
-        const body = { ...s, properties: [p], resources: s.resources.filter(r=>r.propertyId===p.id), orders: [], blocks: [], audit: [] };
+        const body = { ...s, properties: [p], resources: s.resources.filter(r=>r.propertyId===p.id),
+          roomTypes:s.roomTypes.filter(r=>r.propertyId===p.id),physicalRooms:s.physicalRooms.filter(r=>r.propertyId===p.id),orders: [], blocks: [], audit: [] };
         this.db.prepare('INSERT OR IGNORE INTO properties VALUES (?,0,?)').run(p.id, JSON.stringify(body));
       }
     });
@@ -113,11 +120,11 @@ export class Store {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
     const ids=this.publicUser(fresh).propertyIds;
-    const result={version:1,properties:[],resources:[],orders:[],blocks:[],audit:[],revisions:{}};
+    const result={version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],orders:[],blocks:[],audit:[],revisions:{}};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
-      const body=JSON.parse(row.body);
-      for(const field of ['properties','resources','orders','blocks'])result[field].push(...body[field]);
+      const body=upgradeCatalog(JSON.parse(row.body));
+      for(const field of ['properties','resources','roomTypes','physicalRooms','orders','blocks'])result[field].push(...body[field].filter(item=>(field==='properties'?item.id:item.propertyId)===id));
       result.revisions[id]=row.revision;
     }
     result.audit=this.db.prepare(`SELECT a.*,u.username actor FROM audit a JOIN users u ON u.id=a.actor_id
@@ -147,8 +154,9 @@ export class Store {
       if(row.revision!==expectedRevision)error(409,'stale_revision');
       // Never accept browser-created timestamps, command IDs or an actor identity.
       const cmd={...command,id:randomUUID(),at:new Date().toISOString(),actor:rowUser.username};
+      const before=upgradeCatalog(JSON.parse(row.body));
       let next;
-      try{ next=apply(JSON.parse(row.body),cmd); }
+      try{ next=apply(before,cmd); }
       catch(e){ if(e instanceof InventoryConflict)error(409,'inventory_conflict');error(400,e.message||'input'); }
       // Database occupancy constraints include internal, unassigned reservations.
       this.db.prepare('DELETE FROM claims WHERE property_id=?').run(propertyId);
@@ -167,7 +175,14 @@ export class Store {
       const revision=row.revision+1;
       next.audit=[]; // Durable audit is stored separately, never trusted from the browser.
       this.db.prepare('UPDATE properties SET revision=?,body=? WHERE id=?').run(revision,JSON.stringify(next),propertyId);
+      const catalogEntity = body => cmd.type==='room_type_save' ? body.roomTypes.find(t=>t.id===(cmd.roomTypeId||cmd.id)) :
+        cmd.type==='physical_room_save' ? body.physicalRooms.find(r=>r.id===(cmd.physicalRoomId||`${cmd.id}-space`)) :
+        body.resources.find(r=>r.id===(cmd.resourceId||cmd.id));
       const summary={orderId:cmd.type==='create'?cmd.id:cmd.orderId||null,resourceId:cmd.resourceId||null,
+        ...(cmd.roomTypeId?{roomTypeId:cmd.roomTypeId}:{}),
+        ...(cmd.physicalRoomId?{physicalRoomId:cmd.physicalRoomId}:{}),
+        ...(['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'].includes(cmd.type)?{catalogChange:{
+          before:catalogEntity(before)||null,after:catalogEntity(next)||null}}:{}),
         ...(cmd.resourceIds?{resourceIds:cmd.resourceIds,cleaning:cmd.cleaning||null,start:cmd.start||null,end:cmd.end||null}:{}),
         fields:Object.keys(command).filter(k=>!['type','propertyId'].includes(k)),
         ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{})};

@@ -36,7 +36,7 @@ export function makeServer(store, { publicOrigin, recovery = null } = {}) {
       const origin=publicOrigin||`http://${req.headers.host}`;
       if(req.method!=='GET'&&(req.headers.origin!==origin||req.headers['sec-fetch-site']==='cross-site'))throw new ServiceError(403,'origin');
       const url=new URL(req.url,origin), path=url.pathname;
-      if(path==='/api/mode'&&req.method==='GET')return json(res,200,{mode:'shared-development',version:'0.5.1'});
+      if(path==='/api/mode'&&req.method==='GET')return json(res,200,{mode:'shared-development',version:'0.6.0'});
       if(path==='/api/account-recovery'&&req.method==='POST'){
         const attemptKey='recovery|'+req.socket.remoteAddress,now=Date.now();
         for(const [key,value] of attempts)if(value.until<=now)attempts.delete(key);
@@ -78,7 +78,7 @@ export function makeServer(store, { publicOrigin, recovery = null } = {}) {
       const assets={'/web/':'web/index.html','/web/index.html':'web/index.html','/web/app.js':'web/app.js','/web/style.css':'web/style.css',
         '/web/backend.js':'web/backend.js','/web/recovery.html':'web/recovery.html','/web/recovery.js':'web/recovery.js','/web/pwa.js':'web/pwa.js','/web/sw.js':'web/sw.js',
         '/web/manifest.webmanifest':'web/manifest.webmanifest','/web/offline.html':'web/offline.html',
-        '/web/icon-192.png':'web/icon-192.png','/web/icon-512.png':'web/icon-512.png','/web/icon-maskable.png':'web/icon-maskable.png','/src/inventory.js':'src/inventory.js','/src/demo-store.js':'src/demo-store.js'};
+        '/web/icon-192.png':'web/icon-192.png','/web/icon-512.png':'web/icon-512.png','/web/icon-maskable.png':'web/icon-maskable.png','/src/inventory.js':'src/inventory.js','/src/demo-store.js':'src/demo-store.js','/src/catalog.js':'src/catalog.js','/web/catalog-ui.js':'web/catalog-ui.js'};
       if(!Object.hasOwn(assets,path))throw new ServiceError(404,'not_found');
       const mime=path.endsWith('.png')?'image/png':path.endsWith('.webmanifest')?'application/manifest+json':path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html';
       const content=await readFile(join(root,assets[path]));res.writeHead(200,{'Content-Type':mime+(path.endsWith('.png')?'':'; charset=utf-8'),'Cache-Control':'no-store'});res.end(content);

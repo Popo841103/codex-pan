@@ -19,7 +19,7 @@ export function planInventory({ propertyId, resources, demands, blocks = [] }) {
   for (const r of resources) {
     if (!r.id || ids.has(r.id)) fail('Duplicate or missing resource');
     ids.add(r.id);
-    if (r.propertyId !== propertyId || !r.roomId || !r.productId || !Array.isArray(r.atoms) ||
+    if (r.propertyId !== propertyId || (!r.roomId && r.productId !== 'suite') || !r.productId || !Array.isArray(r.atoms) ||
         !r.atoms.length || new Set(r.atoms).size !== r.atoms.length) fail('Invalid resource scope');
   }
   const demandIds = new Set();
@@ -34,7 +34,7 @@ export function planInventory({ propertyId, resources, demands, blocks = [] }) {
         b.atoms.some(atom => !resources.some(r => r.atoms.includes(atom)))) fail('Invalid block scope');
   }
   const candidates = new Map(demands.map(d => [d.id, resources.filter(r =>
-    r.productId === d.productId && (!d.fixedResourceId || r.id === d.fixedResourceId) &&
+    !r.archived && r.productId === d.productId && (!d.roomTypeId || r.roomTypeId === d.roomTypeId) && (!d.fixedResourceId || r.id === d.fixedResourceId) &&
     (!r.gender || r.gender === 'any' || r.gender === d.gender) &&
     !blocks.some(b => overlaps(d, b) && shares(r, b))
   ).sort((a, b) => a.id.localeCompare(b.id))]));
@@ -47,7 +47,7 @@ export function planInventory({ propertyId, resources, demands, blocks = [] }) {
     const demand = pending[index];
     for (const resource of candidates.get(demand.id)) {
       if (chosen.some(x => (overlaps(demand, x.demand) && shares(resource, x.resource)) ||
-          (demand.sameRoomGroup && demand.sameRoomGroup === x.demand.sameRoomGroup && resource.roomId !== x.resource.roomId))) continue;
+          (demand.sameRoomGroup && demand.sameRoomGroup === x.demand.sameRoomGroup && (!resource.roomId || resource.roomId !== x.resource.roomId)))) continue;
       chosen.push({ demand, resource });
       if (search(index + 1)) return true;
       chosen.pop();

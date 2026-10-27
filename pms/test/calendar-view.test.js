@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {seed,preview,apply,folio} from '../src/demo-store.js';
+import {typeName} from '../src/catalog.js';
 // Execute the actual renderer with deterministic state; no copied rendering logic.
 const source=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
 const renderer=source.slice(source.indexOf('function calendar('),source.indexOf("\n$('#content').addEventListener('change'"));
 function render(state,options={}){
  const context=vm.createContext({state,propertyId:'TEST-KL',lang:'zh',calendarSpan:7,calendarProduct:'all',calendarGender:'all',calendarQuery:'',calendarGroup:'product',calendarStatus:'all',calendarSource:'all',displaySource:true,displayBalance:true,displayAvailability:true,compactRows:false,view:'calendar',sourceValues:['direct','walkin','booking','airbnb','agoda','tripcom','other'],businessDate:()=> '2027-01-30',folio,t:k=>k,can:()=>true,currency:n=>String(n),escape:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),nextDay:d=>new Date(Date.parse(d+'T00:00:00Z')+86400000).toISOString().slice(0,10),...options});
+ context.typeName=typeName;context.calendarRoomType=options.calendarRoomType||'all';
  vm.runInContext(renderer,context);
  return context.calendar(state.resources.filter(r=>r.propertyId==='TEST-KL'),state.orders,preview(state,'TEST-KL'),'2027-01-30');
 }
@@ -40,4 +42,12 @@ test('calendar renders one header for each physical dorm in room grouping',()=>{
  const html=render(seed(),{calendarProduct:'bed',calendarGroup:'room'});
  assert.equal((html.match(/scope="rowgroup"/g)||[]).length,5);
  assert.match(html,/TEST-KL-D1/);assert.match(html,/TEST-KL-D5/);
+});
+test('configured room type names, sort order and exact room type filters reach the calendar',()=>{
+ let state=apply(seed(),{type:'room_type_save',propertyId:'TEST-KL',id:'configured-type',productId:'room',gender:'any',maxGuests:2,sortOrder:1,names:{zh:'测试双床',en:'TEST twin',ms:'UJIAN kembar'}});
+ state=apply(state,{type:'physical_room_save',propertyId:'TEST-KL',id:'configured-room',kind:'room',roomTypeId:'configured-type',label:'TEST 99',floor:'1'});
+ const html=render(state,{calendarRoomType:'configured-type'});
+ assert.match(html,/测试双床/);assert.match(html,/TEST 99/);
+ assert.match(html,/data-cell="configured-room-unit-1"/);
+ assert.doesNotMatch(html,/data-cell="TEST-KL-R1"/);
 });
