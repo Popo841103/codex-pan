@@ -1,3 +1,6 @@
+import {SelfCheckin,checkinPermissions} from './self-checkin.js';
+import {GuestMessages,guestPermissions} from './guest-messages.js';
+import {SupportDesk,supportPermissions} from './support.js';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { seed, apply, preview } from '../src/demo-store.js';
@@ -18,11 +21,11 @@ const roleTypes = {
   finance: ['payment'], viewer: []
 };
 export class Store {
-  constructor(path) {
+  constructor(path,{messagesAdapter,selfCheckin={}}={}) {
     this.db = new DatabaseSync(path);
     // Persistent triggers reject writes from an older runtime after a code rollback.
     // Registration belongs to this connection; old code cannot accidentally inherit it.
-    this.db.function('jovian_writer_generation', { deterministic: true }, () => 8);
+    this.db.function('jovian_writer_generation', { deterministic: true }, () => 9);
     this.db.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY);
       INSERT OR IGNORE INTO schema_version VALUES(1);
@@ -33,6 +36,8 @@ export class Store {
         WHEN jovian_writer_generation() < 7 BEGIN SELECT RAISE(ABORT,'incompatible_runtime'); END;
       CREATE TRIGGER IF NOT EXISTS properties_runtime_guard_v8 BEFORE UPDATE OF body ON properties
         WHEN jovian_writer_generation() < 8 BEGIN SELECT RAISE(ABORT,'incompatible_runtime'); END;
+      CREATE TRIGGER IF NOT EXISTS properties_runtime_guard_v9 BEFORE UPDATE OF body ON properties
+        WHEN jovian_writer_generation() < 9 BEGIN SELECT RAISE(ABORT,'incompatible_runtime'); END;
       CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, salt TEXT NOT NULL, password_hash TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('admin','operations','finance','viewer')), active INTEGER NOT NULL DEFAULT 1);
       CREATE TABLE IF NOT EXISTS user_properties (user_id TEXT NOT NULL REFERENCES users(id), property_id TEXT NOT NULL REFERENCES properties(id),
@@ -49,6 +54,9 @@ export class Store {
         action TEXT NOT NULL, at TEXT NOT NULL, revision INTEGER NOT NULL, summary TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS audit_no_update BEFORE UPDATE ON audit BEGIN SELECT RAISE(ABORT,'audit_append_only'); END;
       CREATE TRIGGER IF NOT EXISTS audit_no_delete BEFORE DELETE ON audit BEGIN SELECT RAISE(ABORT,'audit_append_only'); END;`);
+    this.support=new SupportDesk(this);
+    this.guest=new GuestMessages(this,messagesAdapter);
+    this.checkin=new SelfCheckin(this,selfCheckin);
   }
   close() { this.db.close(); }
   transaction(fn) {
@@ -109,7 +117,7 @@ export class Store {
     });
   }
   publicUser(user) {
-    return { id:user.id,username:user.username,role:user.role,allowedActions:[...roleTypes[user.role]],
+    return { id:user.id,username:user.username,role:user.role,allowedActions:[...roleTypes[user.role],...supportPermissions(user.role),...guestPermissions(user.role),...checkinPermissions(user.role)],
       propertyIds:this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=? ORDER BY property_id').all(user.id).map(p=>p.property_id) };
   }
   session(token) {
@@ -140,7 +148,7 @@ export class Store {
         id:a.id,propertyId:a.property_id,type:a.action,at:a.at,actor:a.actor,revision:a.revision,...JSON.parse(a.summary) }));
     return result;
   }
-  command(user,{key,expectedRevision,command}) {
+  command(user,{key,expectedRevision,command},{beforeApply}={}) {
     if(typeof key!=='string'||!/^[a-zA-Z0-9_-]{8,100}$/.test(key)||!command||typeof command!=='object'||Array.isArray(command)||
        !Number.isSafeInteger(expectedRevision)||expectedRevision<0)error(400,'input');
     if (['create','edit','block','bulk_block','bulk_unblock'].includes(command.type)) {
@@ -165,8 +173,10 @@ export class Store {
       const cmd={...command,id:randomUUID(),at:new Date().toISOString(),actor:rowUser.username};
       const before=upgradeCatalog(JSON.parse(row.body));
       let next;
+      if(beforeApply)beforeApply(before);
       try{ next=apply(before,cmd); }
       catch(e){ if(e instanceof InventoryConflict)error(409,'inventory_conflict');error(400,e.message||'input'); }
+      this.checkin.onOrderChange(before,next);
       // Database occupancy constraints include internal, unassigned reservations.
       this.db.prepare('DELETE FROM claims WHERE property_id=?').run(propertyId);
       const insert=this.db.prepare('INSERT INTO claims VALUES(?,?,?,?)');

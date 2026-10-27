@@ -5,3 +5,8 @@ node_modules/
 *.sqlite-wal
 # Real deployment environment files must never be committed.
 deploy/*.env
+
+# Server-side encryption keys and local integration credentials.
+*.key
+*.secret.json
+config/local/

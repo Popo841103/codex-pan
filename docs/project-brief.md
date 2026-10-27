@@ -175,3 +175,15 @@ CO-HUB青旅与JOVIAN酒店式公寓共用一套JOVIAN PMS、一套代码和统�
 ## 0.8.0已部署（2026-10-27，更新前述本地状态）
 
 用户明确“继续部署吧，不要停”，已沿原GitHub配置发布代码6ae390e66bb8e34abfe7657d1335038854db2b43，运行40475081719、任务122091222326全部success。98项Node＋5项Python通过；备份/var/backups/jovian-pms-test/update-QKnwNAny/jovian.sqlite。公网已核实0.8.0、healthz与manifest200、12个静态文件与发布一致、匿名state401、server与恢复配置404、CO-HUB官网200。原账号与数据库沿用，没有重新初始化；main和旧部署分支未动。入口https://pms.jovianhome.com/web/。发布记录docs/pms/deployment-v08-2026-10-27.md；文档收尾仅docs路径，不二次部署。GUI/手机/PostgreSQL及NOBEDS/Google/支付/TTHotel仍未验证，分段换房等未实现模块继续按差距表推进。
+
+
+## 2026-10-27晚间续做前暂停
+
+用户新增明确要求：后台技术客服（联系方式稍后配置）、NOBEDS连接各OTA客人聊天，以及网站／二维码／链接自助入住并联TTHotel六位限时密码。门锁尚未购买，这几天买；已说明固定六位需要兼容自定义密码及联网条件，不能将随机6–9位截短或只凭订单／证件号领码。当前新增support/guest messaging服务端与communication UI初稿未完成联调、自助入住仅调研，未升版或部署。用户要求关机晚上继续，已暂停。接续先读docs/pms/work-in-progress-2026-10-27.md；不能直接推送未完成工作区。线上仍0.8.0，原账号数据保持。
+
+
+## 0.9续做本地验证完成（2026-10-27）
+
+用户恢复“继续JOVIAN PMS”。既有0.8上新增后台技术客服工单/三语帮助、NOBEDS OTA消息收件箱/内部备注/幂等发送状态、自助登记公共入口和私人QR/链接、文字身份加密/人工审核/付款押金清洁时段门槛。Node123＋Python5、27运行JS语法和两套进程内DOM通过。准备沿既有授权更新独立PMS测试服务，最终以docs/pms/deployment-v09-2026-10-27.md为准。详细差距docs/pms/development-v09-2026-10-27.md。
+
+用户确认客服联系方式稍后配置，门锁尚未购买。NOBEDS未配置，公开文档仅明确Booking.com/Airbnb消息，不宣称全部OTA已接。TTHotel仅接口/状态机，生产HTTP发码/撤销和设备映射联调未完成；未连接时不生成PIN或自动入住。自助登记默认关闭，照片/短信/OCR未实现，订单/证件号单独不可取码。SQLite备份不含登记密钥，真实身份使用前需独立密钥备份/恢复和运营规则验收。writer9保护变更后门禁失效，旧版不可写；PostgreSQL、实际浏览器/手机和外部服务仍未验证，完整SmartOrder功能仍未完成。
