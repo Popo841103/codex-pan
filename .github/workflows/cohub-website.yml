@@ -1,0 +1,61 @@
+name: CO-HUB website deployment
+on:
+  push:
+    branches: [cohub-website]
+    paths:
+      - '*.html'
+      - '*.js'
+      - '*.css'
+      - community-activities.json
+      - 'locale-*.json'
+      - scripts/i18n/**
+      - assets/**
+      - scripts/deploy/**
+      - tests/**
+      - .github/workflows/cohub-website.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cohub-website-production
+  cancel-in-progress: false
+jobs:
+  verify-and-deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify deployment safety and build website
+        run: |
+          python3 scripts/i18n/check-locales.py
+          python3 tests/deploy-release.py
+          bash -n scripts/deploy/ci/setup-server.sh
+          bash -n scripts/deploy/ci/receive-release.sh
+          python3 scripts/deploy/build-static.py cohub-release.zip
+      - name: Require separate website credentials
+        env:
+          DEPLOY_KEY: ${{ secrets.COHUB_SSH_KEY }}
+          HOST_KEYS: ${{ secrets.COHUB_KNOWN_HOSTS }}
+        run: |
+          if [[ -z "$DEPLOY_KEY" || -z "$HOST_KEYS" ]]; then
+            echo 'Website NOT deployed: configure COHUB_SSH_KEY and COHUB_KNOWN_HOSTS after the one-time website receiver setup.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - name: Deploy CO-HUB website only
+        env:
+          DEPLOY_KEY: ${{ secrets.COHUB_SSH_KEY }}
+          HOST_KEYS: ${{ secrets.COHUB_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          TASK_SSH_DIR=$(mktemp -d)
+          trap 'rm -rf -- "$TASK_SSH_DIR"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$TASK_SSH_DIR/key"
+          printf '%s\n' "$HOST_KEYS" > "$TASK_SSH_DIR/known_hosts"
+          SSH=(ssh -F /dev/null -i "$TASK_SSH_DIR/key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$TASK_SSH_DIR/known_hosts" -o ConnectTimeout=20 root@207.148.78.107)
+          "${SSH[@]}" status
+          "${SSH[@]}" "deploy $GITHUB_SHA" < cohub-release.zip
+          echo "CO-HUB website deployment verified for commit $GITHUB_SHA. PMS unchanged." >> "$GITHUB_STEP_SUMMARY"

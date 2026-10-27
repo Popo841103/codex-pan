@@ -1,0 +1,272 @@
+[
+  [
+    "Host an event",
+    "发起活动",
+    "Anjurkan aktiviti"
+  ],
+  [
+    "My activities",
+    "我的活动",
+    "Aktiviti saya"
+  ],
+  [
+    "Sign in",
+    "登录",
+    "Log masuk"
+  ],
+  [
+    "Create account",
+    "注册账号",
+    "Daftar akaun"
+  ],
+  [
+    "Email",
+    "邮箱",
+    "E-mel"
+  ],
+  [
+    "Password",
+    "密码",
+    "Kata laluan"
+  ],
+  [
+    "Use at least 8 characters. Verify your email before hosting or joining an event.",
+    "密码至少8位。发起或参加活动前，请先验证邮箱。",
+    "Gunakan sekurang-kurangnya 8 aksara. Sahkan e-mel sebelum menganjurkan atau menyertai aktiviti."
+  ],
+  [
+    "Forgot password",
+    "忘记密码",
+    "Lupa kata laluan"
+  ],
+  [
+    "Resend verification email",
+    "重发验证邮件",
+    "Hantar semula e-mel pengesahan"
+  ],
+  [
+    "Sign out",
+    "退出登录",
+    "Log keluar"
+  ],
+  [
+    "Check your email to confirm your account, then sign in.",
+    "请到邮箱确认账号，然后返回登录。",
+    "Semak e-mel untuk mengesahkan akaun, kemudian log masuk."
+  ],
+  [
+    "Please verify your email first.",
+    "请先验证邮箱。",
+    "Sila sahkan e-mel dahulu."
+  ],
+  [
+    "We could not complete this request. Please try again or contact the team.",
+    "暂时无法完成，请重试或联系团队。",
+    "Permintaan tidak dapat diselesaikan. Cuba lagi atau hubungi pasukan."
+  ],
+  [
+    "Email delivery is unavailable or limited. Please contact the team.",
+    "验证邮件暂时无法发送或已达限额，请联系团队。",
+    "Penghantaran e-mel tidak tersedia atau terhad. Sila hubungi pasukan."
+  ],
+  [
+    "Incorrect email or password.",
+    "邮箱或密码不正确。",
+    "E-mel atau kata laluan tidak betul."
+  ],
+  [
+    "If the account exists, check your email for the next step.",
+    "如账号存在，请查看邮箱中的后续操作邮件。",
+    "Jika akaun wujud, semak e-mel untuk langkah seterusnya."
+  ],
+  [
+    "Event title",
+    "活动名称",
+    "Tajuk aktiviti"
+  ],
+  [
+    "Event description",
+    "活动介绍",
+    "Penerangan aktiviti"
+  ],
+  [
+    "Date and time (Malaysia time)",
+    "日期与时间（马来西亚时间）",
+    "Tarikh dan masa (waktu Malaysia)"
+  ],
+  [
+    "Location",
+    "地点",
+    "Lokasi"
+  ],
+  [
+    "Participant limit",
+    "人数上限",
+    "Had peserta"
+  ],
+  [
+    "Event language",
+    "现场语言",
+    "Bahasa aktiviti"
+  ],
+  [
+    "Fees and what is included",
+    "费用及包含内容",
+    "Bayaran dan perkara yang disertakan"
+  ],
+  [
+    "Submit for review",
+    "提交审核",
+    "Hantar untuk semakan"
+  ],
+  [
+    "Your event was saved and is awaiting team review.",
+    "活动已保存，等待团队审核。",
+    "Aktiviti disimpan dan menunggu semakan pasukan."
+  ],
+  [
+    "Submitting an event does not confirm the venue, date or fees.",
+    "提交活动不代表场地、日期或费用已确认。",
+    "Menghantar aktiviti tidak mengesahkan tempat, tarikh atau bayaran."
+  ],
+  [
+    "Joined",
+    "已参加",
+    "Disertai"
+  ],
+  [
+    "Hosting",
+    "我发起的",
+    "Saya anjurkan"
+  ],
+  [
+    "Following",
+    "已关注",
+    "Diikuti"
+  ],
+  [
+    "Co-hosting",
+    "联合主办",
+    "Penganjur bersama"
+  ],
+  [
+    "Pending",
+    "待处理",
+    "Menunggu"
+  ],
+  [
+    "No activities here yet.",
+    "这里暂时没有活动。",
+    "Belum ada aktiviti di sini."
+  ],
+  [
+    "Approved",
+    "已通过",
+    "Diluluskan"
+  ],
+  [
+    "Rejected",
+    "未通过",
+    "Ditolak"
+  ],
+  [
+    "Cancelled",
+    "已取消",
+    "Dibatalkan"
+  ],
+  [
+    "Confirmed",
+    "已确认",
+    "Disahkan"
+  ],
+  [
+    "Requested",
+    "报名待确认",
+    "Permohonan menunggu pengesahan"
+  ],
+  [
+    "Invited",
+    "受邀待处理",
+    "Jemputan menunggu"
+  ],
+  [
+    "Accept",
+    "接受",
+    "Terima"
+  ],
+  [
+    "Decline",
+    "拒绝",
+    "Tolak"
+  ],
+  [
+    "Upcoming events",
+    "即将举行的活动",
+    "Aktiviti akan datang"
+  ],
+  [
+    "Confirmed events will appear here. You can register your interests below.",
+    "已确认的活动将在这里公布，也可以在下方登记兴趣。",
+    "Aktiviti yang disahkan akan dipaparkan di sini. Daftar minat anda di bawah."
+  ],
+  [
+    "Request to join",
+    "申请参加",
+    "Mohon menyertai"
+  ],
+  [
+    "Follow",
+    "关注",
+    "Ikuti"
+  ],
+  [
+    "Your request was saved. The team will confirm participation.",
+    "申请已保存，参加安排由团队确认。",
+    "Permohonan disimpan. Pasukan akan mengesahkan penyertaan."
+  ],
+  [
+    "Saved to your activities.",
+    "已保存到我的活动。",
+    "Disimpan dalam aktiviti anda."
+  ],
+  [
+    "Choose a future date.",
+    "请选择未来的日期。",
+    "Pilih tarikh akan datang."
+  ],
+  [
+    "Google sign-in",
+    "使用Google登录",
+    "Log masuk dengan Google"
+  ],
+  [
+    "Update password",
+    "更新密码",
+    "Kemas kini kata laluan"
+  ],
+  [
+    "Your password was updated.",
+    "密码已更新。",
+    "Kata laluan dikemas kini."
+  ],
+  [
+    "Loading…",
+    "正在加载…",
+    "Sedang dimuatkan…"
+  ],
+  [
+    "Password must contain at least 8 characters.",
+    "密码至少需要8位。",
+    "Kata laluan mestilah sekurang-kurangnya 8 aksara."
+  ],
+  [
+    "You already host this event.",
+    "你已是该活动的发起人。",
+    "Anda sudah menganjurkan aktiviti ini."
+  ],
+  [
+    "Please sign in again.",
+    "请重新登录。",
+    "Sila log masuk semula."
+  ]
+]

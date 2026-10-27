@@ -1,0 +1,354 @@
+"""Build the community, enquiry and arrival pages from confirmed business facts."""
+from pathlib import Path
+from lxml import html, etree
+from urllib.parse import urlencode
+import html as H, json
+R=Path(__file__).resolve().parents[1]
+VERSION='20261027-food1'
+def t(tag,en,zh,ms,attrs=''):
+ esc=H.escape
+ ms=ms.replace('。','.')
+ return f'<{tag} {attrs} data-en="{esc(en,quote=True)}" data-zh="{esc(zh,quote=True)}" data-ms="{esc(ms,quote=True)}">{esc(en)}</{tag}>'
+def p(*s,attrs=''):return t('p',*s,attrs)
+def h(level,*s):return t('h'+str(level),*s)
+def link(url,*s,cls='button',external=False):return t('a',*s,f'class="{cls}" href="{H.escape(url,quote=True)}"'+(' target="_blank" rel="noopener noreferrer"' if external else ''))
+def interest(code):return 'enquiry.html?'+urlencode({'type':'activities','interest':code})
+A=[{'id': 'ai-meetup',
+  'name': ['AI Meetup', 'AI 交流局', 'Pertemuan AI'],
+  'tag': ['AI · IDEAS · CONVERSATION', 'AI · 想法 · 交流', 'AI · IDEA · PERBUALAN'],
+  'desc': ['Share AI tools, practical tips and questions. Beginners are welcome. Session topics, hosts, '
+           'dates and fees will be confirmed before participation.',
+           '分享AI工具、实际用法与遇到的问题，欢迎初学者。每场主题、主持人、日期和费用将在参加前确认。',
+           'Kongsi alat AI, petua praktikal dan soalan. Pemula dialu-alukan. Topik, hos, tarikh dan bayaran '
+           'akan disahkan sebelum penyertaan.']},
+ {'id': 'ai-agents',
+  'name': ['AI Build Lab', 'AI 动手实验室', 'Makmal Amali AI'],
+  'tag': ['BUILD · SHARE · LEARN', '动手实践 · 分享交流', 'BINA · KONGSI · BELAJAR'],
+  'desc': ['Bring a use case or an idea. Share practical ways to use AI agents, automation and digital tools '
+           'in work and everyday projects.',
+           '带一个真实需求或想法来，交流AI Agent、自动化与数字工具在工作和个人项目中的实际用法。',
+           'Bawa kegunaan sebenar atau idea. Kongsi cara praktikal menggunakan AI agent, automasi dan alat '
+           'digital dalam kerja serta projek harian.']},
+ {'id': 'language-exchange',
+  'name': ['Language & Culture Exchange', '语言文化交流桌', 'Pertukaran Bahasa & Budaya'],
+  'tag': ['LANGUAGE · CULTURE · CONNECTION', '语言 · 文化 · 相遇', 'BAHASA · BUDAYA · HUBUNGAN'],
+  'desc': ['Practise languages, meet people from around the world and share stories about travel and life in '
+           'Kuala Lumpur. Languages, hosts, dates and fees will be confirmed for each session.',
+           '练习语言，认识世界各地的朋友，分享旅行与吉隆坡生活。每场使用语言、主持人、日期和费用将另行确认。',
+           'Berlatih bahasa, kenali rakan dari seluruh dunia dan kongsi kisah perjalanan serta kehidupan di '
+           'Kuala Lumpur. Bahasa, hos, tarikh dan bayaran akan disahkan bagi setiap sesi.']},
+ {'id': 'nomads',
+  'name': ['CO-HUB Nomad Circle', 'CO-HUB 数字游民圈', 'CO-HUB Lingkaran Nomad'],
+  'tag': ['REMOTE WORK · COMMUNITY', '远程工作 · 社群', 'KERJA JARAK JAUH · KOMUNITI'],
+  'desc': ['Meet remote workers, freelancers and creators. Exchange ideas about projects, collaboration and '
+           'life in Kuala Lumpur.',
+           '认识远程工作者、自由职业者与创作者，交流项目、协作方式，以及在吉隆坡生活的经验。',
+           'Temui pekerja jarak jauh, pekerja bebas dan pencipta. Kongsi idea tentang projek, kerjasama dan '
+           'kehidupan di Kuala Lumpur.']},
+ {'id': 'web3',
+  'name': ['Web3 Builders Circle', 'Web3 构建者交流', 'Lingkaran Pembina Web3'],
+  'tag': ['TECHNOLOGY · IDEAS · COLLABORATION', '技术 · 想法 · 协作', 'TEKNOLOGI · IDEA · KERJASAMA'],
+  'desc': ['A meeting point for developers, designers and curious minds to discuss Web3 tools, product ideas '
+           'and possible collaborations.',
+           '面向开发者、设计师及感兴趣的朋友，聊Web3工具、产品想法与协作机会。',
+           'Ruang pertemuan untuk pembangun, pereka dan mereka yang ingin tahu bagi membincangkan alat Web3, '
+           'idea produk dan peluang kerjasama.']},
+ {'id': 'women-yoga',
+  'name': ['Women’s Yoga & Meditation', '女性瑜伽与冥想', 'Yoga & Meditasi Wanita'],
+  'tag': ['WELLBEING · MOVEMENT · MINDFULNESS', '身心放松 · 瑜伽 · 冥想', 'KESEJAHTERAAN · PERGERAKAN · KESEDARAN'],
+  'desc': ['Register your interest in yoga, breathing and meditation sessions for women. The instructor, '
+           'level, venue, equipment, dates and fees will be confirmed before participation.',
+           '面向女性的瑜伽、呼吸练习与冥想活动，现开放兴趣登记。带领人、适合程度、场地、用品、日期和费用将在参加前确认。',
+           'Daftar minat untuk sesi yoga, pernafasan dan meditasi bagi wanita. Pengajar, tahap, tempat, '
+           'peralatan, tarikh dan bayaran akan disahkan sebelum penyertaan.']},
+ {'id': 'coffee',
+  'name': ['Coffee & Latte Art Experience', '咖啡制作与拉花体验', 'Pengalaman Kopi & Seni Latte'],
+  'tag': ['COFFEE · HANDS-ON', '咖啡 · 动手体验', 'KOPI · PRAKTIKAL'],
+  'desc': ['Explore coffee preparation, espresso and latte art with others who enjoy a good cup. Session '
+           'details and participation fees will be announced when confirmed.',
+           '和喜欢咖啡的朋友一起认识咖啡制作、意式萃取与拉花。具体体验内容和费用确定后公布。',
+           'Terokai penyediaan kopi, espresso dan seni latte bersama peminat kopi lain. Butiran sesi dan '
+           'bayaran penyertaan akan diumumkan selepas disahkan.']},
+ {'id': 'beer-pour',
+  'name': ['Craft Beer Pouring Experience', '精酿啤酒打酒体验', 'Pengalaman Menuang Bir Kraf'],
+  'tag': ['CRAFT BEER · HANDS-ON', '精酿 · 打酒体验', 'BIR KRAF · PRAKTIKAL'],
+  'desc': ['Discover the beer tap, pouring technique and foam control in a guided hands-on session. Beer '
+           'selections, dates and fees will be confirmed before participation.',
+           '在引导下体验酒头操作、倒酒方法与泡沫控制。体验酒款、日期和费用将在参加前确认。',
+           'Kenali paip bir, teknik menuang dan kawalan buih melalui pengalaman berpandu. Pilihan bir, '
+           'tarikh dan bayaran akan disahkan sebelum penyertaan.']},
+ {'id': 'city-walk',
+  'name': ['KL Culture City Walk', '吉隆坡宗教与文化漫步', 'City Walk Budaya Kuala Lumpur'],
+  'tag': ['CITY · CULTURE · CONNECTION', '城市 · 文化 · 相遇', 'BANDAR · BUDAYA · HUBUNGAN'],
+  'desc': ['Explore Kuala Lumpur’s religious and cultural diversity together. The route, meeting point, '
+           'visit arrangements and any fees will be shared when a walk is confirmed.',
+           '一起认识吉隆坡多元的宗教与城市文化。路线、集合点、参访安排及可能产生的费用，会在活动确定后说明。',
+           'Kenali kepelbagaian agama dan budaya Kuala Lumpur bersama-sama. Laluan, tempat berkumpul, aturan '
+           'lawatan dan sebarang bayaran akan dikongsi apabila aktiviti disahkan.']},
+ {'id': 'travel-diving',
+  'name': ['Travel & Diving', '旅行与潜水', 'Pengembaraan & Selam Skuba'],
+  'tag': ['TRAVEL · OCEAN · CONNECTION', '旅行 · 海洋 · 交流', 'PENGEMBARAAN · LAUT · KOMUNITI'],
+  'desc': ['Meet fellow travellers and diving enthusiasts to exchange destination ideas and ocean '
+           'experiences. Trip plans, participation requirements, dates and any fees will be confirmed before '
+           'an activity.',
+           '认识旅行与潜水爱好者，分享目的地灵感和海洋体验。具体行程、参加条件、日期及费用将在活动确定后说明。',
+           'Temui pengembara dan peminat selam skuba untuk berkongsi idea destinasi serta pengalaman laut. '
+           'Jadual perjalanan, syarat penyertaan, tarikh dan sebarang bayaran akan disahkan sebelum '
+           'aktiviti.']}]
+for activity in A:activity['cover']='assets/coffee/cohub-event-'+activity['id']+'-v2.webp'
+(R/'community-activities.json').write_text(json.dumps(A,ensure_ascii=False,indent=2))
+# Consistent navigation on existing and generated pages; keep supply and stay prominent.
+def prepare(tree,filename):
+ nav=tree.xpath('//header/nav')[0]
+ select=tree.xpath('//*[@id="language"]')[0]
+ select.getparent().remove(select)
+ for old in tree.xpath('//header/div[@class="language-tools"]'):old.getparent().remove(old)
+ for value,label in [('en','English'),('zh','简体中文'),('ms','Bahasa Melayu')]:
+  select.xpath('./option[@value=$v]',v=value)[0].text=label
+ tools=html.fromstring('<div class="language-tools"><span class="language-tools-title">🌐 Language / 语言</span><div class="native-language-options"><button type="button" data-native-language="en">English</button><button type="button" data-native-language="zh">简体中文</button><button type="button" data-native-language="ms">Bahasa Melayu</button></div><label class="more-language-choice"><span data-en="More languages" data-zh="更多语言" data-ms="Bahasa lain">More languages</span></label></div>')
+ tools.xpath('.//label')[0].append(select)
+ tree.xpath('//header')[0].append(tools)
+ for a in list(nav.xpath('./a')):
+  if 'nav-book' not in a.get('class','') or a.get('href')=='community.html':nav.remove(a)
+ anchors=[('guide.html',['Visit & guide','到店与入住指南','Lokasi & panduan']),('index.html#cafe',['Food & drinks','美食与饮品','Makanan & minuman'])]
+ for i,(url,s) in enumerate(anchors):nav.insert(i,html.fromstring(link(url,*s,cls='nav-link')))
+ community_button=html.fromstring('<a class="nav-book nav-community" href="community.html"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M7 3v4m10-4v4M3 11h18M7 15h3m4 0h3M7 18h3"></path></svg>'+t('span','Community','社区活动','Komuniti')+'</a>')
+ supply=nav.xpath('./a[@href="supply.html"]')
+ if supply:supply[0].addprevious(community_button)
+ else:nav.append(community_button)
+ for a in tree.xpath('//header/a[contains(@class,"brand")]'):a.set('href','index.html')
+ for old in tree.xpath('//*[contains(concat(" ",normalize-space(@class)," ")," site-shortcuts ")]'):old.getparent().remove(old)
+ shortcuts='<div class="site-shortcuts" role="navigation" aria-label="Explore CO-HUB">'+''.join(link(url,*s,cls='shortcut') for url,s in [('stay.html',['Stay','住宿','Menginap']),('community.html',['Community','社区活动','Komuniti']),('guide.html',['Arrival guide','到店指南','Panduan tiba']),('supply.html',['Supply','供应链','Bekalan'])])+'</div>'
+ header=tree.xpath('//header')[0];header.addnext(html.fromstring(shortcuts))
+ foot=tree.xpath('//footer')[0]
+ for e in foot.xpath('./div[@class="footer-links"]'):foot.remove(e)
+ foot.append(html.fromstring('<div class="footer-links">'+''.join(link(url,*s,cls='text-link',external=url.startswith('https:')) for url,s in [('guide.html',['Arrival & stay guide','到店与入住指南','Panduan ketibaan']),('community.html',['Community & experiences','社区与体验','Komuniti & pengalaman']),('enquiry.html?type=opening',['Opening updates','开业通知登记','Berita pembukaan']),('https://www.instagram.com/cohub.kl/',['Instagram · @cohub.kl','Instagram · @cohub.kl','Instagram · @cohub.kl'])])+'</div>'))
+ if not tree.xpath('//link[starts-with(@href,"community.css")]'):etree.SubElement(tree.xpath('//head')[0],'link',rel='stylesheet',href='community.css')
+ if not tree.xpath('//script[starts-with(@src,"languages.js")]'):
+  scripts=tree.xpath('//script[@src]')
+  language_script=etree.Element('script',src='languages.js')
+  if scripts:scripts[0].addprevious(language_script)
+  else:tree.xpath('//body')[0].append(language_script)
+ # Clear cache for changed public resources.
+ for e in tree.xpath('//script[@src]|//link[@rel="stylesheet"]'):
+  key='src' if e.tag=='script' else 'href';u=e.get(key).split('?')[0]
+  if not u.startswith(('https:','http:')):e.set(key,u+'?v='+VERSION)
+ return tree
+for filename in ['index.html','stay.html','supply.html','beer.html','coffee.html']:
+ tree=prepare(html.fromstring((R/filename).read_bytes()),filename)
+ (R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+base=html.fromstring((R/'index.html').read_bytes())
+HEADER=html.tostring(base.xpath('//header')[0],encoding='unicode')
+FOOTER=html.tostring(base.xpath('//footer')[0],encoding='unicode')
+def page(filename,title,description,main,scripts=[]):
+ source='<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+H.escape(title)+'</title><meta name="description" content="'+H.escape(description,quote=True)+'"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="community.css"></head><body>'+HEADER+main+FOOTER+'<script src="app.js"></script>'+''.join('<script src="'+s+'"></script>' for s in scripts)+'<script src="site-ui.js"></script></body></html>'
+ tree=prepare(html.fromstring(source),filename);(R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+intro='<section class="section community-hero"><div>'+p('CO-HUB / NOMADS & BUILDERS','CO-HUB / 数字游民与共创者','CO-HUB / NOMAD & PEMBINA',attrs='class="eyebrow"')+h(1,'Meet people.\nShare ideas.\nBuild something.','认识新朋友，\n交流新想法，\n一起创造。','Kenali orang baharu.\nKongsi idea.\nCipta sesuatu.')+p('A community for remote workers, creators and curious minds in Kuala Lumpur. Start with conversations about AI, Web3 and projects; stay for culture, travel, diving, coffee and craft beer.','在吉隆坡，连接远程工作者、创作者和充满好奇心的朋友。从AI、Web3与项目交流开始，也一起体验城市文化、旅行、潜水、咖啡与精酿。','Komuniti untuk pekerja jarak jauh, pencipta dan mereka yang ingin tahu di Kuala Lumpur. Mulakan dengan AI, Web3 dan projek; nikmati budaya, pengembaraan, selam skuba, kopi serta bir kraf.')+link('#builders','Explore the community ↓','认识我们的社区 ↓','Terokai komuniti ↓')+'</div><aside class="community-note">'+p('INTEREST REGISTRATION OPEN','开放兴趣登记','PENDAFTARAN MINAT DIBUKA',attrs='class="eyebrow"')+h(2,'Tell us what\nyou want to join.','告诉我们，\n你想参与什么。','Beritahu kami\naktiviti pilihan anda.')+p('Activities are being planned. Dates, fees, capacity and arrangements will be confirmed before participation. Sending an interest enquiry does not reserve a place.','活动正在筹备。日期、费用、名额及安排会在参加前确认。提交兴趣咨询不代表已经报名成功或保留名额。','Aktiviti sedang dirancang. Tarikh, bayaran, kapasiti dan aturan akan disahkan sebelum penyertaan. Pertanyaan minat tidak menempah tempat.')+link('enquiry.html?type=activities','Register your interests ↗','登记活动兴趣 ↗','Daftar minat ↗')+'</aside></section>'
+def cards(items):
+ s='<div class="experience-grid">'
+ for a in items:s+='<article class="experience-card activity-theme-card"><div class="activity-cover"><img src="'+H.escape(a['cover'],quote=True)+'" alt="" aria-hidden="true" loading="lazy" decoding="async" width="1672" height="941"></div><div class="activity-card-content">'+p(*a['tag'],attrs='class="eyebrow"')+h(3,*a['name'])+p(*a['desc'])+p('In planning · Details to be confirmed','筹备中 · 详情待确认','Dalam perancangan · Butiran akan disahkan',attrs='class="planning-label"')+link(interest(a['id']),'I’m interested ↗','我感兴趣 ↗','Saya berminat ↗',cls='text-link')+'</div></article>'
+ return s+'</div>'
+main='<main class="community-page">'+intro+'<section class="section" id="builders">'+p('01 / CONVERSATION & COLLABORATION','01 / 交流与共创','01 / PERBUALAN & KERJASAMA',attrs='class="eyebrow"')+h(2,'Your next conversation\ncould spark something.','下一次交流，\n也许就有新灵感。','Perbualan seterusnya\nmungkin mencetuskan idea.')+cards(A[:5])+'</section><section class="section experience-section">'+p('02 / LIFESTYLE & EXPERIENCES','02 / 生活方式与体验','02 / GAYA HIDUP & PENGALAMAN',attrs='class="eyebrow"')+h(2,'Make room for a new experience.','留点时间，体验新事物。','Luangkan masa untuk pengalaman baharu.')+cards(A[5:])+'</section><section class="section community-end">'+h(2,'You don’t need to stay\nto start a conversation.','不必先入住，\n也可以先认识。','Tidak perlu menginap\nuntuk mula berkenalan.')+p('Accommodation is not open for booking yet. You can still ask about the community and café visits. Contact the team before coming over so we can confirm the arrangements.','住宿尚未开放预订。你仍可咨询社区活动及咖啡餐饮到店安排，请来访前先联系团队确认。','Tempahan penginapan belum dibuka. Anda masih boleh bertanya tentang komuniti dan lawatan kafe. Hubungi pasukan sebelum datang untuk mengesahkan aturan.')+'<div class="actions">'+link('enquiry.html?type=activities','Ask the team ↗','联系团队咨询 ↗','Tanya pasukan ↗')+link('https://www.instagram.com/cohub.kl/','Follow @cohub.kl ↗','关注 @cohub.kl ↗','Ikuti @cohub.kl ↗',cls='text-link',external=True)+'</div></section></main>'
+page('community.html','CO-HUB Community · Nomads, AI & Web3 · Kuala Lumpur','Explore CO-HUB community interests: digital nomads, AI agents, Web3 builders, cultural city walks, travel and diving, coffee and craft beer.',main)
+ADDRESS='38B Jalan Nagasari, Bukit Bintang, Wilayah Persekutuan, Kuala Lumpur 50200, Malaysia'
+def maps(origin=None,mode=None):
+ if not origin:return 'https://www.google.com/maps/search/?'+urlencode({'api':1,'query':ADDRESS})
+ return 'https://www.google.com/maps/dir/?'+urlencode({'api':1,'origin':origin,'destination':ADDRESS,'travelmode':mode or 'transit'})
+def directions():return 'https://www.google.com/maps/dir/?'+urlencode({'api':1,'destination':ADDRESS})
+def step(number,title,body,button=''):return '<article class="guide-step"><span class="step-number">'+number+'</span><div>'+h(3,*title)+p(*body)+button+'</div></article>'
+guide='<main class="guide-page"><section class="section guide-hero">'+p('CO-HUB / BUKIT BINTANG','CO-HUB / 武吉免登','CO-HUB / BUKIT BINTANG',attrs='class="eyebrow"')+h(1,'Find your way\nto CO-HUB.','找到来CO-HUB的路。','Cari jalan\nke CO-HUB.')+'<p class="guide-address">'+link(maps(),ADDRESS,ADDRESS,ADDRESS,cls='text-link',external=True)+'</p>'+'<div class="actions">'+link(maps(),'Open address in Google Maps ↗','在Google Maps打开地址 ↗','Buka alamat di Google Maps ↗',external=True)+link(directions(),'Directions to CO-HUB ↗','导航到CO-HUB ↗','Arah ke CO-HUB ↗',external=True)+link('enquiry.html?type=general','Ask about arrival ↗','咨询到店安排 ↗','Tanya tentang ketibaan ↗',cls='text-link')+'</div>'+p('Tap the address to open Google Maps. For directions, choose your starting point or allow Google Maps to use your current location.','点击地址即可打开Google Maps。导航时可选择出发地，或允许Google Maps使用你的当前位置。','Tekan alamat untuk membuka Google Maps. Untuk arah perjalanan, pilih lokasi mula atau benarkan Google Maps menggunakan lokasi semasa anda.')+p('Hostel under preparation · Accommodation bookings are not open. For café visits, please contact the team first.','青旅筹备中，住宿暂不接受预订；咖啡餐饮到店请先联系团队确认。','Hostel sedang disediakan · Tempahan penginapan belum dibuka. Untuk lawatan kafe, sila hubungi pasukan dahulu.',attrs='class="opening-notice"')+'</section><section class="section">'+h(2,'From the airport.','从机场出发。','Dari lapangan terbang.')+'<div class="guide-steps">'
+guide+=step('01',['KLIA T1 or T2 → KL Sentral','KLIA T1／T2 → KL Sentral','KLIA T1 atau T2 → KL Sentral'],['KLIA Ekspres serves both airport terminals and KL Sentral. Check the operator’s current timetable and fares before you travel, especially for late arrivals.','KLIA Ekspres机场快线连接两个航站楼与KL Sentral。出发前请查运营方当日时刻和票价，夜间到达尤其需要先确认。','KLIA Ekspres menghubungkan kedua-dua terminal lapangan terbang dengan KL Sentral. Semak jadual dan tambang semasa pengendali, terutama jika tiba lewat malam。'],link('https://www.kliaekspres.com/products-fares/klia-ekspres/','Official train information ↗','机场快线官方信息 ↗','Maklumat rasmi tren ↗',cls='text-link',external=True))
+guide+=step('02',['KL Sentral → Jalan Nagasari','KL Sentral → Jalan Nagasari','KL Sentral → Jalan Nagasari'],['Continue using the current Google Maps transit route or a licensed taxi / ride-hailing service. Raja Chulan Monorail and Bukit Bintang MRT are station names to check when planning your route; use the live map for the final walking section.','可按Google Maps当时的公共交通路线继续前往，或选择正规出租车／网约车。规划路线时可查询Raja Chulan单轨站及Bukit Bintang MRT站，最后一段步行请以实时地图为准。','Teruskan mengikut laluan transit semasa Google Maps atau gunakan teksi berlesen / e-hailing. Semak stesen Monorel Raja Chulan dan MRT Bukit Bintang ketika merancang perjalanan; ikut peta semasa untuk bahagian berjalan kaki terakhir.'],link(maps('KL Sentral, Kuala Lumpur'),'Plan from KL Sentral ↗','查看从KL Sentral出发的路线 ↗','Rancang dari KL Sentral ↗',cls='text-link',external=True))
+guide+=step('03',['Use the full address','核对完整地址与门牌','Gunakan alamat penuh'],['Enter 38B Jalan Nagasari, Bukit Bintang, 50200 Kuala Lumpur in your map or ride-hailing app. The entrance and floor instructions will be provided before hostel opening. Contact us if you are unsure where to stop.','在地图或网约车中输入38B Jalan Nagasari, Bukit Bintang, 50200 Kuala Lumpur，并核对门牌。入口与楼层指引会在住宿开放前补充；不确定下车位置时，请联系团队确认。','Masukkan 38B Jalan Nagasari, Bukit Bintang, 50200 Kuala Lumpur dalam peta atau aplikasi e-hailing. Panduan pintu masuk dan tingkat akan diberikan sebelum hostel dibuka. Hubungi kami jika tidak pasti tempat turun.'])
+guide+='</div><div class="route-links">'+link(maps('Raja Chulan Monorail Station, Kuala Lumpur','walking'),'Walk from Raja Chulan ↗','从Raja Chulan站步行导航 ↗','Berjalan dari Raja Chulan ↗',cls='text-link',external=True)+link(maps('Bukit Bintang MRT Station, Kuala Lumpur','walking'),'Walk from Bukit Bintang MRT ↗','从Bukit Bintang MRT站步行导航 ↗','Berjalan dari MRT Bukit Bintang ↗',cls='text-link',external=True)+'</div></section><section class="section guide-stay">'+h(2,'Before your future stay.','为未来入住做好准备。','Sebelum penginapan anda.')+'<div class="info-grid"><article>'+h(3,'Accommodation status','住宿状态','Status penginapan')+p('The hostel is being prepared. Opening date, bookable rooms and final booking terms will be announced when ready. An enquiry is not a confirmed reservation.','青旅仍在筹备。开业日期、可预订房源与正式预订条款将准备好后公布，咨询不等于已确认预订。','Hostel sedang disediakan. Tarikh pembukaan, bilik boleh ditempah dan syarat tempahan akhir akan diumumkan apabila sedia. Pertanyaan bukan tempahan yang disahkan。')+'</article><article>'+h(3,'Check-in & check-out','入住与退房时间','Daftar masuk & keluar')+p('For stays after opening: check-in from 15:00; check-out by 12:00 noon, Malaysia time.','住宿开放后：马来西亚时间15:00以后入住，中午12:00前退房。','Selepas penginapan dibuka: daftar masuk dari 15:00; daftar keluar sebelum 12:00 tengah hari, waktu Malaysia.')+'</article><article>'+h(3,'Choose a room type','选择合适房型','Pilih jenis penginapan')+p('Women’s capsules use shared bathrooms. Men’s dorms have ensuite or shared-bath options. Private double rooms have a private bathroom and balcony. Dorms are sold by bed.','女士胶囊使用公共洗手间；男士宿舍有独立及公共卫浴选项；独立大床房设独立卫浴与阳台。宿舍按床位销售。','Kapsul wanita menggunakan bilik air berkongsi. Dorm lelaki menawarkan bilik air dalam dorm atau berkongsi. Bilik katil besar persendirian mempunyai bilik air sendiri dan balkoni. Dorm dijual mengikut katil。')+'</article><article>'+h(3,'Policies before payment','付款前确认政策','Sahkan polisi sebelum bayaran')+p('Final rates, taxes, deposits, cancellation / refund terms, luggage arrangements and arrival instructions will be published before accommodation bookings open.','正式房价、税费、订金／押金、取消退款、行李安排及入住指引，会在住宿开放预订前公布。','Kadar akhir, cukai, deposit, syarat pembatalan / bayaran balik, aturan bagasi serta panduan ketibaan akan diterbitkan sebelum tempahan penginapan dibuka。')+'</article></div><div class="actions">'+link('stay.html','Explore room types ↗','了解房型 ↗','Lihat jenis bilik ↗')+link('enquiry.html?type=opening','Request opening updates ↗','申请接收开业通知 ↗','Minta berita pembukaan ↗',cls='text-link')+'</div></section><section class="section">'+h(2,'Café visits & staying connected.','咖啡餐饮到店与联系。','Lawatan kafe & hubungi kami。')+p('Café hours: 09:00–23:30, Malaysia time. Please contact the team before visiting to confirm the current arrangements. Scan the QR code at the café to order online, collect your food and drinks at the bar, and pay at the front counter.','餐饮时间为马来西亚时间09:00–23:30。请来访前联系团队确认当日安排，店内扫码线上点餐、吧台自取、前台买单。','Waktu kafe: 09:00–23:30, waktu Malaysia. Sila hubungi pasukan sebelum datang untuk mengesahkan aturan semasa. Imbas kod QR di kafe untuk memesan dalam talian, ambil makanan dan minuman di bar, dan bayar di kaunter。')+p('WhatsApp / phone: +60 17-849 7319 · cohubcom@gmail.com','WhatsApp／电话：+60 17-849 7319 · cohubcom@gmail.com','WhatsApp / telefon: +60 17-849 7319 · cohubcom@gmail.com')+'<div class="actions">'+link('https://wa.me/60178497319','Ask on WhatsApp ↗','通过WhatsApp联系 ↗','Tanya melalui WhatsApp ↗',external=True)+link('https://www.instagram.com/cohub.kl/','Instagram · @cohub.kl ↗','Instagram · @cohub.kl ↗','Instagram · @cohub.kl ↗',cls='text-link',external=True)+'</div></section></main>'
+page('guide.html','CO-HUB Arrival & Stay Guide · Bukit Bintang, Kuala Lumpur','How to plan your arrival at CO-HUB, 38B Jalan Nagasari: airport rail, map directions, café visits and upcoming hostel check-in information.',guide)
+# The enquiry form drafts a message. Sending and confirmation take place with the CO-HUB team.
+def label(name,en,zh,ms,control):return '<label for="'+name+'">'+t('span',en,zh,ms)+control+'</label>'
+form='<main class="enquiry-page section">'+p('CO-HUB / LET’S CONNECT','CO-HUB / 联系我们','CO-HUB / MARI BERHUBUNG',attrs='class="eyebrow"')+h(1,'Tell us what\nyou have in mind.','告诉我们，\n你的想法和需求。','Kongsikan\nkeperluan anda。')+p('Choose a topic and prepare one message for WhatsApp or email. The team will confirm the details with you.','选择咨询主题，整理成一条WhatsApp或邮件消息，由团队与你确认具体安排。','Pilih topik dan sediakan satu mesej untuk WhatsApp atau e-mel. Pasukan akan mengesahkan butiran dengan anda。')+'<form id="enquiry-form"><div class="form-grid">'
+options=[('general',['General enquiry','一般咨询','Pertanyaan umum']),('stay',['Future accommodation','未来住宿咨询','Penginapan akan datang']),('activities',['Community & activity interests','社区与活动兴趣','Minat komuniti & aktiviti']),('opening',['Opening updates','接收开业通知','Berita pembukaan']),('supply',['Business supply enquiry','企业采购咨询','Pertanyaan bekalan perniagaan'])]
+form+=label('enquiry-topic','What can we help with?','你想咨询什么？','Apakah keperluan anda?','<select id="enquiry-topic" name="topic">'+''.join(t('option',*s,'value="'+k+'"') for k,s in options)+'</select>')
+form+=label('enquiry-name','Your name (optional)','姓名（选填）','Nama (pilihan)','<input id="enquiry-name" autocomplete="name" maxlength="100">')+'</div>'
+form+='<fieldset id="stay-fields" hidden><legend>'+t('span','Your planned stay','计划住宿需求','Rancangan penginapan')+'</legend>'+p('Accommodation is not open for booking. These details help us understand your future plans; they do not check availability or reserve a bed.','住宿尚未开放预订。以下信息仅帮助了解未来行程，不查询实时房态，也不保留床位。','Tempahan penginapan belum dibuka. Butiran ini membantu memahami rancangan anda; ia tidak menyemak ketersediaan atau menempah katil。',attrs='class="form-help"')+'<div class="form-grid">'+label('stay-room','Room preference','意向房型','Pilihan penginapan','<select id="stay-room"><option value="any" data-en="Help me choose" data-zh="请帮我推荐" data-ms="Bantu saya pilih">Help me choose</option></select>')+label('stay-guests','Number of guests','人数','Bilangan tetamu','<input id="stay-guests" type="number" min="1" max="99" step="1" value="1">')+label('stay-arrival','Planned arrival (optional)','计划入住日期（选填）','Tarikh tiba (pilihan)','<input id="stay-arrival" type="date">')+label('stay-departure','Planned departure (optional)','计划退房日期（选填）','Tarikh keluar (pilihan)','<input id="stay-departure" type="date">')+'</div></fieldset>'
+form+='<fieldset id="activity-fields" hidden><legend>'+t('span','What would you like to join?','你对哪些活动感兴趣？','Aktiviti yang anda minati?')+'</legend>'+p('Select any interests. Dates, prices and places are not confirmed yet. Tell us if you would like recommendations.','可多选兴趣方向。日期、价格与名额暂未确认，也可以告诉我们希望获得推荐。','Pilih minat anda. Tarikh, harga dan tempat belum disahkan. Beritahu kami jika anda ingin cadangan。',attrs='class="form-help"')+'<div class="activity-options">'
+for a in A:form+='<label class="check-option"><input type="checkbox" name="activity" value="'+a['id']+'">'+t('span',*a['name'])+'</label>'
+form+='</div>'+label('activity-date','Preferred date (optional)','期望日期（选填）','Tarikh pilihan (pilihan)','<input id="activity-date" type="date">')+'</fieldset>'
+form+='<fieldset id="supply-fields" hidden><legend>'+t('span','Your business requirements','采购需求','Keperluan perniagaan')+'</legend>'+p('Already selected beer or coffee? Use the product cart to keep your exact selection. For other supply requests, add the category, quantity and delivery area below.','已经选好啤酒或咖啡？请使用产品购物车保留完整清单。其他采购可在此填写品类、数量和配送地区。','Sudah memilih bir atau kopi? Gunakan troli produk untuk menyimpan pilihan tepat. Bagi bekalan lain, isi kategori, kuantiti dan kawasan penghantaran di bawah。',attrs='class="form-help"')+'<div class="route-links">'+link('beer.html','Beer catalogue ↗','精酿目录 ↗','Katalog bir ↗',cls='text-link')+link('coffee.html','Coffee catalogue ↗','咖啡目录 ↗','Katalog kopi ↗',cls='text-link')+'</div><div class="form-grid">'+label('supply-category','Product category','产品品类','Kategori produk','<select id="supply-category">'+''.join(t('option',*s,'value="'+k+'"') for k,s in [('unsure',['Please recommend','请帮我推荐','Sila cadangkan']),('beer',['Craft beer','精酿啤酒','Bir kraf']),('coffee',['Coffee beans & drip bags','咖啡豆与挂耳','Biji kopi & beg titis']),('bedding',['Mattresses & pillows','床垫与枕头','Tilam & bantal']),('toiletries',['Guest toiletries','洗护用品','Produk penjagaan diri']),('equipment',['Beer dispensing equipment','打酒机及设备','Peralatan dispenser bir']),('capsules',['Custom capsule rooms','定制胶囊房','Kapsul tersuai'])])+'</select>')+label('supply-quantity','Quantity / specification (optional)','数量／规格（选填）','Kuantiti / spesifikasi (pilihan)','<input id="supply-quantity" maxlength="150">')+label('supply-area','Delivery area (optional)','配送地区（选填）','Kawasan penghantaran (pilihan)','<input id="supply-area" maxlength="150">')+label('supply-business','Business / project (optional)','公司／项目（选填）','Perniagaan / projek (pilihan)','<input id="supply-business" maxlength="150">')+'</div></fieldset>'
+form+='<fieldset id="opening-fields" hidden><legend>'+t('span','Request opening updates','申请接收开业通知','Minta berita pembukaan')+'</legend>'+p('Ask to hear when accommodation bookings or community activities open. Please wait for the team to confirm your request after you send the message. You can ask us to stop updates at any time.','申请接收住宿开放预订或社区活动消息。发送消息后，请等待团队确认登记；之后可随时告知停止联系。','Minta berita apabila tempahan penginapan atau aktiviti komuniti dibuka. Selepas menghantar mesej, tunggu pasukan mengesahkan permintaan anda. Anda boleh meminta kami menghentikan berita pada bila-bila masa。')+'</fieldset>'
+form+=label('enquiry-message','Anything else we should know? (optional)','补充需求（选填）','Maklumat tambahan (pilihan)','<textarea id="enquiry-message" rows="4" maxlength="1500"></textarea>')+label('enquiry-reply','Reply contact (optional: phone or email)','回复联系方式（选填：电话或邮箱）','Hubungan balasan (pilihan: telefon atau e-mel)','<input id="enquiry-reply" maxlength="150" autocomplete="off">')+p('Only include information you want to share with the CO-HUB team. Your request is sent when you confirm it in WhatsApp or your email app.','只填写你愿意向CO-HUB团队提供的信息；在WhatsApp或邮件应用中确认发送后，团队才会收到。','Hanya isi maklumat yang ingin dikongsi dengan pasukan CO-HUB. Permintaan dihantar apabila anda mengesahkannya dalam WhatsApp atau aplikasi e-mel。',attrs='class="form-help"')+'<div class="enquiry-summary">'+h(2,'Review your message','检查咨询内容','Semak mesej anda')+'<textarea id="enquiry-preview" rows="10" readonly aria-label="Enquiry message"></textarea></div><div class="actions"><button class="button" type="submit" name="channel" value="whatsapp" data-en="Continue to WhatsApp ↗" data-zh="前往WhatsApp发送 ↗" data-ms="Teruskan ke WhatsApp ↗">Continue to WhatsApp ↗</button><button class="button button-secondary" type="submit" name="channel" value="email" data-en="Continue to email ↗" data-zh="前往邮件发送 ↗" data-ms="Teruskan ke e-mel ↗">Continue to email ↗</button><button class="copy-enquiry" id="copy-enquiry" type="button" data-en="Copy message" data-zh="复制消息" data-ms="Salin mesej">Copy message</button></div><p id="enquiry-status" role="status"></p>'+p('An enquiry does not confirm accommodation, activity participation, a product order or payment. The team will confirm availability, terms and any charges with you.','咨询不代表住宿、活动名额、产品订单或付款已确认。团队会与你核实可用情况、条款与相关费用。','Pertanyaan tidak mengesahkan penginapan, tempat aktiviti, pesanan produk atau bayaran. Pasukan akan mengesahkan ketersediaan, syarat dan sebarang caj dengan anda。',attrs='class="footnote"')+'</form></main>'
+page('enquiry.html','CO-HUB Enquiries · Stay, Community & Hospitality Supply','Ask CO-HUB about upcoming accommodation, community activities, opening updates or hospitality supply. Prepare one WhatsApp or email enquiry.',form,['enquiry.js'])
+# Expand the homepage without placing the room inventory on it.
+tree=html.fromstring((R/'index.html').read_bytes());hero=tree.xpath('//section[@id="home"]')[0]
+hero_content=hero.xpath('.//*[contains(concat(" ",normalize-space(@class)," ")," hero-content ")]')
+container=hero_content[0] if hero_content else hero.xpath('./div')[0]
+# Insert a lightweight status and community section after the hero/strip.
+main=tree.xpath('//main')[0]
+for e in list(main):
+ if e.get('id') in ['opening-status','community-teaser','about-cohub']:main.remove(e)
+status='<section class="section opening-status" id="opening-status"><div>'+h(3,'Hostel · In preparation','住宿 · 筹备中','Hostel · Dalam persediaan')+p('Accommodation bookings are not open yet. Ask about future stays or request opening updates.','住宿尚未开放预订，可咨询未来行程或申请开业通知。','Tempahan penginapan belum dibuka. Tanya tentang penginapan akan datang atau minta berita pembukaan。')+link('enquiry.html?type=opening','Request opening updates ↗','接收开业通知 ↗','Minta berita pembukaan ↗',cls='text-link')+'</div><div>'+h(3,'Café · Let’s arrange your visit','咖啡餐饮 · 先联系再到店','Kafe · Aturkan lawatan anda')+p('09:00–23:30, Malaysia time. Contact us before coming over to confirm the arrangements.','马来西亚时间09:00–23:30，来访前请联系团队确认安排。','09:00–23:30, waktu Malaysia. Hubungi kami sebelum datang untuk mengesahkan aturan。')+link('guide.html','Plan your visit ↗','查看到店指南 ↗','Rancang lawatan ↗',cls='text-link')+'</div></section>'
+main.insert(2,html.fromstring(status))
+teaser='<section class="section community-teaser" id="community-teaser">'+p('CO-HUB / COMMUNITY','CO-HUB / 社区与活动','CO-HUB / KOMUNITI',attrs='class="eyebrow"')+h(2,'A place to meet.\nA reason to return.','认识新朋友，\n找到再来的理由。','Tempat berkenalan.\nSebab untuk kembali.')+p('AI meetups · AI workshops · Language exchange · Nomads · Web3 · Women’s yoga & meditation · Coffee · Craft beer · City walks · Travel & diving','AI交流 · AI实操 · 语言交换 · 数字游民 · Web3 · 女性瑜伽与冥想 · 咖啡 · 精酿 · 城市漫步 · 旅行与潜水','Pertemuan AI · Bengkel AI · Pertukaran bahasa · Nomad · Web3 · Yoga & meditasi wanita · Kopi · Bir kraf · Jelajah bandar · Pengembaraan & selam skuba')+p('We’re planning a community around conversations, projects and shared experiences. Tell us what you would like to join; dates and fees will follow when confirmed.','我们正在筹备围绕交流、项目与共同体验的社区活动。先告诉我们你的兴趣，具体日期与费用确定后再公布。','Kami sedang merancang komuniti berasaskan perbualan, projek dan pengalaman bersama. Kongsi minat anda; tarikh serta bayaran akan diumumkan selepas disahkan。')+'<div class="actions">'+link('community.html','Explore community & experiences ↗','了解社区与体验 ↗','Terokai komuniti & pengalaman ↗')+link('enquiry.html?type=activities','Share your interests ↗','登记活动兴趣 ↗','Kongsi minat ↗',cls='text-link')+'</div></section>'
+# Community leads the guest journey after the opening status.
+tree.xpath('//section[@id="opening-status"]')[0].addnext(html.fromstring(teaser))
+about='<section class="section about-cohub" id="about-cohub">'+p('ABOUT CO-HUB','关于CO-HUB','TENTANG CO-HUB',attrs='class="eyebrow"')+h(2,'Rest upstairs.\nConnect over a good conversation.','楼上安心休息，\n楼下相聚交流。','Berehat di atas.\nBerhubung melalui perbualan.')+p('CO-HUB brings together hostel stays, a café and craft beer in Bukit Bintang, Kuala Lumpur. We are preparing women’s capsules, men’s dorms and private rooms, while building a community for travellers, neighbours and people working on new ideas.','CO-HUB位于吉隆坡Bukit Bintang，结合青旅、咖啡餐饮与精酿。我们正在筹备女士胶囊、男士宿舍与独立房间，也连接旅人、邻里和正在实践新想法的朋友。','CO-HUB menggabungkan hostel, kafe dan bir kraf di Bukit Bintang, Kuala Lumpur. Kami sedang menyediakan kapsul wanita, dorm lelaki dan bilik persendirian, sambil membina komuniti pengembara, jiran dan mereka yang menghasilkan idea baharu。')+p('We also supply coffee, craft beverages, guest essentials and hospitality equipment to business customers.','我们也面向企业客户提供咖啡、精酿、住宿用品及相关设备供应。','Kami turut membekalkan kopi, minuman kraf, keperluan tetamu dan peralatan hospitaliti kepada pelanggan perniagaan。')+link('https://www.instagram.com/cohub.kl/','Follow our progress on Instagram ↗','在Instagram关注我们的进展 ↗','Ikuti perkembangan di Instagram ↗',cls='text-link',external=True)+'</section>'
+faq=tree.xpath('//section[@id="faq"]')[0]
+# Unwrap the compact FAQ before updating individual questions on rebuild.
+for group in faq.xpath('./details[@id="faq-disclosure"]'):
+ heading=group.xpath('./summary/h2')[0];faq.append(heading)
+ for child in list(group):
+  if child.tag!='summary':faq.append(child)
+ faq.remove(group)
+faq.addprevious(html.fromstring(about))
+# New confirmed facts and clear forthcoming policies in FAQ.
+extra=[('When will accommodation open?','住宿什么时候开放？','Bilakah penginapan dibuka?','The hostel is under preparation. We will announce the opening date and booking arrangements when confirmed. You can request opening updates.','青旅仍在筹备，开业日期及预订安排确定后公布，可先申请接收开业通知。','Hostel sedang disediakan. Tarikh pembukaan dan aturan tempahan akan diumumkan selepas disahkan. Anda boleh meminta berita pembukaan。'),('Can I join activities without staying?','不住店可以参加活动吗？','Bolehkah saya menyertai tanpa menginap?','You can enquire about community activities without an accommodation booking. Dates, fees and participation arrangements will be confirmed before joining.','可以先咨询社区活动，无需先订住宿；日期、费用和参加安排将在活动前确认。','Anda boleh bertanya tentang aktiviti komuniti tanpa tempahan penginapan. Tarikh, bayaran dan aturan penyertaan akan disahkan sebelum menyertai。'),('Where can I find arrival information?','在哪里查看到店指南？','Di manakah panduan ketibaan?','Use the Visit & guide page for the address, airport rail information, map directions and upcoming stay guidance. Contact us before coming over.','到店与入住指南页提供地址、机场快线信息、地图导航及未来入住说明，来访前请联系团队确认。','Gunakan halaman Lokasi & panduan untuk alamat, maklumat tren lapangan terbang, arah peta dan panduan penginapan akan datang. Hubungi kami sebelum datang。')]
+for q1,q2,q3,a1,a2,a3 in extra:
+ for old in faq.xpath('./details[summary/@data-en=$q]',q=q1):faq.remove(old)
+ faq.append(html.fromstring('<details>'+t('summary',q1,q2,q3)+p(a1,a2,a3)+'</details>'))
+intro_node=hero.xpath('.//p[contains(concat(" ",normalize-space(@class)," ")," intro ")]')[0]
+copy=['Stay, connect and create in Bukit Bintang, in the heart of Kuala Lumpur. Discover our upcoming hostel, café, craft beer and community for travellers, digital nomads and creators.','住在吉隆坡市中心，连接世界各地的朋友。CO-HUB位于武吉免登（Bukit Bintang），结合筹备中的青旅、咖啡餐饮、精酿与数字游民共创社区。','Menginap, berhubung dan berkarya di Bukit Bintang, di tengah pusat bandar Kuala Lumpur. Kenali hostel kami yang bakal dibuka, kafe, bir kraf serta komuniti pengembara, nomad digital dan pencipta.']
+for lang,value in zip(['en','zh','ms'],copy):intro_node.set('data-'+lang,value)
+intro_node.text=copy[0]
+hero_link=hero.xpath('.//a[contains(concat(" ",normalize-space(@class)," ")," hero-book ")]')[0]
+if not hero.xpath('.//a[@href="community.html"]'):hero_link.addnext(html.fromstring(link('community.html','Meet the community ↗','认识社区与活动 ↗','Kenali komuniti ↗',cls='text-link hero-community')))
+(R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+# Extra links on the relevant existing pages.
+for filename,selector,content in [
+ ('stay.html','//section[@id="stay"]','<div class="actions">'+link('enquiry.html?type=stay','Ask about a future stay ↗','咨询未来住宿 ↗','Tanya penginapan akan datang ↗')+link('guide.html','Arrival & stay guide ↗','到店与入住指南 ↗','Panduan ketibaan ↗',cls='text-link')+'</div>'),
+ ('supply.html','//main','<section class="supply-project-enquiry">'+h(2,'Tell us about your project.','聊聊你的采购项目。','Kongsikan projek anda。')+p('For equipment, guest essentials or custom capsules, share the product category, approximate quantity and delivery area. We’ll confirm specifications and a quotation with you.','采购设备、住宿用品或定制胶囊时，可先提供品类、预计数量及配送地区，我们会与你确认规格和报价。','Untuk peralatan, keperluan tetamu atau kapsul tersuai, kongsi kategori produk, anggaran kuantiti dan kawasan penghantaran. Kami akan mengesahkan spesifikasi serta sebut harga。')+link('enquiry.html?type=supply','Prepare a business enquiry ↗','整理采购需求并咨询 ↗','Sediakan pertanyaan perniagaan ↗')+'</section>')]:
+ tree=html.fromstring((R/filename).read_bytes());target=tree.xpath(selector)[0]
+ if not target.xpath('.//*[@class="supply-project-enquiry"]') and not target.xpath('.//a[@href="enquiry.html?type=stay"]'):target.append(html.fromstring(content))
+ (R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+print('Built community, guide, enquiry and updated navigation/homepage.')
+
+# Keep the central location prominent in all maintained languages.
+location = ['KUALA LUMPUR CITY CENTRE · BUKIT BINTANG', '吉隆坡市中心 · 武吉免登', 'PUSAT BANDAR KUALA LUMPUR · BUKIT BINTANG']
+for filename in ['index.html', 'stay.html', 'guide.html']:
+ tree=html.fromstring((R/filename).read_bytes())
+ if filename=='index.html':
+  node=tree.xpath('//section[@id="home"]//p[contains(@class,"eyebrow")]')[0]
+ elif filename=='stay.html':
+  node=tree.xpath('//section[@id="stay"]//p[contains(@class,"eyebrow")]')[0]
+ else:
+  node=tree.xpath('//section[contains(@class,"guide-hero")]//p[contains(@class,"eyebrow")]')[0]
+ for lang,value in zip(['en','zh','ms'],location):node.set('data-'+lang,value)
+ node.text=location[0]
+ if filename=='stay.html':
+  heading=tree.xpath('//section[@id="stay"]//h2')[0]
+  values=['Your stay in the heart of Kuala Lumpur.','住在吉隆坡市中心。','Penginapan anda di tengah pusat bandar Kuala Lumpur.']
+  for lang,value in zip(['en','zh','ms'],values):heading.set('data-'+lang,value)
+  heading.text=values[0]
+  if not tree.xpath('//*[@id="stay-location"]'):
+   heading_section=tree.xpath('//section[@id="stay"]/div[contains(@class,"section-heading")]')[0]
+   heading_section.addnext(html.fromstring('<div id="stay-location" class="stay-location">'+p('Our address: 38B Jalan Nagasari, Bukit Bintang, Kuala Lumpur city centre. Explore the city from a central base, and meet fellow travellers through our upcoming community activities.','地址：38B Jalan Nagasari，武吉免登，吉隆坡市中心。以市中心为落脚点探索吉隆坡，也通过筹备中的社区活动认识同行旅人。','Alamat kami: 38B Jalan Nagasari, Bukit Bintang, pusat bandar Kuala Lumpur. Terokai bandar dari lokasi pusat dan kenali pengembara lain melalui aktiviti komuniti yang sedang dirancang.')+link('guide.html','Location & arrival guide ↗','查看位置与到店指南 ↗','Lokasi & panduan ketibaan ↗',cls='text-link')+'</div>'))
+ tree.xpath('//meta[@name="description"]')[0].set('content','CO-HUB in Bukit Bintang, Kuala Lumpur city centre. Upcoming hostel stays, café, craft beer and a community for travellers and digital nomads.')
+ (R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Full confirmed postal address with a direct Maps link on the homepage.
+tree=html.fromstring((R/'index.html').read_bytes())
+visit=tree.xpath('//section[@id="visit"]')[0]
+address_node=visit.xpath('./p[starts-with(normalize-space(.),"38B Jalan")]')[0]
+address_node.clear();address_node.append(html.fromstring(link(maps(),ADDRESS,ADDRESS,ADDRESS,cls='text-link',external=True)))
+button=visit.xpath('.//a[contains(@href,"google.com/maps")]')[-1]
+button.set('href',directions())
+for lang,value in zip(['en','zh','ms'],['Directions to CO-HUB ↗','导航到CO-HUB ↗','Arah ke CO-HUB ↗']):button.set('data-'+lang,value)
+button.text='Directions to CO-HUB ↗'
+(R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Confirmed operating status: café open; hostel planned for Christmas 2026.
+def set_copy(node, values):
+ for lang,value in zip(['en','zh','ms'],values):node.set('data-'+lang,value)
+ node.text=values[0]
+for filename in ['index.html','stay.html','community.html','guide.html']:
+ tree=html.fromstring((R/filename).read_bytes())
+ if filename=='index.html':
+  set_copy(tree.xpath('//section[@id="home"]//p[@class="small"]')[0],['Hostel opening planned for Christmas 2026 · Accommodation bookings are not open yet. Café, food and craft beer are open now.','住宿计划于2026年圣诞节期间开业，暂未开放预订。餐饮、咖啡与精酿酒吧现已营业。','Hostel dirancang dibuka sekitar Krismas 2026 · Tempahan penginapan belum dibuka. Kafe, makanan dan bar bir kraf kini dibuka.'])
+  status=tree.xpath('//section[@id="opening-status"]')[0]
+  set_copy(status.xpath('./div[1]/h3')[0],['Hostel · Christmas 2026','住宿 · 2026年圣诞节期间','Hostel · Krismas 2026'])
+  set_copy(status.xpath('./div[1]/p')[0],['We plan to open accommodation during Christmas 2026. Bookings are not open yet; request updates for the exact opening date and booking arrangements.','住宿计划于2026年圣诞节期间开业。暂未开放预订，可登记获取确切开业日期与预订安排。','Penginapan dirancang dibuka sekitar Krismas 2026. Tempahan belum dibuka; minta berita tentang tarikh tepat dan aturan tempahan.'])
+  set_copy(status.xpath('./div[2]/h3')[0],['Café, food & craft beer · Open now','餐饮、咖啡与精酿酒吧 · 已营业','Kafe, makanan & bar bir kraf · Kini dibuka'])
+  set_copy(status.xpath('./div[2]/p')[0],['Open 09:00–23:30, Malaysia time. Scan the café QR code to order online, collect at the bar and pay at the front counter.','营业时间为马来西亚时间09:00–23:30。店内扫码线上点餐、吧台自取、前台买单。','Dibuka 09:00–23:30, waktu Malaysia. Imbas kod QR kafe untuk memesan dalam talian, ambil di bar dan bayar di kaunter.'])
+  set_copy(tree.xpath('//details[summary/@data-en="When will accommodation open?"]/p')[0],['Accommodation is planned to open during Christmas 2026. Bookings are not open yet. Request updates for the exact date and booking arrangements.','住宿计划于2026年圣诞节期间开业，暂未开放预订。可登记获取确切日期与预订安排。','Penginapan dirancang dibuka sekitar Krismas 2026. Tempahan belum dibuka. Minta berita tentang tarikh tepat dan aturan tempahan.'])
+  set_copy(tree.xpath('//details[summary/@data-en="Where can I find arrival information?"]/p')[0],['See the Visit & guide page for our address, Google Maps directions and arrival information. Our café, food and craft beer are open now.','到店指南提供完整地址、Google Maps导航与到店说明。餐饮、咖啡与精酿酒吧现已营业，欢迎来店。','Lihat halaman Lokasi & panduan untuk alamat, arah Google Maps dan maklumat ketibaan. Kafe, makanan dan bar bir kraf kami kini dibuka.'])
+ if filename=='stay.html':
+  set_copy(tree.xpath('//p[contains(@class,"opening-notice")]')[0],['HOSTEL OPENING PLANNED · CHRISTMAS 2026 · Bookings not open yet','住宿计划于2026年圣诞节期间开业 · 暂未开放预订','HOSTEL DIRANCANG DIBUKA · KRISMAS 2026 · Tempahan belum dibuka'])
+  tree.xpath('//title')[0].text='Rooms · CO-HUB Kuala Lumpur · Christmas 2026 Opening Planned'
+ if filename=='community.html':
+  set_copy(tree.xpath('//section[contains(@class,"community-end")]/p')[0],['Our café, food and craft beer are open now. Accommodation is planned for Christmas 2026 and bookings are not open yet. Community activities are collecting interests; contact us about participation.','餐饮、咖啡与精酿酒吧现已营业。住宿计划于2026年圣诞节期间开业，暂未开放预订。社区活动正在收集兴趣，可联系团队咨询参加安排。','Kafe, makanan dan bar bir kraf kini dibuka. Penginapan dirancang untuk Krismas 2026 dan tempahan belum dibuka. Aktiviti komuniti sedang mengumpul minat; hubungi kami tentang penyertaan.'])
+ if filename=='guide.html':
+  set_copy(tree.xpath('//p[contains(@class,"opening-notice")]')[0],['Café, food & craft beer: open now, 09:00–23:30. Hostel opening planned for Christmas 2026; accommodation bookings are not open yet.','餐饮、咖啡与精酿酒吧已营业，时间09:00–23:30。住宿计划于2026年圣诞节期间开业，暂未开放预订。','Kafe, makanan & bar bir kraf: kini dibuka, 09:00–23:30. Hostel dirancang dibuka sekitar Krismas 2026; tempahan penginapan belum dibuka.'])
+  set_copy(tree.xpath('//section[contains(@class,"guide-stay")]//article[1]/p')[0],['Accommodation is planned to open during Christmas 2026. The exact opening date, available rooms and booking terms will be announced before bookings open. An enquiry is not a confirmed reservation.','住宿计划于2026年圣诞节期间开业。确切日期、可预订房源及正式条款将在开放预订前公布，咨询不等于已确认预订。','Penginapan dirancang dibuka sekitar Krismas 2026. Tarikh tepat, bilik tersedia dan syarat akan diumumkan sebelum tempahan dibuka. Pertanyaan bukan tempahan yang disahkan.'])
+  for node in tree.xpath('//p[@data-en]'):
+   if node.get('data-en','').startswith('Café hours:'):
+    set_copy(node,['Our café, food and craft beer are open now, 09:00–23:30, Malaysia time. Scan the QR code at the café to order online, collect at the bar and pay at the front counter.','餐饮、咖啡与精酿酒吧现已营业，时间为马来西亚时间09:00–23:30。店内扫码线上点餐、吧台自取、前台买单。','Kafe, makanan dan bar bir kraf kini dibuka, 09:00–23:30, waktu Malaysia. Imbas kod QR di kafe untuk memesan dalam talian, ambil di bar dan bayar di kaunter.'])
+ (R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Use existing coffee and menu photography instead of the decorative brown tile.
+tree=html.fromstring((R/'index.html').read_bytes())
+cafe=tree.xpath('//section[@id="cafe"]')[0]
+old=cafe.xpath('./div[contains(@class,"cafe-art")] | ./div[contains(@class,"cafe-gallery")]')[0]
+gallery='<div class="cafe-gallery">'
+for cls,src,alt,captions,href in [
+ ('cafe-photo-main','assets/coffee/cohub-latte-hero.png','Warm latte with delicate rosetta latte art',['Your next favourite cup.','一杯香浓，值得停留。','Secawan kopi untuk dinikmati.'],'https://eats.jovianhome.com/menu.html?c=cohubkl'),
+ ('cafe-photo-food','assets/coffee/cohub-cafe-asam-pedas-pasta.jpg','Asam pedas pasta from the CO-HUB menu',['Asam pedas pasta','亚参辣意面','Pasta asam pedas'],'https://eats.jovianhome.com/menu.html?c=cohubkl'),
+ ('cafe-photo-pastry','assets/coffee/cohub-cafe-croissant-egg-sandwich.jpg','Croissant egg sandwich from the CO-HUB menu',['Croissant egg sandwich','可颂炒蛋三明治','Sandwic telur croissant'],'https://eats.jovianhome.com/menu.html?c=cohubkl')]:
+ gallery+='<a class="cafe-photo '+cls+'" href="'+H.escape(href,quote=True)+'" target="_blank" rel="noopener noreferrer"><img src="'+src+'" alt="'+alt+'" loading="lazy" decoding="async" width="800" height="800">'+t('span',*captions,attrs='class="cafe-photo-caption"')+'</a>'
+gallery+='</div>'
+old.getparent().replace(old,html.fromstring(gallery))
+(R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Public business name approved by the owner; legal registered company is unchanged.
+for filename,label in [('index.html','Bukit Bintang, Kuala Lumpur'),('stay.html','Stay · Christmas 2026 Opening Planned'),('community.html','Community & Experiences'),('guide.html','Location & Arrival Guide'),('enquiry.html','Enquiries'),('supply.html','Hospitality Supply'),('beer.html','Craft Beer Supply'),('coffee.html','Coffee Beans & Drip Coffee')]:
+ tree=html.fromstring((R/filename).read_bytes())
+ tree.xpath('//title')[0].text='CO-HUB Hostel & Café · '+label
+ for brand in tree.xpath('//a[contains(concat(" ",normalize-space(@class)," ")," brand ")]'):
+  brand.set('aria-label','CO-HUB Hostel & Café')
+  for subtitle in brand.xpath('./span'):subtitle.text='HOSTEL & CAFÉ'
+ (R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Keep the future coworking area distinct from the café already in operation.
+tree=html.fromstring((R/'index.html').read_bytes());faq=tree.xpath('//section[@id="faq"]')[0]
+for old in faq.xpath('./details[summary/@data-en="Is coworking open?"]'):faq.remove(old)
+faq.append(html.fromstring('<details>'+t('summary','Is coworking open?','共享办公现在开放了吗？','Adakah ruang kerja bersama sudah dibuka?')+p('The coworking area is not open yet. Our café, food and craft beer are open now.','共享办公区尚未开放。餐饮、咖啡与精酿酒吧已营业。','Ruang kerja bersama belum dibuka. Kafe, makanan dan bar bir kraf kami kini dibuka.')+'</details>'))
+(R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Two community routes: join an activity, or propose one for team review.
+join=['Join an activity','参加活动','Sertai aktiviti']
+host=['Host an event','发起活动','Anjurkan aktiviti']
+proposal=['Activity proposal','活动提案','Cadangan aktiviti']
+help_copy=['Include the title, description, preferred date, location, participant limit, event language, fees and your contact details. Send your proposal to the team for review; it is not published automatically.','请填写活动名称、内容、期望日期、地点、人数上限、现场语言、费用和联系方式。发送给团队审核后确认，不会自动公开发布。','Sertakan tajuk, penerangan, tarikh pilihan, lokasi, had peserta, bahasa aktiviti, bayaran dan maklumat hubungan. Hantar cadangan kepada pasukan untuk semakan; cadangan tidak diterbitkan secara automatik.']
+for filename in ['community.html','index.html']:
+ tree=html.fromstring((R/filename).read_bytes())
+ target=tree.xpath('//section[contains(@class,"community-hero")]/div' if filename=='community.html' else '//section[@id="community-teaser"]')[0]
+ for old in target.xpath('./div[@id="activity-entry-actions"]'):target.remove(old)
+ actions='<div class="actions" id="activity-entry-actions">'+link('community.html#builders',*join)+link('enquiry.html?type=host',*host,cls='button button-secondary')+'</div>'
+ target.append(html.fromstring(actions))
+ (R/filename).write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+# Keep discovery visible; account-gated hosting opens only on request.
+tree=html.fromstring((R/'community.html').read_bytes())
+hero=tree.xpath('//section[contains(@class,"community-hero")]')[0]
+hero.set('class','section community-hero community-discovery')
+lead=hero.xpath('./div')[0];lead.clear()
+lead.append(html.fromstring(p('CO-HUB / COMMUNITY','CO-HUB / 社区与活动','CO-HUB / KOMUNITI',attrs='class="eyebrow"')))
+lead.append(html.fromstring(h(1,'A place to meet.\nA reason to return.','认识新朋友，\n找到再来的理由。','Tempat berkenalan.\nSebab untuk kembali.')))
+lead.append(html.fromstring(p('A community for remote workers, creators and curious minds in Kuala Lumpur. Start with conversations about AI, Web3 and projects; stay for culture, travel, diving, coffee and craft beer.','在吉隆坡，连接远程工作者、创作者和充满好奇心的朋友。从AI、Web3与项目交流开始，也一起体验城市文化、旅行、潜水、咖啡与精酿。','Komuniti untuk pekerja jarak jauh, pencipta dan mereka yang ingin tahu di Kuala Lumpur. Mulakan dengan AI, Web3 dan projek; nikmati budaya, pengembaraan, selam skuba, kopi serta bir kraf.')))
+lead.append(html.fromstring('<div class="actions" id="activity-entry-actions">'+link('#builders',*join)+link('#host-event',*host,cls='button button-secondary')+'</div>'))
+aside=hero.xpath('./aside')[0];aside.getparent().remove(aside)
+dialog='<dialog id="host-event" class="host-account-dialog" aria-labelledby="host-account-title"><div class="host-dialog-top">'+h(2,*host)+t('button','Close','关闭','Tutup','type="button" id="close-host-event" class="host-dialog-close"')+'</div>'+t('h3','Sign in to host an event','登录后发起活动','Log masuk untuk menganjurkan aktiviti','id="host-account-title"')+p('Account registration is being prepared. Please contact the team.','账号注册正在准备中，请先联系团队。','Pendaftaran akaun sedang disediakan. Sila hubungi pasukan.')+t('button','Contact us','联系我们','Hubungi kami','type="button" id="host-contact-team" class="button"')+'</dialog>'
+tree.xpath('//body')[0].append(html.fromstring(dialog))
+etree.SubElement(tree.xpath('//body')[0],'script',src='host-event.js?v='+VERSION)
+(R/'community.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
+
+# Member forms and dashboard are maintained alongside the database contract.
+__import__('runpy').run_path(str(R/'scripts/member-system/build-ui.py'))
+
+__import__('runpy').run_path(str(R/'scripts/member-system/build-calendar.py'))
+
+# Home FAQ: one compact, initially collapsed entry, with individual answers inside.
+tree=html.fromstring((R/'index.html').read_bytes());faq=tree.xpath('//section[@id="faq"]')[0]
+for eyebrow in faq.xpath('./p[@class="eyebrow"]'):faq.remove(eyebrow)
+group=etree.SubElement(faq,'details',id='faq-disclosure')
+summary=etree.SubElement(group,'summary')
+summary.append(faq.xpath('./h2')[0])
+for question in list(faq):
+ if question is not group:
+  question.attrib.pop('open',None);group.append(question)
+(R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
