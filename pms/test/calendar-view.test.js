@@ -7,7 +7,10 @@ import {isBoxed,blockType} from '../src/inventory-actions.js';
 import {typeName} from '../src/catalog.js';
 // Execute the actual renderer with deterministic state; no copied rendering logic.
 const source=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
-const renderer=source.slice(source.indexOf('function calendar('),source.indexOf("\n$('#content').addEventListener('change'"));
+const rendererStart=source.indexOf('function calendar(');
+const rendererEnd=source.indexOf("\n$('#content').addEventListener('change'",rendererStart);
+assert(rendererStart>=0&&rendererEnd>rendererStart,'Calendar renderer boundaries must enclose the real function');
+const renderer=source.slice(rendererStart,rendererEnd);
 function render(state,options={}){
  const context=vm.createContext({state,isBoxed,blockType,propertyId:'TEST-KL',lang:'zh',calendarSpan:7,calendarProduct:'all',calendarGender:'all',calendarQuery:'',calendarGroup:'product',calendarStatus:'all',calendarSource:'all',displaySource:true,displayBalance:true,displayAvailability:true,compactRows:false,view:'calendar',sourceValues:['direct','walkin','booking','airbnb','agoda','tripcom','other'],businessDate:()=> '2027-01-30',folio,t:k=>k,can:()=>true,currency:n=>String(n),escape:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),nextDay:d=>new Date(Date.parse(d+'T00:00:00Z')+86400000).toISOString().slice(0,10),...options});
  context.typeName=typeName;context.calendarRoomType=options.calendarRoomType||'all';

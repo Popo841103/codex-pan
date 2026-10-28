@@ -36,10 +36,11 @@ test('invalid, expired, future, disabled or oversized recovery grants do not cha
  assert.ok(store.recoverPassword(config,token,newPassword,now));
 });
 test('used grants remain consumed after database reopen and cannot be deleted or updated',t=>{
- const folder=mkdtempSync(join(tmpdir(),'pms-recovery-test-'));t.after(()=>rmSync(folder,{recursive:true,force:true}));
+ const folder=mkdtempSync(join(tmpdir(),'pms-recovery-test-'));
  const path=join(folder,'test.sqlite'),{store,token,config}=fixture(t,path);
  store.recoverPassword(config,token,newPassword);store.close();
- const reopened=new Store(path);t.after(()=>reopened.close());
+ const reopened=new Store(path);
+ t.after(()=>{try{reopened.close();}finally{rmSync(folder,{recursive:true,force:true});}});
  assert.throws(()=>reopened.recoverPassword(config,token,'REPLAY TEST password'),/recovery_invalid/);
  assert.throws(()=>reopened.db.prepare('DELETE FROM used_recovery_tokens').run(),/recovery_append_only/);
  assert.throws(()=>reopened.db.prepare("UPDATE used_recovery_tokens SET used_at='x'").run(),/recovery_append_only/);

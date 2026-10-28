@@ -20,12 +20,14 @@ const code=(e,expected)=>e.message===expected;
 test('persisted state survives closing/reopening; audit is atomic and append-only',t=>{
  const {store,path,admin}=fixture(t);
  const result=execute(store,admin,create());
- const reader=new Store(path);t.after(()=>reader.close());
+ const reader=new Store(path);
+ try{
  const state=reader.read(admin);assert.equal(state.orders[0].id,result.id);assert.equal(state.revisions['TEST-KL'],1);
  assert.equal(state.audit[0].actor,'test-admin');assert.equal(state.audit[0].type,'create');
  assert.throws(()=>store.db.prepare('DELETE FROM audit').run(),/audit_append_only/);
  assert.throws(()=>execute(store,admin,create({start:'2027-01-12',end:'2027-01-11'}),1));
  assert.equal(reader.read(admin).audit.length,1);
+ }finally{reader.close();}
 });
 test('payment retry is idempotent and same key with different content fails',t=>{
  const {store,admin}=fixture(t),order=execute(store,admin,create());
