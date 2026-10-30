@@ -33,6 +33,8 @@ export function createReservation(state,c,apply,preview) {
   const {propertyId}=c;
   if(!Array.isArray(c.stays)||!c.stays.length||c.stays.length>30||!['reserve','checkin'].includes(c.mode)||!['individual','company'].includes(c.bookingKind)||typeof c.autoAssign!=='boolean')fail('reservation_input');
   const guest=text(c.guest??'',100),companyName=text(c.companyName??'',100);if(!guest)fail('guest');if(c.bookingKind==='company'&&!companyName)fail('reservation_input');
+  const channelOrderId=text(c.channelOrderId??'',100);
+  if(channelOrderId&&state.orders.some(o=>o.propertyId===propertyId&&(o.source||'direct')===(c.source||'direct')&&o.channelOrderId===channelOrderId))fail('duplicate_channel');
   if(c.email&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email)))fail('reservation_input');
   const businessTime=typeof c.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(c.date)?Date.parse(c.date+'T00:00:00Z'):NaN;
   if(!Number.isFinite(businessTime)||new Date(businessTime).toISOString().slice(0,10)!==c.date)fail('date_range');
@@ -45,7 +47,7 @@ export function createReservation(state,c,apply,preview) {
     const detail=prepareStay(next,propertyId,stay),id=`${c.id}-stay-${i+1}`;
     next=apply(next,{type:'create',propertyId,id,at:c.at,actor:c.actor,date:c.date,guest,
       productId:stay.productId,roomTypeId:stay.roomTypeId,gender:stay.gender,start:stay.start,end:stay.end,resourceId:stay.resourceId||null,group:stay.group||'',nightly:detail.nightly,
-      source:c.source,email:c.email,phone:c.phone,country:c.country,guestLanguage:c.guestLanguage,channelOrderId:c.channelOrderId,channelNotes:'',notes:c.notes,color:c.color});
+      source:c.source,email:c.email,phone:c.phone,country:c.country,guestLanguage:c.guestLanguage,channelOrderId,channelNotes:'',notes:c.notes,color:c.color});
     Object.assign(next.orders.find(o=>o.id===id),detail,{reservationId:c.id,createdBusinessDate:c.date});stayIds.push(id);
   }
   if(c.autoAssign||c.mode==='checkin') {

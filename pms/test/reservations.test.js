@@ -6,7 +6,7 @@ import {reservationSummary} from '../src/reservations.js';
 import {Store} from '../server/store.js';
 import {makeServer} from '../server/http.js';
 import {Backend} from '../web/backend.js';
-import {composerCommand} from '../web/reservation-ui.js';
+import {composerCommand, createStayDraft} from '../web/reservation-ui.js';
 const pid='TEST-KL',day='2027-01-10';
 const row=(extra={})=>({productId:'room',roomTypeId:'TEST-KL-legacy-room-any',gender:'any',start:day,end:'2027-01-12',adults:1,children:0,infants:0,occupants:[{name:'TEST occupant',gender:'any'}],nightly:10000,...extra});
 const request=(extra={})=>({type:'create_reservation',propertyId:pid,id:'test-parent',at:'2027-01-10T09:00:00Z',actor:'test-operator',date:day,guest:'TEST payer',bookingKind:'individual',companyName:'',source:'direct',autoAssign:false,mode:'reserve',stays:[row(),row()],...extra});
@@ -95,4 +95,30 @@ test('HTTP client sees one parent with two shared children; transaction referenc
  await client.execute({type:'payment',propertyId:pid,orderId:state.orders[0].id,kind:'payment',amount:100,method:'card',reference:'TEST-REFERENCE-ONLY'},1,randomUUID());
  const updated=await client.state();assert.equal(updated.orders[0].transactions[0].reference,'TEST-REFERENCE-ONLY');assert.equal(updated.orders[0].transactions[0].gatewayStatus,undefined);
  for(const path of ['/src/reservations.js','/src/dashboard.js','/src/inventory-actions.js','/web/calendar-actions.js','/web/reservation-ui.js','/web/dashboard-ui.js'])assert.equal((await fetch(origin+path)).status,200);
+});
+
+test('duplicate channel references reject a new parent atomically but allow its multiple children',()=>{
+ const first=apply(seed(),request({source:'booking',channelOrderId:'TEST-OTA-101'}));
+ assert.equal(first.orders.length,2);const before=JSON.stringify(first);
+ assert.throws(()=>apply(first,request({id:'second-parent',source:'booking',channelOrderId:' TEST-OTA-101 '})),/duplicate_channel/);
+ assert.equal(JSON.stringify(first),before);
+ assert.equal(apply(first,request({id:'other-channel',source:'airbnb',channelOrderId:'TEST-OTA-101'})).reservations.length,2);
+ assert.equal(apply(first,request({id:'no-reference',source:'booking',channelOrderId:''})).reservations.length,2);
+});
+
+test('adding a stay inherits the full previous period with independent prices and occupants',()=>{
+ const type={id:'type-test',productId:'room',gender:'any'};
+ const previous=createStayDraft({day:'2027-01-10',end:'2027-01-14',type});
+ previous.nightly='100';previous.rates['2027-01-10']='90';previous.occupants[0].name='TEST previous';
+ const next=createStayDraft({day:previous.start,end:previous.end,type});
+ assert.equal(next.start,'2027-01-10');assert.equal(next.end,'2027-01-14');
+ assert.equal(next.nightly,'0');assert.deepEqual(next.rates,{});assert.equal(next.occupants[0].name,'');
+ next.occupants[0].name='TEST next';assert.equal(previous.occupants[0].name,'TEST previous');
+ assert.equal(createStayDraft({day:'2027-01-31',type}).end,'2027-02-01');
+ assert.throws(()=>createStayDraft({day:'2027-02-30',type}),/date_range/);
+});
+
+test('reservation notes accept the observed 2048 character boundary and reject longer notes atomically',()=>{
+ const state=apply(seed(),request({notes:'x'.repeat(2048)}));assert.equal(state.orders[0].notes.length,2048);
+ const clean=seed(),before=JSON.stringify(clean);assert.throws(()=>apply(clean,request({notes:'x'.repeat(2049)})));assert.equal(JSON.stringify(clean),before);
 });

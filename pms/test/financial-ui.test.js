@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {financialPage} from '../web/financial-ui.js';
+const options={kind:'cashflow',propertyId:'P',from:'2027-01-01',to:'2027-01-03',sources:['booking'],t:x=>x,currency:x=>'MYR '+x};
+test('financial page filters and links preserve safe scoped ledger details',()=>{const html=financialPage({orders:[{id:'<id>',propertyId:'P',guest:'<script>',transactions:[{kind:'payment',method:'cash',amount:100,at:'2027-01-01T00:00:00Z'}]}]},options);assert.match(html,/data-finance-filter="from"/);assert.match(html,/data-open-stay="&lt;id&gt;"/);assert.doesNotMatch(html,/<script>/);assert.match(html,/MYR 100/);});
+test('invalid date range remains editable and shows an error instead of a partial total',()=>{const html=financialPage({orders:[]},{...options,from:'2027-02-30'});assert.match(html,/role="alert"/);assert.match(html,/report_input/);assert.match(html,/data-finance-filter/);});

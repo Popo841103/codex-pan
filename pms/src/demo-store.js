@@ -49,7 +49,7 @@ export function apply(state, command) {
     const roomType = command.roomTypeId ? next.roomTypes.find(t => t.id === command.roomTypeId && t.propertyId === propertyId && t.productId === command.productId) : null;
     if (command.roomTypeId && !roomType) reject('scope');
     if (typeof command.group !== 'undefined' && (typeof command.group !== 'string' || command.group.length > 60)) reject('input');
-    next.orders.push({ id: command.id, propertyId, guest: command.guest.trim(), productId: command.productId, roomTypeId:roomType?.id || null, gender: command.gender, start: command.start, end: command.end, group: command.group || '', status: 'confirmed', resourceId: command.resourceId || null, history: [], nightly: money(command.nightly ?? 0), source: validSource(command.source || 'direct'), notes: text(command.notes || '',2000), transactions: [], locked:false, ...guestFields(command), createdAt:command.at, createdBy:command.actor||'local' });
+    next.orders.push({ id: command.id, propertyId, guest: command.guest.trim(), productId: command.productId, roomTypeId:roomType?.id || null, gender: command.gender, start: command.start, end: command.end, group: command.group || '', status: 'confirmed', resourceId: command.resourceId || null, history: [], nightly: money(command.nightly ?? 0), source: validSource(command.source || 'direct'), notes: text(command.notes || '',2048), transactions: [], locked:false, ...guestFields(command), createdAt:command.at, createdBy:command.actor||'local' });
   } else if (type === 'assign') {
     if (!resource || ['checked_out','cancelled'].includes(order.status)) reject('state');
     if (order.locked) reject('locked');
@@ -68,7 +68,7 @@ export function apply(state, command) {
     if(order.nightlyRates){const days=stayDays(command.start,command.end),rates=new Map(order.nightlyRates.map(r=>[r.date,r.amount]));order.nightlyRates=days.map(date=>({date,amount:command.nightly===order.nightly?(rates.get(date)??command.nightly):command.nightly}));}
     order.start = command.start; order.end = command.end;
     order.nightly = money(command.nightly);
-    order.notes = text(command.notes || '',2000);
+    order.notes = text(command.notes || '',2048);
     order.source = validSource(command.source);
     Object.assign(order,guestFields(command,order));
     if(command.occupants!==undefined&&order.reservationId)Object.assign(order,prepareStay(next,propertyId,{...order,occupants:command.occupants,arrivalTime:command.arrivalTime??order.arrivalTime,departureTime:command.departureTime??order.departureTime}));
