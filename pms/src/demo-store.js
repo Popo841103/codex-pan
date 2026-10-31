@@ -32,10 +32,13 @@ export function apply(state, command) {
   const inHouse = target => next.orders.some(o => o.propertyId === propertyId && o.status === 'checked_in' &&
     (!['assign','checkin'].includes(type) || o.id !== order?.id) && overlapsAtoms(next.resources.find(r => r.id === o.resourceId), target));
   const catalogActions = ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'];
-  const needsOrder = ['assign','checkin','checkout','edit','payment','cancel','lock'].includes(type);
+  const needsOrder = ['settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock'].includes(type);
   if (needsOrder && !order) reject('scope');
+  if(order?.folioClosed&&['edit','payment','cancel'].includes(type))reject('folio_closed');
   if (order && isBoxed(order) && ['assign','checkin','checkout','lock'].includes(type)) reject('box_state');
-  if(['rate_plan_save','rate_plan_archive','rates_bulk_update'].includes(type)){changeRates(next,command);}
+  if(type==='settle'){const f=folio(order);if(order.folioClosed)reject('folio_closed');if(f.due!==0||f.deposit!==0)reject('balance');order.folioClosed=true;(order.folioEvents??=[]).push({type:'settle',at:command.at,actor:command.actor||'local',charge:f.charge,paid:f.paid,deposit:f.deposit});}
+  else if(type==='reopen_folio'){if(!order.folioClosed)reject('state');const reason=text(command.reason||'',500).trim();if(!reason)reject('reason');order.folioClosed=false;(order.folioEvents??=[]).push({type:'reopen',at:command.at,actor:command.actor||'local',reason});}
+  else if(['rate_plan_save','rate_plan_archive','rates_bulk_update'].includes(type)){changeRates(next,command);}
   else if (['box_stays','restore_stays'].includes(type)) {
     changeOrderBox(next,command,preview);
   } else if(type==='create_reservation') {
