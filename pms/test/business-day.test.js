@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { seed, apply } from '../src/demo-store.js';
-import { upgradeBusinessDay, nightAuditExceptions, shiftSummary, shiftsOverlap, isAudited, nextDay } from '../src/business-day.js';
+import { upgradeBusinessDay, nightAuditExceptions, shiftSummary, shiftsOverlap, isAudited, nextDay } from '../src/demo-store.js';
 
 const state = () => seed();
 const property = 'TEST-KL';
