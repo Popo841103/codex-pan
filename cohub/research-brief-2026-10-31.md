@@ -22,7 +22,7 @@
 | 咖啡、餐食、精酿啤酒 | 营业中，**09:00–23:30（马来西亚时间）** |
 | 点单方式 | 扫店内 QR 码线上点单 → 吧台取餐 → 前台付款 |
 | 餐饮产品线 | 已见于官网：拿铁（拉花）、Asam pedas pasta、Croissant egg sandwich；完整菜单见 eats.jovianhome.com/menu.html?c=cohubkl |
-| 云南咖啡豆 | 普洱高山豆，SOE 水洗 + House Espresso Blend 两支 |
+| 云南咖啡豆 | 普洱高山豆，SOE 水洗 + House Espresso Blend 两支（此前已发布内容使用） |
 | 自有精酿啤酒 | 已供应 |
 | Hospitality Supply（B2B 业务线） | 精酿啤酒、咖啡豆、床垫枕头、洗漱用品、啤酒设备、定制胶囊舱 —— 面向企业客户，官网已列为独立板块 |
 
@@ -95,8 +95,12 @@ AI meetups、AI workshops、Language exchange、Nomads、Web3、Women's yoga & m
 
 ### 2. 4Seas（4seas.xyz）
 
-**域名归属核实**：业主提供的是 **4seas.xyz**。该域名下的 residency 页底部自链 "Visit 4Seas Website → https://www.4seas.xyz"；第三方活动平台（Luma）的 4Seas 活动页也标注 https://4seas.xyz/。多个中文第三方来源另写作 **4seas.io**，该域名本次抓取失败，**两者是否同属一主体未能验证** —— 使用前须再确认。
-**社交账号：官网页面上未找到官方账号链接。** 第三方提及 Facebook Page「4seas Nimman」，但不足以认定为官方账号，**待核实**。
+**归属核实（已交叉确认）**
+- 官网 **4seas.xyz**（业主提供）：residency 页底部自链 "Visit 4Seas Website → https://www.4seas.xyz"
+- 业主另行提供社群入口 **sola.day** —— 该站是 **Social Layer**，Zuzalu 生态的活动/社群平台；其上确有 **4Seas Community** 主页：sola.day/event/4seas
+- 两处自述一致：4seas.xyz 自述 *"rooted in Ethereum and part of the Zuzalu Movement"*，sola.day 上的 4Seas Community 同样挂在 Zuzalu 名下
+- **结论：4seas.xyz 官网 与 sola.day/event/4seas 社群页可确认为同一主体 4Seas Community**
+- 仍存疑：中文第三方常写的 **4seas.io** 抓取失败，是否与 4seas.xyz 同主体**仍未验证**；Facebook Page「4seas Nimman」仅见诸第三方，**无官方链接佐证，仍标待核实**
 
 **已确认信息（来源 4seas.xyz/residency）**
 - 自我定位：*"A cultural hub in Chiang Mai, rooted in Ethereum and part of the Zuzalu Movement."*
@@ -107,10 +111,23 @@ AI meetups、AI workshops、Language exchange、Nomads、Web3、Women's yoga & m
 - 申请流程：选 track → 读详情 → 在线申请 → 团队审核 → 确认日期 → 入住
 - **无公开标准价目表**（第三方称需通过 Facebook Page 或社群群组联系确认）
 
+**活动日历机制（sola.day 实测：2026-11-01 至 11-08 一周，约 22 场活动，日均约 3 场）**
+
+这是 4Seas 最值得学的一点：**活动量不是自己办出来的，是让别人来办的。**
+
+- **绝大多数活动由外部 host 发起**，4Seas-admin 自己只办极少数。实测一周的 host 举例：moore（Bring-a-Book 读书会）、mai-culture-club（儿童无屏幕周日）、Chiang Mai Zhenji Zen Forest（中文正念共学、古法按导）、Ray With What's Good CNX（Tell Me Something Good）、xenoriacity、Willo Sana（AI Goddesses / Vibecoding for Women）、Daycia（Weekly Content Creator Meetup）、Jed（AI 项目安全）、Martin Atrin（Weekly AI Society）、Bella Ve、gigi-cnx（Sound Crowd）、Jimmy ZLC（禅修）、nosaman（Art Show & Tell）、rolando（语言文化交流）、jean-nicolas（白茶与氧化）、Jason @ Zen Strength（夜市饮食课）
+- **场地按功能分层并公开标注**：Event Space 1F / Conference Room 3F / Gallery Space 1F / Zuzalu Library 1F & 3F, Building F —— 「共享办公 + 活动 + 预约」的结合点就在**把空间切成可预订的功能场地**
+- **标签体系即内容分类**：AI / Technology / Crypto / Business / Community / Digital Nomad / Longevity / Wellness / Art & Creative / Humanities / Language / Music / Entertainment / Sleep / Exercise / Socializing / Entrepreneurship
+- **活动命名带类型前缀**：talk· / workshop· / meetup· / activity· / wellness· / training· / other· —— 一眼看出这是什么性质的活动
+
 **对 COHUB 的参考价值**
+- **把活动日历开放给外部 host**：4Seas 一周 22 场靠的不是自有团队，是让社群成员来发起。COHUB 目前活动零排期，这招是填满日历最快的路径，且与 Alt 的「Host an event」逻辑一致（两家都这么做 → 说明是这类空间的通行做法）
+- **场地分层标注**：未来 COHUB 可公开标注「活动区 / 会议室 / 画廊 / 安静区」并配套预约
+- **标签体系 + 类型前缀命名**：COHUB 可直接建一套自己的（潜水 / 咖啡 / 精酿 / AI / 语言交换 / 桌游 / 徒步 / 数字游民），并用 talk· / workshop· / meetup· 前缀标注
 - 「共享办公 + 活动 + 预约」如何结合：**以「驻留/计划」而非「工位」为单位组织人与内容**
 - 内容 studio 是低成本产出大量素材的关键设施
 - 业主实地拍到的「每周活动板」正是这类空间的标准做法 —— 值得做成 COHUB 的固定视觉栏目
+- ⚠️ 注意：以上活动均为 4Seas 在清迈的运营，**不是 COHUB 的活动**；COHUB 现阶段一场都未排期，不得挪用或暗示
 
 ### 3. Yellow Coworking，清迈
 
