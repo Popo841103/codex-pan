@@ -9,6 +9,7 @@ import {settlementStatus,columns,columnsWords,defaultColumns,loadColumns,saveCol
 import {icon,shellWords,navigation,customersPage,channelsPage} from './workspace-ui.js';
 import {checkinWords,createCheckinAdmin} from './checkin-admin-ui.js';
 import {communicationWords,createCommunications} from './communication-ui.js';
+import { nightAuditWords, nightAuditPage, handoverWindow } from './night-audit-ui.js';
 import { isBoxed, blockType, inventoryState } from '../src/inventory-actions.js';
 import { calendarActionWords, bindCalendarActions } from './calendar-actions.js';
 import { Backend } from './backend.js';
@@ -56,6 +57,14 @@ async function refreshShared(){
   if(!state.properties.some(p=>p.id===propertyId))propertyId=state.properties[0]?.id;
   render();
 }
+// Shared mode returns one merged state for every authorized property, so business-day data is per property.
+function nightAuditState(){
+  return {...state, businessDate:(state.businessDates?state.businessDates[propertyId]:state.businessDate)??null,
+    orders:(state.orders||[]).filter(o=>o.propertyId===propertyId),
+    nightAudits:(state.nightAudits||[]).filter(a=>a.propertyId===propertyId),
+    shiftTypes:(state.shiftTypes||[]).filter(s=>s.propertyId===propertyId),
+    handovers:(state.handovers||[]).filter(h=>h.propertyId===propertyId)};
+}
 async function commit(command) {
   if(writing)throw new Error('busy');
   writing=true;let savedResult;
@@ -63,7 +72,8 @@ async function commit(command) {
     if(backend.shared){
       if(!backend.user)throw new Error('login_required');
       // A transport retry reuses this exact request key; never blindly create a second payment.
-      const payload={...command,propertyId,date:businessDate()}, fingerprint=JSON.stringify(payload);
+      // An explicit date in the command wins; the work date is only a default.
+      const payload={propertyId,date:businessDate(),...command}, fingerprint=JSON.stringify(payload);
       if(pendingMutation&&pendingMutation.fingerprint!==fingerprint)throw new Error('uncertain');
       pendingMutation??={key:crypto.randomUUID(),revision:state.revisions[propertyId],fingerprint};
       const {key,revision}=pendingMutation;
@@ -75,7 +85,7 @@ async function commit(command) {
       }
       savedResult=result;await refreshShared();pendingMutation=null;
     }else{
-      const commandId=crypto.randomUUID();const updated=apply(state,{...command,propertyId,id:commandId,at:new Date().toISOString(),date:businessDate()});savedResult={id:commandId};
+      const commandId=crypto.randomUUID();const updated=apply(state,{propertyId,id:commandId,at:new Date().toISOString(),date:businessDate(),...command});savedResult={id:commandId};
       try{localStorage.setItem(key,JSON.stringify(updated));}catch{throw new Error('storage');}
       state=updated;render();
     }
@@ -123,8 +133,9 @@ function render() {
   const available = resources.filter(r=>!active.some(p=>p.atoms.some(a=>r.atoms.includes(a))) && !blocked.some(b=>b.atoms.some(a=>r.atoms.includes(a)))).length;
   const stat = (label,n,sub) => `<div class="stat"><span>${t(label)}</span><strong>${n}</strong><small>${escape(sub)}</small></div>`;
   const stats = `<div class="stats">${stat('total',resources.length,t('salesAlternatives'))}${stat('booked',active.length,date)}${stat('available',available,t('salesAlternatives'))}${stat('unassigned',orders.filter(o=>o.status==='confirmed'&&!isBoxed(o)&&!o.resourceId).length,t('allocation'))}</div>`;
-  if(view==='home') { $('#content').innerHTML=dashboardPage(state,propertyId,date,lang,t,currency,can,{items:homeShortcuts(),memoText:memoDrafts.get(propertyId)}); }
+  if(view==='home') { const scoped=nightAuditState();$('#content').innerHTML=dashboardPage(state,propertyId,date,lang,t,currency,can,{items:homeShortcuts(),memoText:memoDrafts.get(propertyId),businessDate:scoped.businessDate,lastAudit:(scoped.nightAudits||[]).slice().sort((a,b)=>b.at.localeCompare(a.at))[0]||null}); }
   else if(view==='business'||view==='cashflow'||view==='comparison') { $('#content').innerHTML=financialSummary(view); }
+  else if(view==='nightAudit') { $('#content').innerHTML=nightAuditPage(nightAuditState(),propertyId,{t,escape,currency,can,lang}); }
   else if(view==='customers') { $('#content').innerHTML=customersPage(state,propertyId,t,escape,customerQuery); }
   else if(view==='channels') { $('#content').innerHTML=channelsPage(t,escape,channelProperty===propertyId?channelProvider:null,can)+`<button data-rates-open>${rateLabel('房价管理','Rate management','Pengurusan kadar')}</button>`; }
   else if(view==='resourcesSettings') { $('#content').innerHTML=catalogPage(state,propertyId,lang,t,can); }
@@ -164,6 +175,33 @@ $('#global-nav').onclick=e=>{const b=e.target.closest('[data-view]');if(b)goView
 $('#nav').onclick=e=>{const b=e.target.closest('[data-view]');if(b)goView(b.dataset.view);};
 $('#collapse-navigation').onclick=()=>{navigationCollapsed=!navigationCollapsed;render();};
 async function loadChannelStatus(){const pid=propertyId;if(!backend.shared||!can('guest_read'))return;try{const data=await backend.communications('guest-messages',pid);if(propertyId!==pid)return;channelProvider=data.provider;channelProperty=pid;if(view==='channels')render();}catch(error){if(propertyId===pid)$('#message').textContent=errorText(error);}}
+$('#content').addEventListener('click',async e=>{
+  if(e.target.closest('#business-date-save')){
+    const value=$('#business-date-init')?.value;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(value||'')){$('#message').textContent=t('dateError');return;}
+    try{await commit({type:'business_date_init',date:value});}catch(error){$('#message').textContent=errorText(error);}return;
+  }
+  if(e.target.closest('#night-audit-run')){
+    // The reason box is only rendered while required exceptions remain, so it decides the forced flag.
+    const forced=Boolean($('#audit-reason')),reason=$('#audit-reason')?.value||'';
+    try{await commit({type:'night_audit',force:forced,reason});}catch(error){$('#message').textContent=errorText(error);}return;
+  }
+  if(e.target.closest('#shift-save')){
+    const name=$('#shift-name')?.value.trim()||'';
+    if(!name){$('#message').textContent=t('guestError');return;}
+    try{await commit({type:'shift_save',name,start:$('#shift-start').value,end:$('#shift-end').value});}
+    catch(error){$('#message').textContent=errorText(error);}return;
+  }
+  const drop=e.target.closest('[data-night-audit="shift-delete"]');
+  if(drop){try{await commit({type:'shift_delete',shiftId:drop.dataset.shift});}catch(error){$('#message').textContent=errorText(error);}return;}
+  if(e.target.closest('#handover-run')){
+    const shiftId=$('#handover-shift')?.value,current=nightAuditState(),shift=current.shiftTypes.find(s=>s.id===shiftId);
+    if(!shift||!current.businessDate){$('#message').textContent=t('shift_window');return;}
+    const {from,to}=handoverWindow(current.businessDate,shift);
+    try{await commit({type:'shift_handover',shiftTypeId:shiftId,from,to,note:$('#handover-note')?.value||''});}
+    catch(error){$('#message').textContent=errorText(error);}return;
+  }
+});
 $('#content').addEventListener('click',e=>{if(e.target.closest('#channel-refresh'))loadChannelStatus();if(e.target.closest('#channel-messages'))$('#guest-messages').click();});
 $('#content').addEventListener('change',e=>{if(e.target.id==='customer-query'){customerQuery=e.target.value;render();}});
 $('#language').onchange=e=>{if(!leaveDialogs()){e.target.value=lang;$('#message').textContent=t('busy');return;}lang=e.target.value;$('#message').textContent='';render();};
@@ -367,7 +405,7 @@ for(const [language,values] of Object.entries({
  en:{'':'Default color',all:'All',tripcom:'Trip.com',previous:'Previous',next:'Next',singleDay:'Single day',quickOrder:'Quick reservation',orderBox:'Unassigned reservations',displaySettings:'Display settings',legend:'Legend',batchOperations:'Bulk cleaning / blocks',viewStart:'Calendar starts',backToBusiness:'Business date',calendarSearch:'Name, email, phone, reference or notes',filters:'Filters',resetFilters:'Reset filters',salesGroup:'Sales group',dailyAvailable:'Available individually (rooms / beds / suites)',sharedOccupied:'Shared space occupied',noMatchingResources:'No matching rooms or beds.',holdExplanation:'Unassigned reservations already consume internal capacity. Dashed holds are not extra availability.',stayInfo:'Accommodation',nights:'nights',email:'Email',phone:'Phone',country:'Country / region',guestLanguage:'Guest language',channelOrderId:'Channel reference (manual)',channelNotes:'Channel notes (manual)',specialColor:'Reservation color',peach:'Peach',blue:'Blue',green:'Green',violet:'Violet',createdAt:'Created',createdBy:'Operator',lockRoom:'Lock room',unlockRoom:'Unlock room',billInfo:'Billing',channelInfo:'Channel information',print:'Print current tab',billExplanation:'Accommodation, net payments and deposits are separate. Test records only; no banking or general ledger connection. Cancellation does not refund automatically.',auditLimit:'Related entries from the latest 500 property events visible to this account. Move logs do not represent dated allocation segments.',channelNotConnected:'No channel connection. Source, reference and notes are local records, not proof of synchronization or OTA settlement.',legendExplanation:'Current JOVIAN legend. SmartOrder’s full legend is unverified. Text and borders indicate state; the fill may be customized.',colorExplanation:'Custom color does not change occupancy, payment or inventory state.',windowDays:'Visible days',groupBy:'Group by',physicalRoom:'Physical room',compactRows:'Compact rows',bulkExplanation:'Selected test units only. All changes commit or roll back together. In-house units reject cleaning changes and blocks; fixed reservations are never displaced.',bulkDateExplanation:'Dates apply only to blocks / releases, excluding the end date. Cleaning changes the current state.',markDirty:'Mark dirty',closeRooms:'Block units',openRooms:'Release selected dates',selectAll:'Select all property units',confirmBulk:'Confirm selected test action',bulk_clean:'Bulk cleaning',bulk_block:'Bulk block',bulk_unblock:'Bulk release'},
  ms:{'':'Warna lalai',all:'Semua',tripcom:'Trip.com',previous:'Sebelumnya',next:'Seterusnya',singleDay:'Satu hari',quickOrder:'Tempahan pantas',orderBox:'Tempahan belum ditetapkan',displaySettings:'Tetapan paparan',legend:'Petunjuk',batchOperations:'Pembersihan / sekatan pukal',viewStart:'Mula kalendar',backToBusiness:'Tarikh operasi',calendarSearch:'Nama, e-mel, telefon, rujukan atau nota',filters:'Penapis',resetFilters:'Tetap semula penapis',salesGroup:'Kumpulan jualan',dailyAvailable:'Tersedia sendiri (bilik / katil / suite)',sharedOccupied:'Ruang kongsi diduduki',noMatchingResources:'Tiada bilik atau katil sepadan.',holdExplanation:'Tempahan belum ditetapkan telah menggunakan kapasiti dalaman. Pegangan putus bukan kapasiti tambahan.',stayInfo:'Maklumat penginapan',nights:'malam',email:'E-mel',phone:'Telefon',country:'Negara / wilayah',guestLanguage:'Bahasa tetamu',channelOrderId:'Rujukan saluran (manual)',channelNotes:'Nota saluran (manual)',specialColor:'Warna tempahan',peach:'Pic',blue:'Biru',green:'Hijau',violet:'Ungu',createdAt:'Dicipta',createdBy:'Pengendali',lockRoom:'Kunci bilik',unlockRoom:'Buka kunci bilik',billInfo:'Maklumat bil',channelInfo:'Maklumat saluran',print:'Cetak tab semasa',billExplanation:'Caj, bayaran bersih dan deposit diasingkan. Rekod ujian sahaja; tiada sambungan bank atau lejar am. Pembatalan tidak memulangkan wang secara automatik.',auditLimit:'Rekod berkaitan daripada 500 aktiviti hartanah terkini yang boleh dilihat akaun ini. Log pindah bukan segmen penetapan bertarikh.',channelNotConnected:'Tiada sambungan saluran. Sumber, rujukan dan nota ialah rekod setempat, bukan bukti penyegerakan atau penyelesaian OTA.',legendExplanation:'Petunjuk JOVIAN semasa. Petunjuk penuh SmartOrder belum disahkan. Teks dan sempadan menunjukkan status; warna latar boleh diubah.',colorExplanation:'Warna khas tidak mengubah status penginapan, bayaran atau inventori.',windowDays:'Bilangan hari',groupBy:'Kumpul mengikut',physicalRoom:'Bilik fizikal',compactRows:'Baris padat',bulkExplanation:'Unit ujian dipilih sahaja. Semua perubahan berjaya atau dibatalkan bersama. Unit yang diduduki menolak perubahan pembersihan dan sekatan; tempahan tetap tidak dipindah.',bulkDateExplanation:'Tarikh hanya untuk sekatan / pelepasan, tidak termasuk tarikh akhir. Pembersihan mengubah keadaan semasa.',markDirty:'Tanda kotor',closeRooms:'Sekat unit',openRooms:'Buka tarikh dipilih',selectAll:'Pilih semua unit hartanah',confirmBulk:'Sahkan tindakan ujian dipilih',bulk_clean:'Pembersihan pukal',bulk_block:'Sekatan pukal',bulk_unblock:'Pelepasan pukal'}
 }))Object.assign(words[language],values);
-for(const language of Object.keys(words))Object.assign(words[language],catalogWords[language],calendarActionWords[language],communicationWords[language],checkinWords[language]);
+for(const language of Object.keys(words))Object.assign(words[language],catalogWords[language],calendarActionWords[language],communicationWords[language],checkinWords[language],nightAuditWords[language]);
 Object.assign(words.zh,{salesAlternatives:'独立销售选项，整套与子房不可相加'});
 Object.assign(words.en,{salesAlternatives:'Sales alternatives; suites share component capacity'});
 Object.assign(words.ms,{salesAlternatives:'Pilihan jualan; suite berkongsi kapasiti komponen'});
@@ -432,7 +470,7 @@ $('#content').addEventListener('click',async event=>{
   const target=event.target.closest('[data-home]'),queue=event.target.closest('[data-home-queue]');if(queue){showQueue(queue.dataset.homeQueue);return;}if(!target)return;
   const action=target.dataset.home;
   if(['calendar','overview','orders'].includes(action)){view=action;render();return;}
-  if(['business','cashflow'].includes(action)){view=action;render();return;}
+  if(['business','cashflow','nightAudit'].includes(action)){view=action;render();return;}
   if(action==='room-summary'){const data=dashboard(state,propertyId,businessDate());openUtility('propertySummary',`<div class="table-wrap"><table><thead><tr><th>${t('product')}</th><th>${t('capacity')}</th><th>${t('sold')}</th></tr></thead><tbody>${['room','bed'].map(k=>`<tr><td>${t(k)}</td><td>${data.today[k].available}</td><td>${data.today[k].sold}</td></tr>`).join('')}</tbody></table></div><p>${t('statisticsNote')}</p>`);return;}
   if(action==='save-memo'){const text=$('#home-memo').value;target.disabled=true;try{await commit({type:'memo_save',text});memoDrafts.delete(propertyId);render();}catch(error){$('#memo-status').textContent=errorText(error);target.disabled=!can('memo_save');}return;}
   if(action==='configure'){

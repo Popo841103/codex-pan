@@ -31,6 +31,26 @@ The earlier full dom-workflows multi-stay timeout reproduced as a test harness r
 Real Edge18015 subsequently verified a synthetic MYR10 receipt: selecting local-ui-test shows one MYR10 row, selecting legacy unknown shows zero rows/totals. Only synthetic memory data was changed.
 
 
+## Trustworthy business day, night audit and shift handover update (2026-10-31)
+
+The business date was previously only a free-form browser field (`$('#date').value`), never persisted and never auditable, so nothing could be trusted as a closed day. It is now authoritative per-property state.
+
+New module `pms/src/business-day.js` and a Statistics > Night audit page. Rules implemented independently from the SmartOrder reference observations:
+
+- **Business date** is persisted per property and starts unset. An administrator sets it once; afterwards only a night audit advances it, exactly one day at a time. It is never inferred from a server clock without an administrator confirming it.
+- **Night audit** classifies exceptions: required (arrival never checked in, departure never checked out) and advisory (order box expiring, history unsettled). A required exception blocks closing. A forced close is allowed only with a recorded reason and is stored as `forced`, never silently accepted. Every audit appends an immutable record with date, actor, mode, exception counts and reason.
+- **Audit locking**: once a night is closed, editing it or posting money to it is rejected with `audited`. The override is granted only server-side to the `admin` role; a browser-supplied `auditOverride` from any other role is refused with 403. An unset business date locks nothing, so existing data was never affected.
+- **Shifts**: names are unique up to 20 characters and ranges cannot overlap; a shift may cross midnight. A shift with handover records cannot be deleted.
+- **Handover** stores a snapshot of the window with payments, refunds and deposits separated. Windows use the property's fixed UTC+8 offset; Malaysia has no daylight saving.
+
+Permissions: `business_date_init`, `shift_save`, `shift_delete` are administrator-only; `night_audit` and `shift_handover` are available to operations. The home page night-audit status now shows the real business date and last auditor instead of a permanent "not enabled" label, and links to the page.
+
+Also fixed: `commit()` previously overwrote an explicit command `date` with the work-date default, so any command carrying its own date silently lost it. The command value now wins.
+
+Verification: Node 197/197 pass (was 179; 13 new business-day reducer tests, 5 new shared-service authorization tests), Python 5/5 pass, and a new `verification/dom-night-audit.mjs` passes — it drives the real UI modules to set the opening date, close a day, be blocked by an unresolved arrival, force it with a reason, then save a shift and record a handover. `dom-settlement.mjs` and `dom-financial.mjs` still pass. Windows full-suite results must still be checked separately; the two known POSIX private-file mode failures are unchanged and were not weakened.
+
+Still not done: this is the business-day foundation only. It is not a full accounting close, not the manager daily report, not cash-up variance approval, and not automatic night audit. Reports, shifts and night audit are not yet cross-checked against each other. Real NOBEDS OTA, payment and TTHotel lock integrations remain unconnected.
+
 ## Verified release and next handoff — 2026-10-31
 Latest deployed product commit: 4340b877f0361b09514014a5bdae5c7a5959c19e. Actions41196678780, job124524134947: Verify and Deploy both succeeded; Ubuntu179/179 Node tests pass. Backup /var/backups/jovian-pms-test/update-srIp8cK1. No real production business transactions were used for acceptance.
 

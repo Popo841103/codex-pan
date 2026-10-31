@@ -16,8 +16,8 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive'],
-  operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
+  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover'],
+  operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover'],
   finance: ['settle','payment'], viewer: []
 };
 export class Store {
@@ -136,10 +136,14 @@ export class Store {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
     const ids=this.publicUser(fresh).propertyIds;
-    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{}};
+    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[]};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
+      result.businessDates[id]=body.businessDate ?? null;
+      result.nightAudits.push(...(body.nightAudits||[]).map(entry=>({...entry,propertyId:id})));
+      result.shiftTypes.push(...(body.shiftTypes||[]).map(entry=>({...entry,propertyId:id})));
+      result.handovers.push(...(body.handovers||[]).map(entry=>({...entry,propertyId:id})));
       for(const field of ['ratePlans','rateCells','rateChanges','properties','resources','roomTypes','physicalRooms','reservations','orders','blocks'])result[field].push(...body[field].filter(item=>(field==='properties'?item.id:item.propertyId)===id));
       result.revisions[id]=row.revision;
     }
@@ -164,6 +168,8 @@ export class Store {
       if(typeof propertyId!=='string')error(400,'input');
       this.authorize(user,propertyId);
       if(command.type==='create_reservation'&&command.mode==='checkin'&&!roleTypes[rowUser.role].includes('checkin'))error(403,'forbidden');
+      // Rewriting nights already closed by a night audit stays an administrator-only override.
+      if(command.auditOverride===true&&rowUser.role!=='admin')error(403,'forbidden');
       if(!roleTypes[rowUser.role].includes(command.type))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
