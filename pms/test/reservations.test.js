@@ -122,3 +122,5 @@ test('reservation notes accept the observed 2048 character boundary and reject l
  const state=apply(seed(),request({notes:'x'.repeat(2048)}));assert.equal(state.orders[0].notes.length,2048);
  const clean=seed(),before=JSON.stringify(clean);assert.throws(()=>apply(clean,request({notes:'x'.repeat(2049)})));assert.equal(JSON.stringify(clean),before);
 });
+
+test('composer preserves selected rate plan for server-side price validation',()=>{const draft={guest:'TEST',bookingKind:'individual',companyName:'',source:'direct',reminders:[],stays:[{...row(),ratePlanCode:'STANDARD',nightly:'1.00',rates:{},extraCharges:[]}]};assert.equal(composerCommand(draft,'reserve').stays[0].ratePlanCode,'STANDARD');});
