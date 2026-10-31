@@ -35,7 +35,7 @@ export function apply(state, command) {
   const needsOrder = ['assign','checkin','checkout','edit','payment','cancel','lock'].includes(type);
   if (needsOrder && !order) reject('scope');
   if (order && isBoxed(order) && ['assign','checkin','checkout','lock'].includes(type)) reject('box_state');
-  if(['rate_plan_save','rates_bulk_update'].includes(type)){changeRates(next,command);}
+  if(['rate_plan_save','rate_plan_archive','rates_bulk_update'].includes(type)){changeRates(next,command);}
   else if (['box_stays','restore_stays'].includes(type)) {
     changeOrderBox(next,command,preview);
   } else if(type==='create_reservation') {
