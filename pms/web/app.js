@@ -122,7 +122,7 @@ function render() {
   if(view==='home') { $('#content').innerHTML=dashboardPage(state,propertyId,date,lang,t,currency,can,{items:homeShortcuts(),memoText:memoDrafts.get(propertyId)}); }
   else if(view==='business'||view==='cashflow') { $('#content').innerHTML=financialSummary(view); }
   else if(view==='customers') { $('#content').innerHTML=customersPage(state,propertyId,t,escape,customerQuery); }
-  else if(view==='channels') { $('#content').innerHTML=channelsPage(t,escape,channelProperty===propertyId?channelProvider:null,can); }
+  else if(view==='channels') { $('#content').innerHTML=channelsPage(t,escape,channelProperty===propertyId?channelProvider:null,can)+`<button data-rates-open>${rateLabel('房价管理','Rate management','Pengurusan kadar')}</button>`; }
   else if(view==='resourcesSettings') { $('#content').innerHTML=catalogPage(state,propertyId,lang,t,can); }
   else if(view==='calendar') { $('#content').innerHTML = calendar(resources,orders,plan,calendarDate); } else if(view==='overview' || view==='tasks') {
     $('#content').innerHTML = (view==='overview'?stats:'') + ['room','bed','suite'].map(product=>`<section class="panel"><div class="panel-head"><h2>${t(product==='room'?'rooms':product==='bed'?'beds':'suite')}</h2><span class="muted">${resources.filter(r=>r.productId===product).length} ${t(product)}</span></div><div class="grid">${resources.filter(r=>r.productId===product).map(r=>{
@@ -468,3 +468,13 @@ async function boot(){
 }
 await boot();
 
+
+function rateLabel(zh,en,ms){return ({zh,en,ms})[lang]||en;}
+function openRates(){
+ const types=state.roomTypes.filter(r=>r.propertyId===propertyId&&!r.archived),plans=(state.ratePlans||[]).filter(r=>r.propertyId===propertyId);
+ const typeOptions=types.map(r=>'<option value="'+escape(r.id)+'">'+escape(typeName(r,lang,r.id))+'</option>').join('');
+ openUtility('rateManagement','<form id="rate-plan-form"><h3>'+rateLabel('新增独立计划','New independent plan','Pelan bebas baharu')+'</h3><label>'+rateLabel('编码（字母数字，最多8位）','Code (alphanumeric, max 8)','Kod (maksimum 8)')+'<input name="code" required pattern="[A-Za-z0-9]{1,8}" maxlength="8"></label><label>'+rateLabel('名称','Name','Nama')+'<input name="name" required maxlength="100"></label><label>'+rateLabel('房型','Room type','Jenis bilik')+'<select name="roomTypeId">'+typeOptions+'</select></label><button '+(can('rate_plan_save')?'':'disabled')+'>'+t('save')+'</button></form><form id="rate-bulk-form"><h3>'+rateLabel('批量固定价','Bulk fixed price','Harga tetap pukal')+'</h3><label>'+rateLabel('价格计划','Rate plan','Pelan kadar')+'<select name="planCode">'+plans.map(p=>'<option value="'+escape(p.code)+'">'+escape(p.name)+'</option>').join('')+'</select></label><label>'+rateLabel('房型','Room type','Jenis bilik')+'<select name="roomTypeId">'+typeOptions+'</select></label><label>'+t('arrival')+'<input name="from" type="date" required></label><label>'+t('departure')+'<input name="to" type="date" required></label><label>'+t('amount')+'<input name="amount" type="number" min="0" max="1000000" step="0.01" required></label><label>'+rateLabel('销售','Sales','Jualan')+'<select name="sale"><option value="unchanged">'+rateLabel('不修改','Unchanged','Kekal')+'</option><option value="open">'+rateLabel('允许','Open','Buka')+'</option><option value="closed">'+rateLabel('停售','Closed','Tutup')+'</option></select></label><label><input name="confirmed" type="checkbox" required>'+rateLabel('确认更新以上日期范围（含首尾日期）','Confirm inclusive date range update','Sahkan kemas kini julat termasuk hujung')+'</label><button '+(can('rates_bulk_update')&&plans.length?'':'disabled')+'>'+t('apply')+'</button></form>');
+ $('#rate-plan-form').onsubmit=async e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.target));try{await commit({type:'rate_plan_save',code:v.code,name:v.name,roomTypeIds:[v.roomTypeId]});openRates();}catch(err){$('#utility-error').textContent=errorText(err);}};
+ $('#rate-bulk-form').onsubmit=async e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.target));try{await commit({type:'rates_bulk_update',planCode:v.planCode,roomTypeIds:[v.roomTypeId],ranges:[{from:v.from,to:v.to}],weekdays:[1,2,3,4,5,6,7],amount:toMinor(v.amount),sale:v.sale});openRates();}catch(err){$('#utility-error').textContent=errorText(err);}};
+}
+$('#content').addEventListener('click',e=>{if(e.target.closest('[data-rates-open]'))openRates();});

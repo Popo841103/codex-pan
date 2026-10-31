@@ -13,6 +13,7 @@ export const overlapsAtoms = (a, b) => a.atoms.some(atom => b.atoms.includes(ato
 export function upgradeCatalog(state) {
   const next = structuredClone(state);
   next.roomTypes ??= [];
+  next.ratePlans ??= []; next.rateCells ??= []; next.rateChanges ??= [];
   next.physicalRooms ??= [];
   next.reservations ??= [];
   for (const resource of next.resources) {

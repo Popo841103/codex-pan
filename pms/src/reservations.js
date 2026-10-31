@@ -1,3 +1,4 @@
+import {quoteRateStay} from './rates.js';
 // Parent reservations group existing single-unit stays. Inventory and money stay
 // on each child; parent totals are derived and never posted a second time.
 export class ReservationError extends Error {}
@@ -44,11 +45,11 @@ export function createReservation(state,c,apply,preview) {
   let next=structuredClone(state);const stayIds=[];
   for(const [i,stay] of c.stays.entries()) {
     if(!stay||typeof stay!=='object')fail('reservation_input');
-    const detail=prepareStay(next,propertyId,stay),id=`${c.id}-stay-${i+1}`;
+    const quoted=quoteRateStay(next,propertyId,stay);const detail=prepareStay(next,propertyId,quoted),id=`${c.id}-stay-${i+1}`;
     next=apply(next,{type:'create',propertyId,id,at:c.at,actor:c.actor,date:c.date,guest,
       productId:stay.productId,roomTypeId:stay.roomTypeId,gender:stay.gender,start:stay.start,end:stay.end,resourceId:stay.resourceId||null,group:stay.group||'',nightly:detail.nightly,
       source:c.source,email:c.email,phone:c.phone,country:c.country,guestLanguage:c.guestLanguage,channelOrderId,channelNotes:'',notes:c.notes,color:c.color});
-    Object.assign(next.orders.find(o=>o.id===id),detail,{reservationId:c.id,createdBusinessDate:c.date});stayIds.push(id);
+    Object.assign(next.orders.find(o=>o.id===id),detail,{reservationId:c.id,createdBusinessDate:c.date,...(stay.ratePlanCode?{ratePlanCode:stay.ratePlanCode}:{})});stayIds.push(id);
   }
   if(c.autoAssign||c.mode==='checkin') {
     const assignments=preview(next,propertyId);

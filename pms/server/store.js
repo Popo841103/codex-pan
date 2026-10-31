@@ -16,7 +16,7 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive'],
+  admin: ['rate_plan_save','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive'],
   operations: ['box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
   finance: ['payment'], viewer: []
 };
@@ -136,11 +136,11 @@ export class Store {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
     const ids=this.publicUser(fresh).propertyIds;
-    const result={version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{}};
+    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{}};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
-      for(const field of ['properties','resources','roomTypes','physicalRooms','reservations','orders','blocks'])result[field].push(...body[field].filter(item=>(field==='properties'?item.id:item.propertyId)===id));
+      for(const field of ['ratePlans','rateCells','rateChanges','properties','resources','roomTypes','physicalRooms','reservations','orders','blocks'])result[field].push(...body[field].filter(item=>(field==='properties'?item.id:item.propertyId)===id));
       result.revisions[id]=row.revision;
     }
     result.audit=this.db.prepare(`SELECT a.*,u.username actor FROM audit a JOIN users u ON u.id=a.actor_id

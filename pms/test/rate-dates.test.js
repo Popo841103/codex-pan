@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {rateDates} from '../src/rate-dates.js';
+test('bulk pricing deduplicates overlapping ranges and applies ISO weekdays across a year boundary',()=>{assert.deepEqual(rateDates([{from:'2026-12-31',to:'2027-01-03'},{from:'2027-01-01',to:'2027-01-04'}],[1,5]),['2027-01-01','2027-01-04']);});
+test('invalid and excessive pricing scopes fail closed',()=>{for(const ranges of [[{from:'2027-02-30',to:'2027-03-02'}],[{from:'2027-02-02',to:'2027-02-01'}],[{from:'2027-01-01',to:'2030-01-01'}],[]])assert.throws(()=>rateDates(ranges,[1]),/rate_dates/);assert.throws(()=>rateDates([{from:'2027-01-01',to:'2027-01-02'}],[]),/rate_dates/);});
