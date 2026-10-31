@@ -408,9 +408,9 @@ const financeFilters=new Map();
 function financialSummary(kind){
  const key=propertyId+'|'+kind;
  const filters=financeFilters.get(key)||{from:businessDate(),to:businessDate(),source:'all'};
- return financialPage(state,{kind,propertyId,...filters,sources:sourceValues,t,currency});
+ return financialPage(state,{kind,propertyId,...filters,sources:sourceValues,lang,t,currency});
 }
-$('#content').addEventListener('change',event=>{const field=event.target.dataset.financeFilter;if(!field||!['from','to','source'].includes(field))return;const key=propertyId+'|'+view;const filters=financeFilters.get(key)||{from:businessDate(),to:businessDate(),source:'all'};financeFilters.set(key,{...filters,[field]:event.target.value});render();});
+$('#content').addEventListener('change',event=>{const field=event.target.dataset.financeFilter;if(!field||!['from','to','source','dimension'].includes(field))return;const key=propertyId+'|'+view;const filters=financeFilters.get(key)||{from:businessDate(),to:businessDate(),source:'all'};financeFilters.set(key,{...filters,[field]:event.target.value});render();});
 function showQueue(queue){
   const orders=queueOrders(state,propertyId,businessDate(),queue),n=new Set(orders.map(o=>o.reservationId||o.id)).size;
   openUtility(queue,`<p>${t('orders')}: ${n} · ${t('stays')}: ${orders.length} · ${t('guestCount')}: ${orders.reduce((n,o)=>n+(o.adults||1)+(o.children||0)+(o.infants||0),0)}</p><div class="table-wrap"><table><thead><tr>${['guest','allocation','arrival','departure','status','due','action'].map(k=>`<th>${t(k)}</th>`).join('')}</tr></thead><tbody>${orders.map(o=>`<tr><td>${escape(o.guest)}</td><td>${escape(state.resources.find(r=>r.id===o.resourceId)?.label||t('unassigned'))}</td><td>${o.start}</td><td>${o.end}</td><td>${t(o.status)}</td><td>${currency(folio(o).due)}</td><td><button data-open-stay="${escape(o.id)}">${t('details')}</button></td></tr>`).join('')}</tbody></table></div>${orders.length?'':`<p>${t('queueEmpty')}</p>`}`);

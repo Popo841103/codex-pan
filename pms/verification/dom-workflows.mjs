@@ -21,12 +21,12 @@ dom.window.HTMLDialogElement.prototype.close=function(){this.removeAttribute('op
 dom.window.confirm=()=>true;
 global.window=dom.window;global.document=dom.window.document;global.FormData=dom.window.FormData;global.localStorage=dom.window.localStorage;
 global.fetch=async(path,options={})=>{
-  const response=await realFetch(new URL(path,base),{...options,headers:{Origin:base,Cookie:cookie,...options.headers}});
+  const response=await realFetch(new URL(path,base),{...options,signal:AbortSignal.timeout(8000),headers:{Origin:base,Cookie:cookie,...options.headers}});
   if(response.headers.has('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];return response;
 };
 const $=selector=>{const node=document.querySelector(selector);assert(node,`Missing DOM control: ${selector}`);return node;};
 const set=(selector,value)=>{const node=$(selector);if(node.type==='checkbox')node.checked=value;else node.value=value;node.dispatchEvent(new dom.window.Event('input',{bubbles:true}));node.dispatchEvent(new dom.window.Event('change',{bubbles:true}));};
-const until=async(check,title)=>{for(let n=0;n<150;n++){if(check())return;await new Promise(resolve=>setTimeout(resolve,10));}throw Error('Timed out: '+title);};
+const until=async(check,title)=>{for(let n=0;n<1000;n++){if(check())return;await new Promise(resolve=>setTimeout(resolve,10));}throw Error('Timed out: '+title+'; UI error: '+(document.querySelector('#reservation-error')?.textContent||'')+'; DOM errors: '+errors.map(e=>e.message).join('; '));};
 try {
   const login=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});assert.equal(login.status,200);
   await import(new URL('../web/app.js?dom-check='+randomUUID(),import.meta.url).href);
@@ -54,20 +54,46 @@ try {
   set('#reservation-dialog [data-row="1"] [data-person-field="name"]','TEST occupant B');
   set('#reservation-dialog [data-field="autoAssign"]',true);
   assert($('#reservation-dialog [data-field="guest"]').value==='TEST DOM payer');
+  assert($('#reservation-form').checkValidity(),JSON.stringify([...$('#reservation-form').elements].filter(node=>typeof node.checkValidity==='function'&&!node.checkValidity()).map(node=>({field:node.dataset.field,type:node.type,value:node.value,message:node.validationMessage}))));
   $('#reservation-dialog [type="submit"][value="reserve"]').click();
   await until(()=>store.read(operator).reservations.length===1&&!$('#reservation-dialog').open,'multi-stay submit');
   let state=store.read(operator);assert.equal(state.orders.length,2);assert(state.orders.every(o=>o.resourceId));
   assert.equal(state.orders.reduce((n,o)=>n+o.nightlyRates.reduce((n,r)=>n+r.amount,0),0),25000);
   assert($('#utility-dialog').open);assert.equal(document.querySelectorAll('#utility-body [data-open-stay]').length,2);
   $('#utility-body [data-open-stay]').click();assert($('#detail-dialog').open);assert($('#back-reservation'));
+
+  // Editing must offer the same stable-code directories as creating a stay.
+  const editCountry=$('#edit-form [name="country"]');
+  assert(editCountry.list,'Country directory missing from order editing');
+  assert.equal(editCountry.list.options.length,249);
+  const editLanguage=$('#edit-form [name="guestLanguage"]');assert(editLanguage.list);
+  assert([...editLanguage.list.options].some(option=>option.value==='ms'));
+  set('#edit-form [name="country"]','MY');set('#edit-form [name="guestLanguage"]','ms');
+  $('#edit-form .primary').click();
+  await until(()=>store.read(operator).orders[0].country==='MY','edited locale persisted');
+  assert.equal(store.read(operator).orders[0].guestLanguage,'ms');
   $('#back-reservation').click();assert($('#utility-dialog').open);$('#utility-close').click();
   assert.equal($('[data-home-queue="created"] strong').textContent,'1');
   $('[data-home-queue="created"]').click();assert.equal(document.querySelectorAll('#utility-body [data-open-stay]').length,2);$('#utility-close').click();
   $('#global-nav [data-view="orders"]').click();assert.equal(document.querySelectorAll('#content [data-open-reservation]').length,1);
+
+  // New comparison features: exercise delegated handlers, not just pure renderers.
+  assert.equal(document.querySelectorAll('[data-order-tab]').length,9);
+  $('[data-order-tab="arrivals"]').click();assert.equal($('#order-from').disabled,true);
+  $('[data-order-tab="all"]').click();assert.equal($('#order-from').disabled,false);
+  $('[data-order-columns]').click();assert.equal(document.querySelectorAll('#order-columns-form [name="column"]').length,27);
+  document.querySelectorAll('#order-columns-form [name="column"]').forEach(n=>n.checked=false);
+  $('#order-columns-form .primary').click();assert($('#utility-dialog').open);assert($('#utility-error').textContent.length>0);
+  $('[data-columns-all]').click();$('#order-columns-form .primary').click();assert.equal(document.querySelectorAll('#content thead th').length,28);
+  $('[data-order-tab="created"]').click();assert.equal(document.querySelectorAll('#content thead th').length,28);
+  $('[data-order-columns]').click();$('[data-columns-reset]').click();$('#order-columns-form .primary').click();
+  $('[data-order-tab="all"]').click();
   set('#order-query','TEST not found');assert.equal(document.querySelectorAll('#content [data-open-reservation]').length,0);
   set('#order-query','');$('#new').click();set('#reservation-dialog [data-field="guest"]','TEST conflict');
   set('#reservation-dialog [data-row="0"] [data-field="resourceId"]','TEST-KL-R3');
-  $('#reservation-dialog [data-command="add"]').click();set('#reservation-dialog [data-row="1"] [data-field="resourceId"]','TEST-KL-R3');
+
+  set('#reservation-dialog [data-row="0"] [data-field="end"]','2027-01-15');
+  $('#reservation-dialog [data-command="add"]').click();assert.equal($('#reservation-dialog [data-row="1"] [data-field="end"]').value,'2027-01-15');set('#reservation-dialog [data-row="1"] [data-field="resourceId"]','TEST-KL-R3');
   $('#reservation-dialog [type="submit"][value="reserve"]').click();
   await until(()=>$('#reservation-error').textContent.length>0,'conflict error shown');
   assert($('#reservation-dialog').open);assert.equal($('#reservation-dialog [data-field="guest"]').value,'TEST conflict');
@@ -127,6 +153,17 @@ try {
   await until(()=>store.read(operator).orders.every(o=>o.inventoryStatus==='reserved')&&!document.querySelector('#box-action-form'),'restore boxed children');
   assert(store.read(operator).orders.every(o=>o.resourceId));assert.equal(document.querySelectorAll('#box-selection-form [name="orderId"]').length,0);
   $('#utility-close').click();
+
+  $('#global-nav [data-view="business"]').click();
+  set('[data-finance-filter="from"]','2027-01-10');set('[data-finance-filter="to"]','2027-01-12');
+  assert.equal(document.querySelectorAll('#content [data-finance-detail]').length,3);
+  $('[data-finance-filter="source"]').value='booking';$('[data-finance-filter="source"]').dispatchEvent(new dom.window.Event('change',{bubbles:true}));
+  assert.equal(document.querySelectorAll('#content [data-open-stay]').length,0);
+  set('[data-finance-filter="source"]','all');set('[data-finance-filter="dimension"]','source');assert($('#content').textContent.includes('250.00'));set('[data-finance-filter="dimension"]','roomTypeId');assert.equal(document.querySelectorAll('#content [data-finance-detail]').length,3);$('#content [data-finance-detail]').click();assert($('#detail-dialog').open);$('#detail-close').click();
+  set('[data-finance-filter="to"]','2027-01-09');assert(document.querySelector('#content [role="alert"]'));assert($('[data-finance-filter="to"]'));
+  set('[data-finance-filter="to"]','2027-01-12');assert.equal(document.querySelector('#content [role="alert"]'),null);
+  $('#global-nav [data-view="home"]').click();$('[data-home="cashflow"]').click();assert($('[data-finance-filter="source"]'));
+  $('#global-nav [data-view="business"]').click();assert.equal($('[data-finance-filter="to"]').value,'2027-01-12');
   set('#language','ms');assert($('#global-nav').textContent.includes('Utama'));
   assert.equal(errors.length,0,errors.map(error=>error.message).join('\n'));
   console.log('DOM workflows passed: home, shared memo, bounded bulk draft, multi-stay quote/submit, parent/child navigation, queue, filters, atomic conflict draft, calendar menus/ranges, typed block/release, boxed parent restore, Malay UI.');
