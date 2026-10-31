@@ -29,3 +29,13 @@ Cashier ledger now supports operator filtering, including legacy unknown actors;
 The earlier full dom-workflows multi-stay timeout reproduced as a test harness race: the test proceeded after memo DB persistence but before its shared UI refresh finished, triggering the real busy guard. Test now awaits both persistence and visible completion. Full DOM sequence passed twice, including multi-stay reservation, conflict/draft preservation, calendar ranges, blocks, order-box restore, business reports and Malay UI. No production guard was weakened. Dedicated financial DOM operator filtering also passed. Windows179 tests177pass plus the same2 private POSIX-mode incompatibilities; final Linux CI for this update still must be checked.
 
 Real Edge18015 subsequently verified a synthetic MYR10 receipt: selecting local-ui-test shows one MYR10 row, selecting legacy unknown shows zero rows/totals. Only synthetic memory data was changed.
+
+
+## Verified release and next handoff — 2026-10-31
+Latest deployed product commit: 4340b877f0361b09514014a5bdae5c7a5959c19e. Actions41196678780, job124524134947: Verify and Deploy both succeeded; Ubuntu179/179 Node tests pass. Backup /var/backups/jovian-pms-test/update-srIp8cK1. No real production business transactions were used for acceptance.
+
+Real Edge18015 receipt/operator verification passed; full DOM workflows passed again after the final operator changes. Keep the distinction: DOM regression covers broader workflows than the actual Edge checks. Existing Windows179 tests177 pass/2 fail are the POSIX-private-file checks named above; security checks were not weakened.
+
+The four existing local SmartOrder Markdown research files are now copied to handoff/research/. They contain page/field/workflow observations and unverified branches; preserve their observation dates and evidence labels. Do not promote old observations into fresh verification. JOVIAN-CURRENT-STATUS.md is the compact source/runtime/release/remaining-work index. Original outputs/ ledgers and screenshots remain on the user's machine; no guest records, database dumps or credential files were included.
+
+Next: continue complete finance/reporting and shift/night-audit design with trustworthy business-day rules, remaining website builder/property content, guest self-checkin and channel messaging branches. True OTA/payment/lock connections still need provider/device verification. Full parity remains incomplete. Keep the active overall objective; do not stop at menu placeholders.
