@@ -49,7 +49,7 @@ export function createReservation(state,c,apply,preview) {
     next=apply(next,{type:'create',propertyId,id,at:c.at,actor:c.actor,date:c.date,guest,
       productId:stay.productId,roomTypeId:stay.roomTypeId,gender:stay.gender,start:stay.start,end:stay.end,resourceId:stay.resourceId||null,group:stay.group||'',nightly:detail.nightly,
       source:c.source,email:c.email,phone:c.phone,country:c.country,guestLanguage:c.guestLanguage,channelOrderId,channelNotes:'',notes:c.notes,color:c.color});
-    Object.assign(next.orders.find(o=>o.id===id),detail,{reservationId:c.id,createdBusinessDate:c.date,...(stay.ratePlanCode?{ratePlanCode:stay.ratePlanCode}:{})});stayIds.push(id);
+    Object.assign(next.orders.find(o=>o.id===id),detail,{reservationId:c.id,createdBusinessDate:c.date,...(stay.ratePlanCode?{ratePlanCode:stay.ratePlanCode,cancellationPolicy:structuredClone(quoted.cancellationPolicy)}:{})});stayIds.push(id);
   }
   if(c.autoAssign||c.mode==='checkin') {
     const assignments=preview(next,propertyId);
