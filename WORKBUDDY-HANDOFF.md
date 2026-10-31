@@ -19,3 +19,13 @@ SmartOrder inspection is strictly read-only: no orders/prices/inventory/payments
 New Statistics > Operating period comparison page: independently editable current/month/year inclusive date ranges, month-end/leap defaults, channel scoping, room/extra revenue, unit nights, receipts/refunds and separate deposits. Zero comparison base shows no percentage; negative base uses its absolute magnitude. Revenue and cash are never added. Missing posting dates remain unallocated. Each period drills to the existing revenue or receipt ledger preserving dates/source. This is comparison groundwork, NOT complete manager accounting, shifts or night audit.
 
 Core/render tests and DOM period/drill-through passed. Windows full suite176:174 pass plus2 known POSIX private-mode failures. Real Edge18015 verified with synthetic MYR123.45 revenue versus zero receipts and matching detail amounts. No production business records changed. Continue full remaining scope and the intermittent large multi-stay DOM issue. Deployment outcome for this update must be checked via its own Actions run, not inferred from this handoff.
+
+
+## Cashier filters and full DOM regression update (2026-10-31)
+Operating comparison deployed as ec59a6e63ceb68be372e13894d7ce62ca30d949e; Actions41196136190/job124522565439 passed176/176 and actually deployed, backup /var/backups/jovian-pms-test/update-Aa0mA5wb.
+
+Cashier ledger now supports operator filtering, including legacy unknown actors; dropdown choices only use current-property transactions. Reserved selection words are distinguished from actual usernames. Date, kind, method and operator filters reconcile counts/totals. No provider or bank connection implied. Comparative date controls match the workspace styling.
+
+The earlier full dom-workflows multi-stay timeout reproduced as a test harness race: the test proceeded after memo DB persistence but before its shared UI refresh finished, triggering the real busy guard. Test now awaits both persistence and visible completion. Full DOM sequence passed twice, including multi-stay reservation, conflict/draft preservation, calendar ranges, blocks, order-box restore, business reports and Malay UI. No production guard was weakened. Dedicated financial DOM operator filtering also passed. Windows179 tests177pass plus the same2 private POSIX-mode incompatibilities; final Linux CI for this update still must be checked.
+
+Real Edge18015 subsequently verified a synthetic MYR10 receipt: selecting local-ui-test shows one MYR10 row, selecting legacy unknown shows zero rows/totals. Only synthetic memory data was changed.

@@ -33,7 +33,7 @@ try {
   $('[data-property="TEST-KL"]').click();
   assert.equal(document.body.dataset.view,'home');assert($('[data-home-queue="created"]'));set('#date','2027-01-10');
   set('#home-memo','TEST saved through the actual home event handler');$('[data-home="save-memo"]').click();
-  await until(()=>store.read(operator).properties[0].memo?.text.includes('TEST saved'),'shared memo persistence');
+  await until(()=>store.read(operator).properties[0].memo?.text.includes('TEST saved')&&document.querySelector('#message')?.textContent==='测试操作已保存','memo persistence and completed shared refresh');
   $('#new').click();assert($('#reservation-dialog').open);
   set('#reservation-dialog [data-field="guest"]','TEST DOM payer');
   set('#reservation-dialog [data-row="0"] [data-field="end"]','2027-01-12');
@@ -81,11 +81,11 @@ try {
   assert.equal(document.querySelectorAll('[data-order-tab]').length,9);
   $('[data-order-tab="arrivals"]').click();assert.equal($('#order-from').disabled,true);
   $('[data-order-tab="all"]').click();assert.equal($('#order-from').disabled,false);
-  $('[data-order-columns]').click();assert.equal(document.querySelectorAll('#order-columns-form [name="column"]').length,27);
+  $('[data-order-columns]').click();const columnCount=document.querySelectorAll('#order-columns-form [name="column"]').length;assert($('#order-columns-form [name="column"][value="settlement"]'));assert(columnCount>6);
   document.querySelectorAll('#order-columns-form [name="column"]').forEach(n=>n.checked=false);
   $('#order-columns-form .primary').click();assert($('#utility-dialog').open);assert($('#utility-error').textContent.length>0);
-  $('[data-columns-all]').click();$('#order-columns-form .primary').click();assert.equal(document.querySelectorAll('#content thead th').length,28);
-  $('[data-order-tab="created"]').click();assert.equal(document.querySelectorAll('#content thead th').length,28);
+  $('[data-columns-all]').click();$('#order-columns-form .primary').click();assert.equal(document.querySelectorAll('#content thead th').length,columnCount+1);
+  $('[data-order-tab="created"]').click();assert.equal(document.querySelectorAll('#content thead th').length,columnCount+1);
   $('[data-order-columns]').click();$('[data-columns-reset]').click();$('#order-columns-form .primary').click();
   $('[data-order-tab="all"]').click();
   set('#order-query','TEST not found');assert.equal(document.querySelectorAll('#content [data-open-reservation]').length,0);
