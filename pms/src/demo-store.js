@@ -84,7 +84,7 @@ export function apply(state, command) {
     const balance = folio(order);
     if (command.kind === 'refund' && amount > balance.paid) reject('refund');
     if (command.kind === 'deposit_out' && amount > balance.deposit) reject('refund');
-    order.transactions.push({ id:command.id, kind:command.kind, amount, method:command.method, reference:text(command.reference||'',100),note:text(command.note||'',500), at:command.at });
+    order.transactions.push({ id:command.id, actor:command.actor||'local', kind:command.kind, amount, method:command.method, reference:text(command.reference||'',100),note:text(command.note||'',500), at:command.at });
   } else if (type === 'cancel') {
     if (order.status !== 'confirmed' || !command.reason?.trim()) reject('state');
     order.finalCharge = money(command.finalCharge);
