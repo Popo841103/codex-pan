@@ -134,6 +134,42 @@ AI meetups、AI workshops、Language exchange、Nomads、Web3、Women's yoga & m
 - 来源 B（称引自官方价目表）：日票约 319 THB ｜ 周票约 1,390 THB
 两者不一致，**不可直接引用**。
 
+### 4. Stamps Backpackers，清迈（业主指定：值得学习）
+
+**官方身份核实**
+- 官网：**stamps-backpackers.com**（stampsbackpackers.com 同内容）；Instagram **@stampsbackpackers**（410 帖 / 4,554 粉 / 976 关注，查询日 2026-10-31，数据来自业主提供的截图）
+- 定位自称：**社交旅馆（Social Hostel）**，获 Hostelworld Hoscars **2024、2025 两年「亚洲最佳社交旅馆」第 1 名**，另有 Best Medium Hostel in Asia、Thailand Country Winner 等奖项，奖项直接挂在首页
+
+**预订方式**
+- 住宿：**Cloudbeds 预订系统**（hotels.cloudbeds.com/...），链接直接放在 IG 简介；官网 FAQ 明确：最少住 2 晚、18–35 岁可住、2 天前取消免费、前台 24 小时
+- 活动/tours：**页面只展示、不在线收款** —— 提交询价表单或 WhatsApp → 团队确认档期、集合时间、包含内容与最终价 → 再确认。轻运营、无退款纠纷
+
+**活动体系（查询日 2026-10-31，官网现价，均为 Stamps 的价格而非 COHUB 的）**
+| 类型 | 例子 | 价格 |
+|------|------|------|
+| 烹饪课（湖畔/有机农场两版） | 市场采购 + 7 道菜 | ฿1,000 |
+| 大象观察（半日，伦理象营） | 喂象 + 瀑布 + Karen 文化 | ฿1,800 |
+| 大象观察（全日 / +竹筏） | 组合行程 | ฿2,000–2,200 |
+| 两日丛林徒步（过夜） | Doi Inthanon | ฿2,500 |
+| 溯溪瀑布接送 | 共乘红色双条车，09:30/10:30 发车，无需报名 | 查询 WhatsApp |
+| 高空滑索 / 漂流 / ATV | 多套餐 | ฿1,600–3,000 |
+| 跨国联程 | 清迈→老挝 3 日慢船 | ฿2,700 |
+| 节令限定 | Yi Peng 灯节夜（2 天灯 + 挂灯 + 往返） | ฿1,300，前台预订省 ฿50 |
+| 每晚馆内社交 | BBQ Night、Pub Crawl、pub quiz、music bingo、cabaret 表演 | 部分免费/部分收费，未在 tours 页标价 |
+
+**IG 运营手法（截图可见，直接可借鉴）**
+1. **置顶三帖统一版式**，大字标题「STICKY WATERFALLS WITH STAMPS」「ELEPHANT SANCTUARY WITH STAMPS」「DAILY EXCURSIONS」—— **「XX WITH STAMPS」品牌后缀把散装活动串成系列**，一眼记住
+2. **精选故事按功能分类**：Social Events / Awards / Stamps Daily Scoop / Excursions / Cabaret show —— 分类即导航
+3. **简介里直接放折扣钩子**：繁体中文写「使用代码『Socialize』可享 5% 折扣」+ 预订直链 —— 把 IG 简介当转化入口，且对中文受众用中文写
+4. 内容以「人 + 活动 + 自然」为主，几乎没有空景；视频帖比例高
+
+**FAQ 的写法（很值得抄）**：用一条 FAQ 主动化解顾虑 ——「我们是 Social，不是 Party hostel：每晚都有活动，但宿舍是用来睡觉的」。既卖氛围又立规矩。
+
+**对 COHUB 的借鉴与差异**
+- 可直接借鉴：活动明码标价 + 询价制预订；「WITH COHUB」系列化命名；IG 简介放折扣码；把「社交但不强制」写成 FAQ
+- **差异提醒**：Stamps 是纯背包客 hostel（18–35 岁、最少 2 晚），COHUB 受众更宽（含本地居民、数字游民、酒吧餐饮客），**不能照搬年龄限制与「每晚 party」的节奏**，活动的密度与主题须按 COHUB 实际决定
+- ⚠️ 诚实备注：「房间经常满」来自业主观察与第三方提示（需求高建议提前订），**我没有入住率数据**，不得在任何 COHUB 文案中声称类似「常常满房」的说法；「泰拳」活动在官网 tours 第一页未出现，可能在线下/其他渠道提供，**待核实**
+
 ---
 
 ## 三、COHUB 应该发什么：7 类内容系列
@@ -247,3 +283,4 @@ AI meetups、AI workshops、Language exchange、Nomads、Web3、Women's yoga & m
 16. 素材库文件夹的确切位置或链接
 17. 马来语是否需要纳入内容语言方案
 18. 云南之行素材中，哪些可以对外发布、涉及哪些人物、授权情况如何
+19. 是否考虑接入 Cloudbeds 之类的预订系统，以及未来活动是否采用 Stamps 式「询价确认」模式（不在线收款）
