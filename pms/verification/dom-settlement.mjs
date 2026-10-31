@@ -45,7 +45,7 @@ try {
  await until(()=>store.read(operator).orders[0].folioClosed&&document.querySelector('#reopen-folio-form'),'explicit settlement');
  set('#reopen-folio-form [name="reason"]','TEST correction audit');set('#reopen-folio-form [name="confirmed"]',true);$('#reopen-folio-form button').click();
  await until(()=>!store.read(operator).orders[0].folioClosed&&document.querySelector('#settle-form'),'administrator reopening');
- assert.equal(store.read(operator).orders[0].folioEvents.length,2);console.log('Settlement DOM passed: outstanding balance/deposit blocks settlement, explicit close, administrator reasoned reopening and retained audit.');
+ assert.equal(store.read(operator).orders[0].folioEvents.length,2);$('#detail-tab-audit').click();assert($('#detail-panel').textContent.includes('TEST correction audit'));assert($('#detail-panel').textContent.includes(username));console.log('Settlement DOM passed: outstanding balance/deposit blocks settlement, explicit close, administrator reasoned reopening and retained audit.');
 }finally {
   global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();dom.window.close();
 }
