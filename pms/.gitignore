@@ -10,3 +10,7 @@ deploy/*.env
 *.key
 *.secret.json
 config/local/
+
+# Python bytecode caches created by the CI unittest step.
+__pycache__/
+*.pyc
