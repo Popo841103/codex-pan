@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {navigation} from '../web/workspace-ui.js';
+test('rate inventory belongs to rooms navigation and exposes its own current page',()=>{const n=navigation('rates',k=>k);assert(n.side.includes('data-view="rates"'));assert.match(n.side,/data-view="rates"[^>]*aria-current="page"/);assert.match(n.main,/data-view="calendar" class="active"/);});
