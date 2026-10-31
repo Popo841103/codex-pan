@@ -1,5 +1,6 @@
 // Display preferences never grant access; callers must supply already-authorized rows.
 export const columns=Object.freeze([
+ ['originalRoomCharge','原订单房费','Original room charges','Caj bilik asal'],['netExtras','附加费／优惠净额','Net extras / discounts','Caj tambahan / diskaun bersih'],
  ['adults','成人','Adults','Dewasa'],['children','儿童','Children','Kanak-kanak'],['infants','婴儿','Infants','Bayi'],['unitNights','间夜量（房/床）','Unit nights (room/bed)','Malam unit (bilik/katil)'],
  ['guest','联系人','Contact','Kenalan'],['id','订单号','Reservation ID','ID tempahan'],['channelOrderId','渠道订单号','Channel reference','Rujukan saluran'],['source','渠道','Channel','Saluran'],['email','邮箱','Email','E-mel'],['phone','手机','Phone','Telefon'],['country','国家/地区','Country / region','Negara / wilayah'],['guestLanguage','偏好语言','Preferred language','Bahasa pilihan'],['arrival','入住日期','Arrival','Ketibaan'],['departure','退房日期','Departure','Berlepas'],['status','入住状态','Stay status','Status penginapan'],['rooms','房床数量','Units','Unit'],['allocation','房号/床号','Room / bed','Bilik / katil'],['guests','入住人数','Guests','Tetamu'],['charge','住宿费用','Charges','Caj'],['paid','住宿净实收','Net received','Terimaan bersih'],['due','待收/待退','Balance','Baki'],['deposit','押金余额','Deposit balance','Baki deposit'],['notes','备注','Notes','Nota'],['createdAt','创建时间','Created','Dicipta'],['createdBy','创建人','Created by','Dicipta oleh']
 ].map(([id,zh,en,ms])=>Object.freeze({id,zh,en,ms})));
@@ -13,6 +14,8 @@ export function columnLabel(id,lang='en'){const c=columns.find(c=>c.id===id);ret
 const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function renderColumn(id,group,{folio,currency=n=>String(n),t=k=>k,resources=[]}={}){
  const stays=group.stays||[],first=stays[0]||{},unique=key=>[...new Set(stays.map(o=>o[key]).filter(v=>v!==undefined&&v!==null&&v!==''))];
+ if(id==='originalRoomCharge')return escape(currency(stays.reduce((sum,o)=>sum+(o.nightlyRates?o.nightlyRates.reduce((n,r)=>n+r.amount,0):Math.round((Date.parse(o.end)-Date.parse(o.start))/86400000)*(o.nightly||0)),0)));
+ if(id==='netExtras')return escape(currency(stays.reduce((sum,o)=>sum+(o.extraCharges||[]).reduce((n,r)=>n+(r.kind==='charge'?1:-1)*r.quantity*r.unitAmount,0),0)));
  if(['charge','paid','due','deposit'].includes(id)){if(typeof folio!=='function')return '—';return escape(currency(stays.reduce((sum,o)=>sum+(folio(o)[id]||0),0)));}
  if(['adults','children','infants'].includes(id))return String(stays.reduce((sum,o)=>sum+(o[id]??(id==='adults'?1:0)),0));
  if(id==='unitNights'){const nights=stays.map(o=>(Date.parse(o.end+'T00:00:00Z')-Date.parse(o.start+'T00:00:00Z'))/86400000);return nights.every(n=>Number.isInteger(n)&&n>0)?String(nights.reduce((sum,n)=>sum+n,0)):'—';}
