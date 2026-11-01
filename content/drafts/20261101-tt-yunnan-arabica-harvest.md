@@ -1,13 +1,14 @@
-# 草稿：云南阿拉比卡产季（TikTok 竖屏视频）
+# 草稿：云南高山阿拉比卡产季（TikTok 竖屏视频）
 
 > 命名 `20261101-tt-yunnan-arabica-harvest.md` ｜ 状态：**草稿（待业主审核）**
 > 主视频用 **YN-08**（35.7 秒），不用 YN-07（3.6 秒太短）。
+> **2026-11-01 修订**：庄园为**合作庄园**（非自有）；加入「世界咖啡黄金种植带 / 高海拔」产区卖点。
 
 ## 基本信息
 
 - **编号**：CH-D002（草稿编号）
-- **主题**：云南阿拉比卡产季 · 庄园实拍
-- **核心信息**：产季 11 月–次年 3 月，视频带你看豆子的来处
+- **主题**：云南高山阿拉比卡 · 世界咖啡种植带 · 产季实拍
+- **核心信息**：用 Arabica 带入陌生的云南产区，点出高海拔咖啡带 + 产季时效
 - **目标平台账号**：TikTok @cohub.klcc
 - **状态**：草稿 → 待业主审核
 - **计划发布时间**：待定（Asia/Kuala_Lumpur）
@@ -21,7 +22,7 @@
   - 需从 544×960 放大至 1080×1920
 - **备选／补充**：YN-07（3.6 秒特写）
 - **⛔ 不使用**：YN-02、YN-03（露脸，未授权）
-- **来源与授权**：业主提供，云南之行庄园实拍（业主 2026-11-01 确认）；全程无人脸、无文字、无设备
+- **来源与授权**：业主提供，云南之行**合作庄园**实拍（业主 2026-11-01 确认）；全程无人脸、无文字、无设备
 
 ## 文案
 
@@ -29,28 +30,29 @@
 
 **画面字幕（极短，一屏一行）**
 
-| 时间点 | 字幕 |
-|--------|------|
-| 0:00–0:05 | Yunnan, China. |
-| 0:05–0:12 | Nov – Mar is harvest season. |
-| 0:12–0:25 | This is where our Arabica comes from. |
-| 0:25–0:35 | Now pouring at COHUB. |
+| 时间点 | 字幕 | 对应画面 |
+|--------|------|----------|
+| 0:00–0:06 | Arabica, grown high in Yunnan. | 园景远景开场 |
+| 0:06–0:14 | Low latitude. High altitude. | 咖啡树／山坡 |
+| 0:14–0:24 | Part of the world's coffee belt. | 咖啡果特写 |
+| 0:24–0:31 | Nov – Mar is harvest season. | 咖啡果特写 |
+| 0:31–0:35 | Now pouring at COHUB. | 收尾 |
 
 **视频说明文字（caption）**
 
 ```
-Filmed at the farm — Yunnan, China.
-Harvest runs Nov–Mar.
-Our Arabica is in season.
+Arabica, grown high in Yunnan — part of the world's coffee belt.
+Nov–Mar is harvest season.
 
-云南产季，我们的阿拉比卡。
+云南高山阿拉比卡，产季 11–3 月。来自我们这次走访的合作庄园。
 
-#YunnanCoffee #Arabica #KualaLumpur
+#YunnanCoffee #Arabica #HighAltitude #KualaLumpur
 ```
 
-## 备注
+## 备注（红线）
 
+- ✅ **已更正**：庄园为**合作庄园，非 COHUB 自有**。caption 已写明「我们这次走访的合作庄园」，**不得写 our farm**。
 - **发 TikTok 前必须确认 YN-08 的来源授权**（登记表第 7 项）。该视频经微信收到，业主称系本人庄园实拍；若实为庄园／供应商拍摄，须先取得使用许可。
-- 「我们的庄园」表述待确认（同 CH-D001）。
-- 字幕全程，不要加背景音乐以外的解说。
-- 不得出现价格、海拔、庄园名、杯测分数等未确认信息。
+- ⚠️ **海拔不写数字**（来源口径冲突），只写 *high altitude*。待业主确认合作庄园确切海拔后可补。
+- 字幕全程，不加解说，只配背景音乐。
+- 不得出现价格、杯测分数、庄园名、具体产区名等未确认信息。
