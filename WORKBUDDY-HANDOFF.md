@@ -87,6 +87,8 @@ Three new pages under Statistics: **Room charge detail**, **Room business summar
 
 Tests: Node 224 (was 210), Python 5/5, plus a new `verification/dom-accommodation.mjs` that builds a suite from two rooms, sells it, and checks that the room row drops from ten sellable to eight while the beds are untouched. `dom-settlement`, `dom-financial`, `dom-night-audit` and `dom-manager-report` still pass. No new runtime files were added.
 
+**Deployment verification limit for this batch.** `pms/server/store.js` changed, and the test server correctly does **not** serve anything under `/server/` over HTTP (the path returns a 21-byte refusal, not the file), so its deployment cannot be confirmed from outside the server. Everything served to the browser was verified after the deploy: `src/financial-reports.js` carries `sellableUnits`, `roomBusinessSummary` and `roomMovementLog`; `src/demo-store.js` carries `stayChange`; `web/financial-ui.js` carries the three pages; the navigation entries and route are present; and all 9 `src` plus 12 `web` modules referenced by `app.js` return 200. To confirm the backend half, on the server run `grep -c stayChange /opt/jovian-pms-test/current/server/store.js` and check the service was restarted after the release; until that is done, treat *"the durable audit records before/after state"* as **deployed but unconfirmed** rather than verified.
+
 Still not done: five of the eight accommodation reports (other room charge detail, cancellation penalty detail, commission detail, registration record, room occupant detail); room groups; rate plans linked to orders; cash-up variance approval; automatic night audit; channel commission settlement; bank reconciliation.
 
 ## Verified release and next handoff — 2026-10-31
