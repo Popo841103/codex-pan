@@ -1,14 +1,16 @@
-# 草稿：云南高山阿拉比卡产季（Facebook）
+# 草稿：云南普洱高山阿拉比卡产季（Facebook）
 
 > 命名 `20261101-fb-yunnan-arabica-harvest.md` ｜ 状态：**草稿（待业主审核）**
 > FB 按惯例**中英双语**：英文正文 + 中文摘要。
-> **2026-11-01 修订**：庄园为**合作庄园**（非自有）；加入「世界咖啡黄金种植带 / 高海拔」产区卖点。
+> **修订记录**：
+> - 2026-11-01（一）庄园为**合作庄园**（非自有）
+> - 2026-11-01（二）**海拔 1,800 m、产区普洱**经业主确认，文案改为具体数字与产区名；**庄园名不公开**
 
 ## 基本信息
 
 - **编号**：CH-D003（草稿编号）
-- **主题**：云南高山阿拉比卡 · 世界咖啡种植带 · 产季实拍
-- **核心信息**：云南在世界咖啡黄金种植带上，低纬度高海拔昼夜温差大；COHUB 的阿拉比卡来自这次亲自走访的合作庄园，产季 11 月–次年 3 月
+- **主题**：云南普洱高山阿拉比卡 · 海拔 1,800 m · 产季实拍
+- **核心信息**：海拔 1800 米的普洱高山阿拉比卡，位于世界咖啡黄金种植带；产季 11 月–次年 3 月；来自这次亲自走访的合作庄园
 - **目标平台账号**：FB 页面 ID 1353004484554678（@cohub.kl）
 - **状态**：草稿 → 待业主审核
 - **计划发布时间**：待定（Asia/Kuala_Lumpur）
@@ -28,23 +30,32 @@
 **语言**：英文正文 + 中文摘要
 
 ```
-Arabica, grown high in Yunnan.
+Arabica, grown at 1,800 m in Pu'er, Yunnan.
 
-Yunnan sits in the world's coffee belt — low latitude, high altitude, and a big swing between day and night. It's why the beans here ripen slowly and taste clean.
+Yunnan sits in the world's coffee belt. At this height the days are warm and the nights are cold — cherries ripen slowly, and the cup comes out clean.
 
 Nov–Mar is harvest season. Our beans come from a partner farm we visited ourselves this trip.
 
 Now pouring at COHUB. Soft opening, 09:00–23:30.
 
 ——
-云南高山阿拉比卡。
+云南普洱高山阿拉比卡，海拔 1800 米。
 
-云南位于世界咖啡黄金种植带：低纬度、高海拔、昼夜温差大，果子熟得慢，风味干净。
+云南位于世界咖啡黄金种植带。1800 米的高海拔，昼夜温差大，果子熟得慢，风味干净。
 
 11 月至次年 3 月是产季。我们的豆来自这次亲自走访的合作庄园。
 
 现在 COHUB 喝得到。试营业中，09:00–23:30。
 ```
+
+## 已确认事实（本次可用）
+
+| 事实 | 来源 |
+|------|------|
+| **合作庄园海拔 1,800 米** | **业主提供（2026-11-01）** |
+| **产区：云南普洱** | **业主提供（2026-11-01）** |
+| 阿拉比卡精品豆；产季 11 月–次年 3 月 | 业主表述 |
+| 庄园为合作庄园，非 COHUB 自有 | 业主更正（2026-11-01） |
 
 ## 可引用来源（备查，不得写进文案）
 
@@ -57,10 +68,12 @@ Now pouring at COHUB. Soft opening, 09:00–23:30.
 
 ## 备注（红线）
 
-- ✅ **已更正**：庄园为**合作庄园，非 COHUB 自有**。文案已写 *a partner farm we visited ourselves*，**不得写 our farm / our estate**。
+- ✅ **海拔 1,800 m 已由业主确认**（合作庄园海拔），可直接写数字。此前「来源口径冲突不写数字」的限制**已解除**，但仅限于此数字。
+- ✅ **产区普洱可写**。
+- ⛔ **庄园名称：业主决定不公开** —— 任何文案一律不得出现庄园名。
+- ✅ 庄园为**合作庄园，非 COHUB 自有**。文案写 *a partner farm we visited ourselves*，**不得写 our farm / our estate**。
 - 本条是三条里**唯一提到门店状态**的，已明确写 *soft opening* —— 不得改写成「已开业」或 *grand opening*。
 - 营业时间 09:00–23:30 为试营业时段（业主 2026-10-31 确认）。
-- ⚠️ **海拔不写数字**（来源口径冲突）。文案只写 *high altitude*；**待业主确认合作庄园确切海拔后可补强**。
+- 「果子熟得慢、风味干净」为高海拔产区**通用机理表述**（高海拔昼夜温差大 → 成熟慢、风味集中），属产区层面描述，未指向 COHUB 具体批次风味。
 - 「精品 / specialty」为业主表述；**无杯测分数，不得写分数**。
-- 「果子熟得慢、风味干净」为高海拔产区的**通用机理表述**，来源支持（高海拔昼夜温差大 → 成熟慢、风味集中），属产区层面描述，未指向 COHUB 具体批次风味。
-- 未写价格、未写产区名、未写庄园名。
+- 未写价格。
