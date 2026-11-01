@@ -213,6 +213,9 @@ export function apply(state, command) {
   let resource = next.resources.find(r => r.id === command.resourceId && r.propertyId === propertyId);
   const inHouse = target => next.orders.some(o => o.propertyId === propertyId && o.status === 'checked_in' &&
     (!['assign','checkin'].includes(type) || o.id !== order?.id) && overlapsAtoms(next.resources.find(r => r.id === o.resourceId), target));
+  const staySnapshot = o => o ? { start:o.start, end:o.end, nightly:o.nightly, resourceId:o.resourceId,
+    status:o.status, productId:o.productId, finalCharge:o.finalCharge ?? null } : null;
+  const stayBefore = ['edit','assign','checkin','checkout','cancel','lock'].includes(type) ? staySnapshot(order) : null;
   const catalogActions = ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'];
   const needsOrder = ['settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock'].includes(type);
   if (needsOrder && !order) reject('scope');
@@ -348,7 +351,11 @@ export function apply(state, command) {
     next.blocks = next.blocks.filter(b => b !== block);
   } else reject('input');
   preview(next, propertyId);
-  next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, orderId: order?.id || null, resourceId: resource?.id || null, resourceIds: command.resourceIds, cleaning:command.cleaning,
+  const movedTo = next.orders.find(o => o.id === (order?.id || command.id)) || null;
+  next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, orderId: order?.id || null, resourceId: resource?.id || null, resourceIds: command.resourceIds, cleaning:command.cleaning, actor: command.actor || 'local',
+    ...(stayBefore || ['create','box_stays','restore_stays'].includes(type) ? { stayChange:{ before:stayBefore,
+      after:['box_stays','restore_stays'].includes(type) ? null : staySnapshot(movedTo),
+      reason: typeof command.reason === 'string' ? command.reason.trim() : null } } : {}),
     ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}), at: command.at });
   return next;
 }

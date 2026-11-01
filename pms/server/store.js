@@ -11,6 +11,10 @@ export class ServiceError extends Error {
 }
 const error = (status, code) => { throw new ServiceError(status, code); };
 const hash = value => createHash('sha256').update(value).digest('hex');
+const stayTypes=['edit','assign','checkin','checkout','cancel','lock'];
+const staySnapshot=(body,id)=>{const order=(body?.orders||[]).find(o=>o.id===id);return order?{start:order.start,end:order.end,
+  nightly:order.nightly,resourceId:order.resourceId,status:order.status,productId:order.productId,finalCharge:order.finalCharge??null}:null;};
+
 const changedBlocks = (before,after) => {
   const a=new Map(before.map(b=>[b.id,JSON.stringify(b)])),b=new Map(after.map(b=>[b.id,JSON.stringify(b)]));
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
@@ -203,7 +207,9 @@ export class Store {
       const catalogEntity = body => cmd.type==='room_type_save' ? body.roomTypes.find(t=>t.id===(cmd.roomTypeId||cmd.id)) :
         cmd.type==='physical_room_save' ? body.physicalRooms.find(r=>r.id===(cmd.physicalRoomId||`${cmd.id}-space`)) :
         body.resources.find(r=>r.id===(cmd.resourceId||cmd.id));
-      const summary={...(cmd.type==='create_reservation'?{reservationId:cmd.id,stayIds:next.reservations.find(r=>r.id===cmd.id).stayIds}:{}),orderId:cmd.type==='create'?cmd.id:cmd.orderId||null,resourceId:cmd.resourceId||null,
+      const summary={...(cmd.type==='create_reservation'?{reservationId:cmd.id,stayIds:next.reservations.find(r=>r.id===cmd.id).stayIds}:{}),orderId:cmd.type==='create'?cmd.id:cmd.orderId||null,
+        ...(stayTypes.includes(cmd.type)?{stayChange:{before:staySnapshot(before,cmd.orderId),after:staySnapshot(next,cmd.orderId),reason:typeof cmd.reason==='string'?cmd.reason.trim():null}}:{}),
+        ...(cmd.type==='create'?{stayChange:{before:null,after:staySnapshot(next,cmd.id),reason:null}}:{}),resourceId:cmd.resourceId||null,
         ...(cmd.roomTypeId?{roomTypeId:cmd.roomTypeId}:{}),
         ...(cmd.physicalRoomId?{physicalRoomId:cmd.physicalRoomId}:{}),
         ...(['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'].includes(cmd.type)?{catalogChange:{

@@ -69,6 +69,26 @@ Tests: Node 210 (was 197), Python 5/5, plus a new `verification/dom-manager-repo
 
 Still not done: this is not a full accounting close; not the eight accommodation reports; not the remaining financial reports (receipt detail, ledger adjustment log, non-stay income and expense); not cash-up variance approval; not automatic night audit; not channel commission settlement or bank reconciliation. Reports, shifts and night audit are still not fully cross-checked against each other.
 
+## Accommodation reports update (2026-10-31)
+
+Three new pages under Statistics: **Room charge detail**, **Room business summary** and **Room movement log**. Calculations live in `pms/src/financial-reports.js` (`nightInventory`, `roomChargeDetail`, `roomBusinessSummary`, `roomMovementLog`); rendering lives in `pms/web/financial-ui.js`.
+
+- **Rooms, suites and beds are counted separately.** A dorm bed and a whole room are not the same product, so ADR, occupancy and RevPAR are reported per product as well as in total.
+- **Composition is de-duplicated by atoms.** A suite occupies the atoms of the rooms and beds inside it. Once a suite is sold for a night, those units are removed from sellable supply for that night instead of being counted twice: once as the suite and again as rooms. A maintenance or out-of-service block removes a unit from the denominator; a **hold** prevents selling but stays in the denominator, which is the stated JOVIAN policy.
+- **Occupancy is refused where it cannot be honest.** Inventory belongs to the property, not to a booking channel, so the channel dimension has no defensible denominator. ADR is still given; occupancy and RevPAR show as unavailable with an explanation rather than being split by an invented rule.
+- **Unassigned stays are named, not hidden.** A stay that takes inventory but has no unit yet is counted in sold nights and revenue, and reported separately as unassigned room-nights.
+- **Room charge detail** lists every earned night at its own rate. Cancellation penalties are not room revenue and never appear here.
+
+**Audit gained what the movement log needs.** Every stay movement now records `actor` and a `stayChange` pair holding the state before and after: start, end, nightly rate, unit, status and final charge. Early departure, late departure, date change, price change, room change, cancellation, box and restore are each classified. Without this the movement log could only show what a stay became, never what it was.
+
+**Important:** the shared service writes its durable audit from its own summary, not from the local reducer, so adding `stayChange` to `src/demo-store.js` alone had no effect on a shared backend. `server/store.js` now records the same pair from the state before and after each command. Both paths must be kept in step.
+
+**Known gaps stated on the page rather than faked:** orders carry no rate plan, only a `nightlyRates` price snapshot, so the rate plan column says *not recorded* instead of guessing one; there is no room-group field in the catalogue, so grouping is offered by unit and by room type only.
+
+Tests: Node 224 (was 210), Python 5/5, plus a new `verification/dom-accommodation.mjs` that builds a suite from two rooms, sells it, and checks that the room row drops from ten sellable to eight while the beds are untouched. `dom-settlement`, `dom-financial`, `dom-night-audit` and `dom-manager-report` still pass. No new runtime files were added.
+
+Still not done: five of the eight accommodation reports (other room charge detail, cancellation penalty detail, commission detail, registration record, room occupant detail); room groups; rate plans linked to orders; cash-up variance approval; automatic night audit; channel commission settlement; bank reconciliation.
+
 ## Verified release and next handoff — 2026-10-31
 Latest deployed product commit: 4340b877f0361b09514014a5bdae5c7a5959c19e. Actions41196678780, job124524134947: Verify and Deploy both succeeded; Ubuntu179/179 Node tests pass. Backup /var/backups/jovian-pms-test/update-srIp8cK1. No real production business transactions were used for acceptance.
 

@@ -87,3 +87,19 @@ test('cross-property audit commands stay scoped to the authorized property',t=>{
  assert.equal(state.businessDates['TEST-PG'],null);
  assert.equal(state.nightAudits.filter(a=>a.propertyId==='TEST-PG').length,0);
 });
+
+test('the durable audit keeps who acted and what the stay looked like before and after',t=>{
+ const {store,admin}=fixture(t);
+ const created=execute(store,admin,{propertyId:'TEST-KL',type:'create',guest:'TEST moved',productId:'room',gender:'any',start:'2027-02-01',end:'2027-02-04',nightly:10000});
+ execute(store,admin,{propertyId:'TEST-KL',type:'assign',orderId:created.id,resourceId:'TEST-KL-R3'},1);
+ execute(store,admin,{propertyId:'TEST-KL',type:'edit',orderId:created.id,guest:'TEST moved',start:'2027-02-01',end:'2027-02-03',nightly:10000,source:'direct',notes:''},2);
+ const entries=store.read(admin).audit.filter(a=>a.orderId===created.id);
+ const byType=Object.fromEntries(entries.map(a=>[a.type,a]));
+ assert.equal(byType.assign.stayChange.before.resourceId,null,'the stay had no unit before it was assigned');
+ assert.equal(byType.assign.stayChange.after.resourceId,'TEST-KL-R3');
+ assert.equal(byType.edit.stayChange.before.end,'2027-02-04','the departure date before the edit is kept');
+ assert.equal(byType.edit.stayChange.after.end,'2027-02-03','and so is the one after it');
+ assert.equal(byType.create.stayChange.before,null,'a new stay has no earlier state');
+ assert.equal(byType.create.stayChange.after.end,'2027-02-04');
+ assert.equal(byType.edit.actor,'test-admin','who made the change is recorded on the durable audit');
+});

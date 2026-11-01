@@ -1,4 +1,4 @@
-import {accommodationReport,accommodationBreakdown,cashflowReport,financialComparison,managerDailyReport,guestLedger} from '../src/financial-reports.js';
+import {accommodationReport,accommodationBreakdown,cashflowReport,financialComparison,managerDailyReport,guestLedger,roomChargeDetail,roomBusinessSummary,roomMovementLog} from '../src/financial-reports.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const financialWords={
 zh:{reportFrom:'开始日期',reportTo:'结束日期',reportDaily:'每日汇总',reportMethods:'支付方式汇总',reportDetails:'逐笔明细',reportUnallocated:'未确定营业日的费用（不计入期间汇总）',reportBusinessNote:'按住宿营业日统计收费，押金不计收入。缺少营业日的最终费用另列，不推定归属。',reportCashNote:'按马来西亚自然交易日统计手工收付记录；不代表银行到账。押金独立核算。',report_input:'请检查门店与日期范围。',report_amount:'账目金额无效，报表已停止计算。',reportTotal:'期间合计',reportNetRoom:'住宿净收款',reportNetDeposit:'押金净收款'},
@@ -99,3 +99,91 @@ const managerWords={
  ms:{managerDailyReport:'Laporan harian pengurus',guestLedger:'Baki lejar tetamu',reportDate:'Tarikh operasi',mdrOpening:'Baki awal',mdrCharges:'Caj hari ini',mdrReceipts:'Terimaan bersih hari ini',mdrClosing:'Baki akhir',mdrOpeningNote:'Belum terima tolak telah terima sehingga tarikh operasi sebelumnya',mdrChargesNote:'Caj bilik, tambahan dan penalti yang diperoleh pada tarikh operasi ini',mdrReceiptsNote:'Terimaan tolak bayaran balik pada hari transaksi Malaysia; deposit dikecualikan',mdrClosingNote:'Belum terima tolak telah terima sehingga tarikh operasi ini',reportBalances:'Baki dan pergerakan',reportChargeBreakdown:'Caj yang dikenakan hari ini',reportReceiptBreakdown:'Terimaan hari ini',mdrRoom:'Caj bilik',mdrExtras:'Tambahan / diskaun bersih',mdrCancellation:'Penalti pembatalan',reportFormula:'Cara pengiraan',reportFormulaText:'Baki akhir = baki awal + caj hari ini − terimaan bersih hari ini. Caj mengikut tarikh operasi, terimaan mengikut hari transaksi Malaysia, dan deposit disenaraikan berasingan kerana bukan hasil.',reportReconciled:'Caj dan terimaan hari ini membina semula baki akhir; hari ini berpadanan.',reportUnreconciled:'Caj dan terimaan hari ini tidak membina semula baki akhir; jangan laporkan daripada halaman ini.',reportNoBusinessDate:'Tiada tarikh operasi ditetapkan untuk hartanah ini, jadi caj hanya boleh diletakkan pada tarikh pesanannya sendiri.',reportComparison:'Perbandingan bulan dan tahun lalu',reportMonthChange:'Lawan bulan lalu',reportYearChange:'Lawan tahun lalu',mdrMetricCharges:'Caj hari ini',mdrMetricReceipts:'Terimaan bersih hari ini',mdrMetricDue:'Baki akhir',reportMetrics:'Petunjuk operasi',mdrArrivals:'Dijangka tiba',mdrDepartures:'Dijangka keluar',mdrInHouse:'Dalam penginapan',reportChargeLines:'Butiran caj hari ini',reportManagerNote:'Laporan harian menggunakan tarikh operasi, bukan tarikh kalendar. Deposit ialah liabiliti, bukan hasil, dan caj tanpa tarikh operasi tidak termasuk dalam mana-mana tempoh.',ledgerOutstanding:'Belum terima',ledgerOverpaid:'Lebih bayar perlu dipulang',ledgerDepositHeld:'Deposit dipegang',ledgerSettled:'Selesai',ledgerBucket:'Kategori',ledgerOrders:'Pesanan',mdrStay:'Penginapan',mdrCharged:'Dikenakan',mdrPaid:'Diterima',ledgerDetails:'Butiran setiap pesanan',reportLedgerNote:'JOVIAN tidak menawarkan caj ke bilik. Amaun belum terima, lebih bayar dan deposit disenaraikan berasingan dan tidak pernah diimbangi antara satu sama lain; deposit diselesaikan sendiri semasa daftar keluar.'}
 };
 for(const language of Object.keys(managerWords))Object.assign(financialWords[language],managerWords[language]);
+const percentOf=value=>value===null||value===undefined?'\u2014':(value*100).toFixed(1)+'%';
+const rangeFilter=(date,to,sources,source,t)=>`<div class="order-filters"><label>${esc(t('from'))}<input data-finance-filter="from" type="date" value="${esc(date)}"></label><label>${esc(t('to'))}<input data-finance-filter="to" type="date" value="${esc(to)}"></label><label>${esc(t('source'))}<select data-finance-filter="source">${['all',...sources].map(id=>`<option value="${esc(id)}" ${source===id?'selected':''}>${esc(t(id))}</option>`).join('')}</select></label></div>`;
+const crash=title=>content=>`<section class="panel"><h2>${esc(title)}</h2>${content}</section>`;
+
+export function roomChargePage(state,{propertyId,from,to,source='all',sources=[],t,currency}={}){
+ const shell=crash(t('roomChargeDetail'));
+ try{
+  const report=roomChargeDetail(state,{propertyId,from,to,source});
+  const rows=report.rows.map(r=>`<tr><td>${esc(r.date)}</td><td><button data-open-stay="${esc(r.orderId)}">${esc(r.guest||r.orderId)}</button></td><td>${esc(r.channelOrderId||'\u2014')}</td><td>${esc(r.roomTypeName||esc(t('unspecified')))}</td><td>${esc(r.resourceLabel||t('unassignedStay'))}</td><td>${esc(t(r.productId))}</td><td>${esc(t(r.source))}</td><td>${esc(r.start)} \u2192 ${esc(r.end)}</td><td>${esc(r.nights)}</td><td>${esc(r.ratePlanId?esc(r.ratePlanId):t('ratePlanNotRecorded'))}</td><td>${esc(currency(r.amount))}</td></tr>`).join('');
+  return shell(rangeFilter(from,to,sources,source,t)+`<p>${esc(t('roomChargeNote'))}</p>
+   <div class="table-wrap"><table><thead><tr>${['reportDate','guest','channelOrderId','roomType','room','stayType','source','mdrStay','nightCount','ratePlan','amount'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="11">${esc(t('empty'))}</td></tr>`}</tbody></table></div>
+   <p><strong>${esc(t('total'))}</strong> ${esc(currency(report.total))} \u00b7 ${esc(t('adr'))} ${esc(currency(report.adr||0))} \u00b7 ${esc(t('nightCount'))} ${esc(report.nightCount)}</p>`);
+ }catch(error){return shell(`<p role="alert">${esc(t(error.message))}</p>`);}
+}
+
+export function roomBusinessPage(state,{propertyId,from,to,source='all',sources=[],dimension='date',t,currency}={}){
+ const shell=crash(t('roomBusinessSummary'));
+ const dimensions=[['date','byDate'],['roomType','byRoomType'],['product','byProduct'],['room','byRoom'],['source','bySource']];
+ const picker=`<label>${esc(t('dimension'))}<select data-finance-filter="dimension">${dimensions.map(([id,word])=>`<option value="${esc(id)}" ${dimension===id?'selected':''}>${esc(t(word))}</option>`).join('')}</select></label>`;
+ try{
+  const report=roomBusinessSummary(state,{propertyId,from,to,source,dimension});
+  const unavailable=report.occupancyAvailable?'':`<p role="status">${esc(t('occUnavailable'))}</p>`;
+  const head=`<tr><th>${esc(t('compareMetricLabel'))}</th><th>${esc(t('roomRevenue'))}</th><th>${esc(t('nightsSold'))}</th><th>${esc(t('adr'))}</th><th>${esc(t('occ'))}</th><th>${esc(t('revpar'))}</th><th>${esc(t('sellableNights'))}</th></tr>`;
+  const totals=`<tfoot><tr><th>${esc(t('total'))}</th><td>${esc(currency(report.totals.revenue))}</td><td>${esc(report.totals.sold)}</td><td>${esc(currency(report.totals.adr||0))}</td><td>${esc(percentOf(report.totals.occ))}</td><td>${esc(currency(report.totals.revpar||0))}</td><td>${esc(report.totals.supplyNights)}</td></tr></tfoot>`;
+  const summary=`<h3>${esc(t('reportTotals'))}</h3><div class="table-wrap"><table><thead>${head}</thead><tbody>${report.rows.map(r=>`<tr><th>${esc(t(r.key)||esc(String(r.key)))}</th><td>${esc(currency(r.revenue))}</td><td>${esc(r.totalSold)}</td><td>${esc(currency(r.adr||0))}</td><td>${esc(percentOf(r.occ))}</td><td>${esc(currency(r.revpar||0))}</td><td>${esc(r.supplyNights)}</td></tr>`).join('')}</tbody>${totals}</table></div>`;
+  const byProduct=`<h3>${esc(t('byProduct'))}</h3><div class="table-wrap"><table><thead><tr><th>${esc(t('compareMetricLabel'))}</th><th>${esc(t('stayType'))}</th><th>${esc(t('roomRevenue'))}</th><th>${esc(t('nightsSold'))}</th><th>${esc(t('adr'))}</th><th>${esc(t('occ'))}</th><th>${esc(t('revpar'))}</th><th>${esc(t('sellableNights'))}</th></tr></thead><tbody>${report.rows.flatMap(r=>r.byProduct.filter(p=>p.revenue||p.sold||p.unassigned||p.supplyNights).map(p=>`<tr><th>${esc(t(r.key)||esc(String(r.key)))}</th><td>${esc(t(p.productId))}</td><td>${esc(currency(p.revenue))}</td><td>${esc(p.sold+p.unassigned)}</td><td>${esc(currency(p.adr||0))}</td><td>${esc(percentOf(p.occ))}</td><td>${esc(currency(p.revpar||0))}</td><td>${esc(p.supplyNights)}</td></tr>`)).join('')}</tbody></table></div>`;
+  return shell(`<div class="order-filters">${rangeFilter(from,to,sources,source,t).replace('<div class="order-filters">','').replace('</div>','')}${picker}</div>
+   <p>${esc(t('roomBusinessNote'))}</p>${unavailable}${report.unassignedNights?`<p role="status">${esc(t('unassignedNights'))}: ${esc(report.unassignedNights)}</p>`:''}${summary}${byProduct}`);
+ }catch(error){return shell(`<p role="alert">${esc(t(error.message))}</p>`);}
+}
+
+export function roomMovementPage(state,{propertyId,from,to,source='all',sources=[],movement='all',t,currency}={}){
+ const shell=crash(t('roomMovementLog'));
+ try{
+  const report=roomMovementLog(state,{propertyId,from,to,source});
+  const rows=report.rows.filter(r=>movement==='all'||r.movement===movement);
+  const picker=`<label>${esc(t('movementType'))}<select data-finance-filter="movement">${['all',...report.types].map(id=>`<option value="${esc(id)}" ${movement===id?'selected':''}>${esc(t('movement_'+id)||esc(id))}</option>`).join('')}</select></label>`;
+  const show=value=>value===null||value===undefined||value===''?'\u2014':esc(value);
+  const body=rows.map(r=>`<tr><td>${esc(r.at)}</td><td>${esc(r.actor)}</td><td>${esc(t('movement_'+r.movement)||esc(r.movement))}</td><td><button data-open-stay="${esc(r.orderId)}">${esc(r.guest||r.orderId)}</button></td><td>${esc(t(r.source))}</td><td>${show(r.beforeRoom)} \u2192 ${show(r.afterRoom)}</td><td>${show(r.beforeStart)} \u2192 ${show(r.afterStart)}</td><td>${show(r.beforeEnd)} \u2192 ${show(r.afterEnd)}</td><td>${r.beforeNightly===null?show(null):esc(currency(r.beforeNightly))} \u2192 ${r.afterNightly===null?show(null):esc(currency(r.afterNightly))}</td><td>${r.penalty===null?show(null):esc(currency(r.penalty))}</td><td>${show(r.reason)}</td></tr>`).join('');
+  const counts=`<p>${Object.entries(report.counts).map(([k,n])=>`${esc(t('movement_'+k)||esc(k))} ${esc(n)}`).join(' \u00b7 ')||esc(t('empty'))}</p>`;
+  return shell(`<div class="order-filters">${rangeFilter(from,to,sources,source,t).replace('<div class="order-filters">','').replace('</div>','')}${picker}</div>
+   <p>${esc(t('roomMovementNote'))}</p>${counts}
+   <div class="table-wrap"><table><thead><tr>${['time','createdBy','movementType','guest','source','movementRoom','movementStart','movementEnd','movementNightly','mdrCancellation','reason'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${body||`<tr><td colspan="11">${esc(t('empty'))}</td></tr>`}</tbody></table></div>`);
+ }catch(error){return shell(`<p role="alert">${esc(t(error.message))}</p>`);}
+}
+
+const accommodationWords={
+ zh:{roomChargeDetail:'\u623f\u8d39\u660e\u7ec6',roomBusinessSummary:'\u5ba2\u623f\u8425\u4e1a\u6c47\u603b',roomMovementLog:'\u623f\u95f4\u5f02\u52a8\u8bb0\u5f55',
+  stayType:'\u5165\u4f4f\u7c7b\u578b',nightCount:'\u95f4\u591c\u91cf',ratePlan:'\u4ef7\u8ba1\u5212',ratePlanNotRecorded:'\u672a\u8bb0\u5f55',
+  roomRevenue:'\u623f\u8d39',nightsSold:'\u51fa\u552e\u95f4\u591c',adr:'ADR',occ:'\u5165\u4f4f\u7387',revpar:'RevPAR',sellableNights:'\u53ef\u552e\u95f4\u591c',
+  byDate:'\u6309\u65e5\u671f',byRoomType:'\u6309\u623f\u578b',byProduct:'\u6309\u5165\u4f4f\u7c7b\u578b',byRoom:'\u6309\u623f\u53f7',bySource:'\u6309\u6e20\u9053',
+  dimension:'\u7ef4\u5ea6',reportTotals:'\u6c47\u603b',unassignedStay:'\u5f85\u5206\u623f',unassignedNights:'\u672a\u5206\u623f\u95f4\u591c',
+  occUnavailable:'\u5e93\u5b58\u4e0d\u5c5e\u4e8e\u4efb\u4f55\u6e20\u9053\uff0c\u6e20\u9053\u7ef4\u5ea6\u65e0\u53ef\u9760\u5206母\uff0c\u5165\u4f4f\u7387\u4e0eRevPAR\u4e0d\u4f9b\u7ed9\u5b9a\u3002',
+  roomChargeNote:'\u6bcf\u4e00\u665a\u6309\u5176\u81ea\u8eab\u4ef7\u683c\u5217\u793a\uff1b\u53d6\u6d88\u8fdd\u7ea6\u91d1\u4e0d\u7b97\u623f\u8d39\uff0c\u5386\u53f2\u8ba2\u5355\u672a\u7ed1\u5b9a\u4ef7\u8ba1\u5212\u65f6\u5982\u5b9e\u663e\u793a\u672a\u8bb0\u5f55\u3002',
+  roomBusinessNote:'\u623f\u3001\u5957\u4e0e\u5e8a\u5206\u522b\u8ba1\u7b97\u3002\u5957\u623f\u552e\u51fa\u540e\u5176\u7ec4\u6210\u623f\u95f4\u4e0e\u5e8a\u4f4d\u5f53\u665a\u4e0d再\u5355\u72ec\u53ef\u552e\uff0c\u4e0d重\u590d\u8ba1\u5165\u3002',
+  movementType:'\u5f02\u52a8\u7c7b\u578b',movementRoom:'\u524d\u540e\u623f\u95f4',movementStart:'\u5165\u4f4f\u65e5',movementEnd:'\u79bb\u5e97\u65e5',movementNightly:'\u524d\u540e\u623f\u4ef7',
+  roomMovementNote:'\u5f02\u52a8\u8bb0\u5f55\u4fdd\u7559\u64cd\u4f5c\u4eba\u4e0e\u524d\u540e\u72b6\u6001\uff1b\u63d0\u524d\u6216\u5ef6\u8fdf\u9000\u623f\u3001\u6362\u623f\u3001\u53d6\u6d88\u5747\u5355\u72ec\u5206\u7c7b\u3002',
+  movement_early_departure:'\u63d0\u524d\u9000\u623f',movement_late_departure:'\u5ef6\u8fdf\u9000\u623f',movement_date_change:'\u6539\u671f',movement_price_change:'\u6539\u4ef7',movement_room_change:'\u5728\u4f4f\u6362\u623f',
+  movement_assign:'\u5206\u623f',movement_edit:'\u7f16\u8f91',movement_cancel:'\u53d6\u6d88',movement_checkin:'\u5165\u4f4f',movement_checkout:'\u9000\u623f',movement_lock:'\u9501\u5b9a',
+  movement_boxed:'\u79fb\u5165\u76d2\u5b50',movement_restored:'\u6062\u590d\u5e93\u5b58',movement_create:'\u65b0\u5efa',movement_all:'\u5168\u90e8'},
+ en:{roomChargeDetail:'Room charge detail',roomBusinessSummary:'Room business summary',roomMovementLog:'Room movement log',
+  stayType:'Stay type',nightCount:'Room-nights',ratePlan:'Rate plan',ratePlanNotRecorded:'Not recorded',
+  roomRevenue:'Room revenue',nightsSold:'Room-nights sold',adr:'ADR',occ:'Occupancy',revpar:'RevPAR',sellableNights:'Sellable room-nights',
+  byDate:'By date',byRoomType:'By room type',byProduct:'By stay type',byRoom:'By unit',bySource:'By channel',
+  dimension:'Dimension',reportTotals:'Summary',unassignedStay:'Unassigned',unassignedNights:'Unassigned room-nights',
+  occUnavailable:'Inventory is not owned by any channel, so no reliable denominator exists for the channel view; occupancy and RevPAR are not given.',
+  roomChargeNote:'Every night is listed at its own rate. Cancellation penalties are not room revenue, and orders made before rate plans were linked show as not recorded rather than being guessed.',
+  roomBusinessNote:'Rooms, suites and beds are counted separately. Once a suite is sold, the rooms and beds inside it cannot be sold separately that night and are not counted twice.',
+  movementType:'Movement',movementRoom:'Unit before / after',movementStart:'Arrival',movementEnd:'Departure',movementNightly:'Rate before / after',
+  roomMovementNote:'Each movement keeps who made it and the state before and after. Early or late departure, room changes and cancellations are classified separately.',
+  movement_early_departure:'Early departure',movement_late_departure:'Late departure',movement_date_change:'Date change',movement_price_change:'Price change',movement_room_change:'Room change',
+  movement_assign:'Assign',movement_edit:'Edit',movement_cancel:'Cancel',movement_checkin:'Check in',movement_checkout:'Check out',movement_lock:'Lock',
+  movement_boxed:'Boxed',movement_restored:'Restored',movement_create:'Create',movement_all:'All'},
+ ms:{roomChargeDetail:'Butiran caj bilik',roomBusinessSummary:'Ringkasan perniagaan bilik',roomMovementLog:'Log pergerakan bilik',
+  stayType:'Jenis penginapan',nightCount:'Malam bilik',ratePlan:'Pelan kadar',ratePlanNotRecorded:'Tidak direkod',
+  roomRevenue:'Hasil bilik',nightsSold:'Malam bilik terjual',adr:'ADR',occ:'Kadar penghunian',revpar:'RevPAR',sellableNights:'Malam bilik boleh dijual',
+  byDate:'Mengikut tarikh',byRoomType:'Mengikut jenis bilik',byProduct:'Mengikut jenis penginapan',byRoom:'Mengikut unit',bySource:'Mengikut saluran',
+  dimension:'Dimensi',reportTotals:'Ringkasan',unassignedStay:'Belum ditetapkan',unassignedNights:'Malam bilik belum ditetapkan',
+  occUnavailable:'Inventori tidak dimiliki mana-mana saluran, jadi tiada penyebut yang boleh dipercayai untuk paparan saluran; kadar penghunian dan RevPAR tidak diberikan.',
+  roomChargeNote:'Setiap malam disenaraikan pada kadarnya sendiri. Penalti pembatalan bukan hasil bilik, dan pesanan sebelum pelan kadar dipautkan ditunjukkan sebagai tidak direkod.',
+  roomBusinessNote:'Bilik, suite dan katil dikira berasingan. Setelah suite terjual, bilik dan katil di dalamnya tidak boleh dijual berasingan pada malam itu dan tidak dikira dua kali.',
+  movementType:'Pergerakan',movementRoom:'Unit sebelum / selepas',movementStart:'Ketibaan',movementEnd:'Pelepasan',movementNightly:'Kadar sebelum / selepas',
+  roomMovementNote:'Setiap pergerakan menyimpan siapa yang melakukannya dan keadaan sebelum serta selepas. Pelepasan awal atau lewat, pertukaran bilik dan pembatalan dikelaskan berasingan.',
+  movement_early_departure:'Keluar awal',movement_late_departure:'Keluar lewat',movement_date_change:'Tukar tarikh',movement_price_change:'Tukar harga',movement_room_change:'Tukar bilik',
+  movement_assign:'Tetapkan',movement_edit:'Sunting',movement_cancel:'Batal',movement_checkin:'Daftar masuk',movement_checkout:'Daftar keluar',movement_lock:'Kunci',
+  movement_boxed:'Dalam kotak',movement_restored:'Dipulihkan',movement_create:'Cipta',movement_all:'Semua'}
+};
+for(const language of Object.keys(accommodationWords))Object.assign(financialWords[language],accommodationWords[language]);

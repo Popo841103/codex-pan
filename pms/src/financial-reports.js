@@ -120,6 +120,179 @@ export function managerDailyReport(state,q){
   }
   return {date:q.date,current,periods,changes};
 }
+// ---------------------------------------------------------------------------
+// Accommodation reports. Rooms, suites and beds are counted separately because a
+// dorm bed and a whole room are not the same product. A suite occupies the atoms of
+// the rooms and beds inside it, so those units are removed from supply for that night
+// instead of being counted twice: once as the suite and again as its own parts.
+// ---------------------------------------------------------------------------
+import { occupiesInventory, excludesCapacity } from './inventory-actions.js';
+const nextDay=date=>new Date(Date.parse(date+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+const nightPrice=(order,date)=>{const rate=(order.nightlyRates||[]).find(r=>r.date===date);return amount(rate?rate.amount:order.nightly||0);};
+const PRODUCTS=['room','bed','suite'];
+const zeroProducts=()=>({room:0,bed:0,suite:0});
+const addProducts=(a,b)=>({room:a.room+(b.room||0),bed:a.bed+(b.bed||0),suite:a.suite+(b.suite||0)});
+
+// Which units can actually be sold on one night. A unit under maintenance or out of
+// service is not sellable, and a unit inside a suite that is already sold is not
+// sellable either, because selling it again would count the same space twice.
+function sellableUnits(state,propertyId,date){
+  const resources=(state.resources||[]).filter(r=>r.propertyId===propertyId&&!r.archived&&PRODUCTS.includes(r.productId));
+  const blockedAtoms=new Set();
+  for(const b of (state.blocks||[]))if(b.propertyId===propertyId&&excludesCapacity(b)&&date>=b.start&&date<b.end)for(const a of b.atoms||[])blockedAtoms.add(a);
+  const suiteAtoms=new Set();
+  for(const o of (state.orders||[])){
+    if(o.propertyId!==propertyId||o.productId!=='suite'||!o.resourceId||!occupiesInventory(o))continue;
+    if(!o.start||!o.end||!(date>=o.start&&date<o.end))continue;
+    const res=resources.find(r=>r.id===o.resourceId);
+    if(res)for(const a of res.atoms||[])suiteAtoms.add(a);
+  }
+  const sellable=[],outOfService=[],insideSuite=[];
+  for(const r of resources){
+    if((r.atoms||[]).some(a=>blockedAtoms.has(a))){outOfService.push(r);continue;}
+    if(r.productId!=='suite'&&(r.atoms||[]).some(a=>suiteAtoms.has(a))){insideSuite.push(r);continue;}
+    sellable.push(r);
+  }
+  return {resources,sellable,outOfService,insideSuite};
+}
+
+export function nightInventory(state,propertyId,date){
+  const {sellable,outOfService,insideSuite}=sellableUnits(state,propertyId,date);
+  const sold=zeroProducts(),revenue=zeroProducts(),unassigned=zeroProducts(),supply=zeroProducts();
+  for(const r of sellable)supply[r.productId]++;
+  const blocked=zeroProducts(),withinSuite=zeroProducts();
+  for(const r of outOfService)blocked[r.productId]++;
+  for(const r of insideSuite)withinSuite[r.productId]++;
+  for(const o of (state.orders||[])){
+    if(o.propertyId!==propertyId||!occupiesInventory(o))continue;
+    if(!o.start||!o.end||!(date>=o.start&&date<o.end))continue;
+    const pid=PRODUCTS.includes(o.productId)?o.productId:'room',value=nightPrice(o,date);
+    const res=o.resourceId?sellable.find(r=>r.id===o.resourceId)||(state.resources||[]).find(r=>r.id===o.resourceId):null;
+    if(res)sold[pid]++;else unassigned[pid]++;
+    revenue[pid]+=value;
+  }
+  return {date,supply,outOfService:blocked,insideSuite:withinSuite,sold,unassigned,revenue};
+}
+
+const sumProducts=o=>PRODUCTS.reduce((n,k)=>n+(o[k]||0),0);
+const ratio=(a,b)=>b===0?null:a/b;
+const label=(state,list,id,field='name')=>{const row=(state[list]||[]).find(r=>r.id===id);return row?row[field]||row.label||id:null;};
+
+export function roomChargeDetail(state,q){
+  const orders=scope(state,q),rows=[];
+  for(const o of orders){
+    for(const line of orderChargeLines(o).lines){
+      if(line.kind!=='room'||!inRange(line.date,q))continue;
+      rows.push({...line,channelOrderId:o.channelOrderId||'',roomTypeName:label(state,'roomTypes',o.roomTypeId),
+        resourceLabel:label(state,'resources',o.resourceId,'label'),start:o.start||'',end:o.end||'',
+        nights:(o.nightlyRates||stayDays(o.start,o.end)).filter(r=>inRange(r.date||r,q)).length,
+        ratePlanId:o.ratePlanId||null});
+    }
+  }
+  rows.sort((a,b)=>a.date.localeCompare(b.date)||a.orderId.localeCompare(b.orderId));
+  const total=rows.reduce((n,r)=>n+r.amount,0),nightCount=rows.length;
+  return {rows,total,nightCount,adr:ratio(total,nightCount)};
+}
+
+// Inventory belongs to the property, not to a booking channel, so no channel owns a
+// share of sellable unit-nights. For the source dimension occupancy and RevPAR are
+// reported as unavailable instead of being split by some invented rule.
+const dimensionOfUnit=(dimension,unit,date)=>{
+  if(dimension==='date')return date;
+  if(dimension==='roomType')return unit.roomTypeId||'unspecified';
+  if(dimension==='product')return unit.productId;
+  if(dimension==='room')return unit.roomId||unit.id;
+  return null;
+};
+export function roomBusinessSummary(state,q){
+  const orders=scope(state,q),dimension=q.dimension||'date';
+  if(!['date','roomType','product','source','room'].includes(dimension))throw Error('report_input');
+  const keyOf=(order,resource,date)=>{
+    if(dimension==='date')return date;
+    if(dimension==='source')return order.source||'direct';
+    const unit=resource||{productId:order.productId,roomTypeId:order.roomTypeId};
+    return dimensionOfUnit(dimension,unit,date);
+  };
+  const buckets=new Map();
+  const blank=()=>({sold:zeroProducts(),revenue:zeroProducts(),unassigned:zeroProducts(),supply:zeroProducts(),nights:0});
+  const bucketFor=key=>{if(!buckets.has(key))buckets.set(key,{key,...blank()});return buckets.get(key);};
+  for(const date of stayDays(q.from,nextDay(q.to))){
+    const {sellable}=sellableUnits(state,q.propertyId,date);
+    for(const o of orders){
+      if(!occupiesInventory(o)||!o.start||!o.end||!(date>=o.start&&date<o.end))continue;
+      const resource=(state.resources||[]).find(r=>r.id===o.resourceId)||null;
+      const bucket=bucketFor(keyOf(o,resource,date));
+      const pid=PRODUCTS.includes(o.productId)?o.productId:'room',value=nightPrice(o,date);
+      if(resource&&resource.propertyId===q.propertyId)bucket.sold[pid]++;else bucket.unassigned[pid]++;
+      bucket.revenue[pid]+=value;
+    }
+    if(dimension==='source')continue; // no unit can be attributed to a channel
+    for(const unit of sellable){
+      const key=dimensionOfUnit(dimension,unit,date);
+      if(key===null)continue;
+      const bucket=bucketFor(key);
+      bucket.supply[unit.productId]++;
+      bucket.nights++;
+    }
+  }
+  const rows=[...buckets.values()].map(b=>{
+    const revenue=sumProducts(b.revenue),sold=sumProducts(b.sold),unassigned=sumProducts(b.unassigned);
+    const supplyNights=sumProducts(b.supply),available=dimension!=='source';
+    return {key:b.key,revenue,sold,unassigned,totalSold:sold+unassigned,
+      byProduct:PRODUCTS.map(pid=>({productId:pid,revenue:b.revenue[pid],sold:b.sold[pid],unassigned:b.unassigned[pid],
+        supplyNights:b.supply[pid],adr:ratio(b.revenue[pid],b.sold[pid]+b.unassigned[pid]),
+        occ:available?ratio(b.sold[pid]+b.unassigned[pid],b.supply[pid]):null,
+        revpar:available?ratio(b.revenue[pid],b.supply[pid]):null})),
+      adr:ratio(revenue,sold+unassigned),occ:available?ratio(sold+unassigned,supplyNights):null,
+      revpar:available?ratio(revenue,supplyNights):null,supplyNights};
+  }).sort((a,b)=>String(a.key).localeCompare(String(b.key)));
+  const revenue=rows.reduce((n,r)=>n+r.revenue,0),sold=rows.reduce((n,r)=>n+r.totalSold,0);
+  const supplyNights=rows.reduce((n,r)=>n+r.supplyNights,0),available=dimension!=='source';
+  return {dimension,rows,occupancyAvailable:available,unassignedNights:rows.reduce((n,r)=>n+r.unassigned,0),
+    totals:{revenue,sold,adr:ratio(revenue,sold),occ:available?ratio(sold,supplyNights):null,revpar:available?ratio(revenue,supplyNights):null,supplyNights}};
+}
+
+const MOVEMENTS=['create','assign','edit','lock','checkin','checkout','cancel','box_stays','restore_stays'];
+function classify(a){
+  const b=a.stayChange?.before||null,after=a.stayChange?.after||null;
+  if(a.type==='cancel')return 'cancel';
+  if(a.type==='assign')return b&&after&&b.resourceId!==after.resourceId?'room_change':'assign';
+  if(a.type==='edit'){
+    if(b&&after&&b.end&&after.end&&after.end<b.end)return 'early_departure';
+    if(b&&after&&b.end&&after.end&&after.end>b.end)return 'late_departure';
+    if(b&&after&&b.start!==after.start)return 'date_change';
+    if(b&&after&&b.nightly!==after.nightly)return 'price_change';
+    return 'edit';
+  }
+  if(a.type==='box_stays')return 'boxed';
+  if(a.type==='restore_stays')return 'restored';
+  if(a.type==='checkin')return 'checkin';
+  if(a.type==='checkout')return 'checkout';
+  if(a.type==='lock')return 'lock';
+  return a.type;
+}
+export function roomMovementLog(state,q){
+  if(!q||typeof q.propertyId!=='string'||!q.propertyId.trim()||!validDate(q.from)||!validDate(q.to)||q.from>q.to)throw Error('report_input');
+  const rows=[];
+  for(const a of (state.audit||[])){
+    if(a.propertyId!==q.propertyId||!MOVEMENTS.includes(a.type))continue;
+    const day=localDay(a.at);if(!day||day<q.from||day>q.to)continue;
+    const order=(state.orders||[]).find(o=>o.id===a.orderId)||null;
+    if(q.source&&q.source!=='all'&&order&&order.source!==q.source)continue;
+    const before=a.stayChange?.before||null,after=a.stayChange?.after||null;
+    rows.push({at:a.at,day,actor:a.actor||'local',type:a.type,movement:classify(a),orderId:a.orderId||null,
+      guest:order?.guest||'',source:order?.source||'direct',channelOrderId:order?.channelOrderId||'',
+      beforeRoom:before?label(state,'resources',before.resourceId,'label'):null,
+      afterRoom:after?label(state,'resources',after.resourceId,'label'):null,
+      beforeStart:before?.start||null,beforeEnd:before?.end||null,afterStart:after?.start||null,afterEnd:after?.end||null,
+      beforeNightly:before?.nightly??null,afterNightly:after?.nightly??null,
+      beforeStatus:before?.status||null,afterStatus:after?.status||null,
+      penalty:a.type==='cancel'?(order?.finalCharge??null):null,reason:a.stayChange?.reason||null});
+  }
+  rows.sort((x,y)=>y.at.localeCompare(x.at));
+  const counts={};for(const r of rows)counts[r.movement]=(counts[r.movement]||0)+1;
+  return {rows,counts,types:[...new Set(rows.map(r=>r.movement))].sort()};
+}
 export function cashflowReport(state,q){if(!q)throw Error('report_input');if(q.operator!==undefined&&q.operator!=='all'&&q.operator!=='unknown'&&!(typeof q.operator==='string'&&q.operator.startsWith('actor:')&&q.operator.length>6&&q.operator.length<=512))throw Error('report_input');if(q.transactionKind&&!['all','payment','refund','deposit_in','deposit_out'].includes(q.transactionKind))throw Error('report_input');const counts={payment:0,refund:0,deposit_in:0,deposit_out:0};const orders=scope(state,q),rows=[],totals={payment:0,refund:0,deposit_in:0,deposit_out:0,netAccommodation:0,netDeposit:0},byMethod=new Map();for(const o of orders)for(const tr of o.transactions||[]){if(!['payment','refund','deposit_in','deposit_out'].includes(tr.kind))continue;if(q.operator==='unknown'&&tr.actor||q.operator?.startsWith('actor:')&&tr.actor!==q.operator.slice(6))continue;if(q.transactionKind&&q.transactionKind!=='all'&&tr.kind!==q.transactionKind||q.method&&q.method!=='all'&&(tr.method||'unspecified')!==q.method)continue;const date=localDay(tr.at);if(!date||!inRange(date,q))continue;const value=amount(tr.amount);if(value<0)throw Error('report_amount');rows.push({orderId:o.id,reservationId:o.reservationId||null,guest:o.guest||'',source:o.source||'direct',...tr,date});totals[tr.kind]+=value;counts[tr.kind]++;const method=tr.method||'unspecified';if(!byMethod.has(method))byMethod.set(method,{method,counts:{payment:0,refund:0,deposit_in:0,deposit_out:0},payment:0,refund:0,deposit_in:0,deposit_out:0,netAccommodation:0,netDeposit:0});byMethod.get(method)[tr.kind]+=value;byMethod.get(method).counts[tr.kind]++;}for(const t of [totals,...byMethod.values()]){t.netAccommodation=t.payment-t.refund;t.netDeposit=t.deposit_in-t.deposit_out;}rows.sort((a,b)=>a.at.localeCompare(b.at));return {rows,totals,counts,methods:[...byMethod.values()].sort((a,b)=>a.method.localeCompare(b.method))};}
 
 export function accommodationBreakdown(state,q,dimension='date'){if(!['date','source','roomTypeId'].includes(dimension))throw Error('report_dimension');const report=accommodationReport(state,q),groups=new Map();for(const r of report.rows){const key=r[dimension]||'unspecified';if(!groups.has(key))groups.set(key,{key,total:0,roomFee:0,extras:0,unitNights:0,orderIds:[]});const g=groups.get(key);g.total+=r.amount;if(r.kind==='room'){g.roomFee+=r.amount;g.unitNights++;}else g.extras+=r.amount;if(!g.orderIds.includes(r.orderId))g.orderIds.push(r.orderId);}return {...report,dimension,groups:[...groups.values()].sort((a,b)=>a.key.localeCompare(b.key))};}
