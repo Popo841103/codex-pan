@@ -74,7 +74,7 @@ test('overdue checkout is a required exception and unsettled history only adviso
   assert.equal(nightAuditExceptions(settled, '2026-03-08').filter(e => e.severity === 'required').length, 1);
 });
 
-test('audited nights cannot be edited or repaid without an override', () => {
+test('audited nights cannot be edited or cancelled without an override, but money still posts', () => {
   let s = cmd({ type: 'business_date_init', date: '2026-03-10' });
   s = apply(s, { propertyId: property, id: 'o1', at: '2026-03-01T10:00:00.000Z', type: 'create', guest: 'Historic',
     productId: 'room', gender: 'any', start: '2026-03-05', end: '2026-03-07' });
@@ -82,8 +82,12 @@ test('audited nights cannot be edited or repaid without an override', () => {
   assert.equal(isAudited(s, '2026-03-10'), false);
   assert.throws(() => apply(s, { propertyId: property, id: 'e1', at: '2026-03-10T10:00:00.000Z', type: 'edit', orderId: 'o1',
     guest: 'Historic', start: '2026-03-05', end: '2026-03-08', nightly: 10000, source: 'direct' }), /audited/);
-  assert.throws(() => apply(s, { propertyId: property, id: 'p1', at: '2026-03-10T10:00:00.000Z', type: 'payment', orderId: 'o1',
-    kind: 'payment', amount: 5000, method: 'cash' }), /audited/);
+  assert.throws(() => apply(s, { propertyId: property, id: 'c1', at: '2026-03-10T10:00:00.000Z', type: 'cancel', orderId: 'o1',
+    reason: 'TEST late', finalCharge: 0 }), /audited/);
+  // Taking money does not rewrite what the closed night earned, so it is never blocked.
+  const paid = apply(s, { propertyId: property, id: 'p1', at: '2026-03-10T10:00:00.000Z', type: 'payment', orderId: 'o1',
+    kind: 'payment', amount: 5000, method: 'cash' });
+  assert.equal(paid.orders.find(o => o.id === 'o1').transactions.length, 1);
   const overridden = apply(s, { propertyId: property, id: 'e2', at: '2026-03-10T10:00:00.000Z', actor: 'admin', type: 'edit', orderId: 'o1',
     guest: 'Historic', start: '2026-03-05', end: '2026-03-08', nightly: 10000, source: 'direct', auditOverride: true });
   assert.equal(overridden.orders.find(o => o.id === 'o1').end, '2026-03-08');
@@ -153,4 +157,23 @@ test('nextDay crosses month and year boundaries', () => {
   assert.equal(nextDay('2026-02-28'), '2026-03-01');
   assert.equal(nextDay('2024-02-28'), '2024-02-29');
   assert.equal(nextDay('2026-12-31'), '2027-01-01');
+});
+
+test('a closed night blocks rewriting a stay but never blocks taking money for it', () => {
+  const at = '2026-03-06T10:00:00.000Z';
+  const opened = cmd({ type: 'business_date_init', date: '2026-03-06' });
+  const created = apply(opened, { propertyId: property, id: 'c-order', at, actor: 'tester', type: 'create',
+    guest: 'TEST Historic', productId: 'room', gender: 'any', start: '2026-03-05', end: '2026-03-07', nightly: 10000 });
+  // The stay began on a night that is already closed, so rewriting it changes earned revenue.
+  assert.throws(() => apply(created, { propertyId: property, id: 'c-edit', at, actor: 'tester', type: 'edit',
+    orderId: 'c-order', guest: 'TEST Historic', start: '2026-03-05', end: '2026-03-08', nightly: 10000, source: 'direct' }), /audited/);
+  assert.throws(() => apply(created, { propertyId: property, id: 'c-cancel', at, actor: 'tester', type: 'cancel',
+    orderId: 'c-order', reason: 'TEST late', finalCharge: 0 }), /audited/);
+  // Money moving does not rewrite what the closed night earned, so a receipt still posts.
+  const paid = apply(created, { propertyId: property, id: 'c-pay', at, actor: 'tester', type: 'payment',
+    orderId: 'c-order', kind: 'payment', amount: 10000, method: 'card' });
+  const order = paid.orders.find(o => o.id === 'c-order');
+  assert.equal(order.transactions.length, 1);
+  assert.equal(order.transactions[0].amount, 10000);
+  assert.equal(order.transactions[0].kind, 'payment');
 });

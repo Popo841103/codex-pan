@@ -219,7 +219,10 @@ export function apply(state, command) {
   if(order?.folioClosed&&['edit','payment','cancel'].includes(type))reject('folio_closed');
   // Nights already closed by a night audit cannot be rewritten without an explicit override.
   // Authorization for that override is enforced by the shared service, never by the browser.
-  if (order && ['edit','payment','cancel'].includes(type) && command.auditOverride !== true &&
+  // A closed night freezes the revenue it earned: rewriting or cancelling a stay can
+  // change history, so both need an administrator override. Taking money does not change
+  // what was earned, so a receipt is never blocked by a night that is already closed.
+  if (order && ['edit','cancel'].includes(type) && command.auditOverride !== true &&
       (isAudited(next, order.start) || isAudited(next, order.end))) reject('audited');
   if (order && isBoxed(order) && ['assign','checkin','checkout','lock'].includes(type)) reject('box_state');
   if(type==='settle'){const f=folio(order);if(order.folioClosed)reject('folio_closed');if(f.due!==0||f.deposit!==0)reject('balance');order.folioClosed=true;(order.folioEvents??=[]).push({type:'settle',at:command.at,actor:command.actor||'local',charge:f.charge,paid:f.paid,deposit:f.deposit});}
@@ -277,6 +280,10 @@ export function apply(state, command) {
   } else if (type === 'cancel') {
     if (order.status !== 'confirmed' || !command.reason?.trim()) reject('state');
     order.finalCharge = money(command.finalCharge);
+    // The penalty belongs to the night the cancellation happened. Without a trusted
+    // business date it is left undated and reports must show it as unallocated.
+    const postingDate = upgradeBusinessDay(next).businessDate;
+    if (postingDate) order.cancelBusinessDate = postingDate;
     order.status = 'cancelled'; order.cancelReason = text(command.reason,500);
   } else if (type === 'checkin') {
     if (order.status !== 'confirmed' || !order.resourceId) reject('state');
