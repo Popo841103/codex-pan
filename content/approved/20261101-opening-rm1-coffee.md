@@ -1,6 +1,6 @@
 # 已发布：试营业优惠 · RM1 加购咖啡（IG + FB + TikTok 统一发）
 
-> 状态：**已排期**（11/1 11:25 自动发布，一条 post 同时发三个平台）
+> 状态：**✅ 已发布**（2026-11-01 11:25，一条 post 同时发三个平台，均 PUBLISHED）
 
 ## 基本信息
 
@@ -11,6 +11,22 @@
 - **发布时间**：2026-11-01 11:25（Asia/Kuala_Lumpur）
 - **Metricool**：post id `412636033` · uuid `188750098927536130` · [在日历中打开](https://app.metricool.com/planner/calendar?blogId=7642312&openWithPostUuid=188750098927536130)
 - **TikTok 标题**：`RM1 coffee at COHUB KL — soft opening`
+
+## 发布直链
+
+| 平台 | 链接 |
+|------|------|
+| Instagram | https://www.instagram.com/p/DfLwzHNCIp6/ |
+| Facebook | https://facebook.com/122122475151478512/posts/122124333627478512 |
+| TikTok | https://www.tiktok.com/@cohub.klcc/video/7703039167659347221 |
+
+## 置顶
+
+业主要求把这条置顶。**Metricool MCP 不支持置顶**（`instagramData` / `facebookData` / `tiktokData` 均无 pinned 类字段），需业主在三个平台 App 内手动操作：
+
+- **Instagram**：个人主页 → 打开该帖 → 右上角 `⋯` → **Pin to your profile**（最多置顶 3 条）
+- **Facebook**：该帖右上角 `⋯` → **Pin to top of Page**（置顶到主页顶部，只能置顶 1 条）
+- **TikTok**：个人主页 → 打开该视频 → 右下角 `⋯` → **Pin to your profile**（最多置顶 3 条）
 
 ## 优惠条款（业主提供，原文录入）
 
