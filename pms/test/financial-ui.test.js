@@ -30,3 +30,36 @@ test('other charge and penalty pages escape guest, item and reason text and stay
  const noPolicy=cancellationPenaltyPage({orders:[{...cancelled,cancellationPolicy:undefined}]},opts);
  assert.match(noPolicy,/policyMissing/,'a stay without a stored policy says so instead of guessing one');
 });
+
+test('occupant, registration and commission pages escape names, keep filters editable and never invent a commission',async()=>{
+ const {roomOccupantPage,registrationRecordPage,commissionPage}=await import('../web/financial-ui.js');
+ const opts={propertyId:'P',from:'2027-01-01',to:'2027-01-03',sources:['direct','booking'],t:k=>k,currency:n=>'MYR '+n};
+ const live={id:'<id>',propertyId:'P',guest:'<script>',source:'booking',channelOrderId:'<ch>',status:'checked_in',
+  productId:'room',roomTypeId:'rt',resourceId:'r1',start:'2027-01-01',end:'2027-01-03',nightly:10000,
+  nightlyRates:[{date:'2027-01-01',amount:10000},{date:'2027-01-02',amount:10000}],
+  occupants:[{name:'<person>',gender:'female'},{name:'  ',gender:'male'}],transactions:[],extraCharges:[]};
+ const state={orders:[live],resources:[{id:'r1',label:'R01'}],roomTypes:[{id:'rt',name:'<type>'}],audit:[]};
+
+ const occupants=roomOccupantPage(state,opts);
+ assert.match(occupants,/data-open-stay="&lt;id&gt;"/);
+ assert.match(occupants,/&lt;person&gt;/,'an occupant name is escaped like any other guest text');
+ assert.doesNotMatch(occupants,/<person>/);assert.doesNotMatch(occupants,/<script>/);
+ assert.match(occupants,/occupantUnnamed/,'a blank name is shown as missing, not dropped');
+ assert.match(occupants,/data-finance-filter="basis"/,'the placement picker is present');
+ const badOcc=roomOccupantPage({orders:[],resources:[],roomTypes:[]},{...opts,from:'2027-02-30'});
+ assert.match(badOcc,/role="alert"/);assert.match(badOcc,/data-finance-filter="from"/,'the range stays editable when the report refuses it');
+
+ const registration=registrationRecordPage(state,opts);
+ assert.match(registration,/&lt;type&gt;/);assert.match(registration,/regIncompleteRow/,'one name is still missing');
+ const badReg=registrationRecordPage({orders:[],resources:[],roomTypes:[]},{...opts,from:'2027-02-30'});
+ assert.match(badReg,/role="alert"/);assert.match(badReg,/data-finance-filter="to"/);
+
+ const commission=commissionPage(state,opts);
+ assert.match(commission,/data-open-stay="&lt;id&gt;"/);assert.match(commission,/&lt;ch&gt;/);
+ assert.doesNotMatch(commission,/<script>/);
+ assert.match(commission,/MYR 20000/,'the room charge is still worth showing');
+ assert.match(commission,/commissionNotRecorded/,'the commission column says it is not recorded');
+ assert.doesNotMatch(commission,/MYR 0\.00/,'no zero commission is printed where none was ever recorded');
+ const badCom=commissionPage({orders:[],resources:[],roomTypes:[]},{...opts,from:'2027-02-30'});
+ assert.match(badCom,/role="alert"/);assert.match(badCom,/data-finance-filter="from"/);
+});

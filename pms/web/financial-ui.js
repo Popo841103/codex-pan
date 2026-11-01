@@ -1,4 +1,4 @@
-import {accommodationReport,accommodationBreakdown,cashflowReport,financialComparison,managerDailyReport,guestLedger,roomChargeDetail,roomBusinessSummary,roomMovementLog,extraChargeDetail,cancellationPenaltyDetail} from '../src/financial-reports.js';
+import {accommodationReport,accommodationBreakdown,cashflowReport,financialComparison,managerDailyReport,guestLedger,roomChargeDetail,roomBusinessSummary,roomMovementLog,extraChargeDetail,cancellationPenaltyDetail,roomOccupantDetail,registrationRecord,commissionDetail} from '../src/financial-reports.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const financialWords={
 zh:{reportFrom:'开始日期',reportTo:'结束日期',reportDaily:'每日汇总',reportMethods:'支付方式汇总',reportDetails:'逐笔明细',reportUnallocated:'未确定营业日的费用（不计入期间汇总）',reportBusinessNote:'按住宿营业日统计收费，押金不计收入。缺少营业日的最终费用另列，不推定归属。',reportCashNote:'按马来西亚自然交易日统计手工收付记录；不代表银行到账。押金独立核算。',report_input:'请检查门店与日期范围。',report_amount:'账目金额无效，报表已停止计算。',reportTotal:'期间合计',reportNetRoom:'住宿净收款',reportNetDeposit:'押金净收款'},
@@ -284,4 +284,116 @@ const penaltyWords={
   policyMissing:'Polisi tidak direkod',policyFree:'Pembatalan percuma',policyNonrefundable:'Tidak boleh dipulangkan',policyPartial:'Caj sebahagian',
   policyManual:'Disahkan manual',policyFlexibleBefore:'Sebelum ketibaan',policyDays:'hari',policyBasisTotal:'daripada jumlah caj bilik',policyBasisFirstNight:'daripada malam pertama'}
 };
+// Occupants, registration completeness and channel commission. Identity documents
+// stay encrypted on the server and are never decrypted into a report, so
+// "registered" can only mean a name was written down. And no commission has ever
+// been recorded anywhere in the system, so the commission page shows what the
+// channel booking was worth and leaves the commission column empty.
+export function roomOccupantPage(state,{propertyId,from,to,source='all',sources=[],basis='arrival',t,currency}={}){
+ const shell=crash(t('roomOccupantDetail'));
+ const picker=`<label>${esc(t('occupantBasis'))}<select data-finance-filter="basis">${[['arrival','basisArrival'],['overlap','basisOverlap']].map(([id,word])=>`<option value="${esc(id)}" ${basis===id?'selected':''}>${esc(t(word))}</option>`).join('')}</select></label>`;
+ const filters=`<div class="order-filters">${rangeFilter(from,to,sources,source,t).replace('<div class="order-filters">','').replace('</div>','')}${picker}</div>`;
+ try{
+  const report=roomOccupantDetail(state,{propertyId,from,to,source},{basis});
+  const table=(headers,rows)=>`<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">${esc(t('empty'))}</td></tr>`}</tbody></table></div>`;
+  const link=r=>`<button data-open-stay="${esc(r.orderId)}">${esc(r.guest||r.orderId)}</button>`;
+  const name=r=>r.occupant?esc(r.occupant):`<em>${esc(t('occupantUnnamed'))}</em>`;
+  const totals=`<div class="table-wrap"><table><tbody>${[['occupantPeople',report.totals.people],['occupantStays',report.totals.stays],['nightCount',report.totals.nights],['occupantUnnamedCount',report.totals.unnamed]].map(([k,v])=>`<tr><th>${esc(t(k))}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table></div>`;
+  const byType=`<h3>${esc(t('byRoomType'))}</h3>${table(['roomType','occupantPeople','occupantStays'],
+   report.roomTypes.map(r=>`<tr><th>${esc(r.roomTypeName||t('unspecified'))}</th><td>${esc(r.people)}</td><td>${esc(r.stays)}</td></tr>`).join(''))}`;
+  const byGender=`<h3>${esc(t('occupantByGender'))}</h3>${table(['occupantGender','occupantPeople'],
+   report.genders.map(g=>`<tr><th>${esc(t('gender_'+g.gender)||esc(g.gender))}</th><td>${esc(g.people)}</td></tr>`).join(''))}`;
+  const daily=`<h3>${esc(t('reportDaily'))}</h3>${table(['reportDate','occupantPeople'],report.daily.map(d=>`<tr><td>${esc(d.date)}</td><td>${esc(d.people)}</td></tr>`).join(''))}`;
+  const body=report.rows.map(r=>`<tr><td>${esc(r.date)}</td><td>${link(r)}</td><td>${name(r)}</td><td>${esc(t('gender_'+r.gender)||esc(r.gender))}</td><td>${esc(r.roomTypeName||t('unspecified'))}</td><td>${esc(r.resourceLabel||t('unassignedStay'))}</td><td>${esc(t(r.stayType))}</td><td>${esc(t(r.source))}</td><td>${esc(r.start)} \u2192 ${esc(r.end)}</td><td>${esc(r.nights)}</td><td>${esc(r.party)}</td><td>${esc(t('status_'+r.status)||esc(r.status))}</td></tr>`).join('');
+  const detail=`<h3>${esc(t('reportDetails'))}</h3>${table(['reportDate','guest','occupantName','occupantGender','roomType','room','stayType','source','mdrStay','nightCount','occupantParty','stayStatus'],body)}`;
+  return shell(filters+`<p>${esc(t('occupantNote'))}</p>${totals}${byType}${byGender}${daily}${detail}`);
+ }catch(error){return shell(filters+`<p role="alert">${esc(t(error.message))}</p>`);}
+}
+
+export function registrationRecordPage(state,{propertyId,from,to,source='all',sources=[],basis='arrival',t,currency}={}){
+ const shell=crash(t('registrationRecord'));
+ const picker=`<label>${esc(t('occupantBasis'))}<select data-finance-filter="basis">${[['arrival','basisArrival'],['overlap','basisOverlap']].map(([id,word])=>`<option value="${esc(id)}" ${basis===id?'selected':''}>${esc(t(word))}</option>`).join('')}</select></label>`;
+ const filters=`<div class="order-filters">${rangeFilter(from,to,sources,source,t).replace('<div class="order-filters">','').replace('</div>','')}${picker}</div>`;
+ try{
+  const report=registrationRecord(state,{propertyId,from,to,source},{basis});
+  const table=(headers,rows)=>`<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">${esc(t('empty'))}</td></tr>`}</tbody></table></div>`;
+  const link=r=>`<button data-open-stay="${esc(r.orderId)}">${esc(r.guest||r.orderId)}</button>`;
+  const totals=`<div class="table-wrap"><table><tbody>${[['regStays',report.totals.stays],['regExpected',report.totals.expected],['regRegistered',report.totals.registered],['regMissing',report.totals.missing],['regIncomplete',report.totals.incomplete],['regUnassigned',report.totals.unassigned]].map(([k,v])=>`<tr><th>${esc(t(k))}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table></div>`;
+  const body=report.rows.map(r=>`<tr><td>${esc(r.date)}</td><td>${link(r)}</td><td>${esc(t(r.source))}</td><td>${esc(r.roomTypeName||t('unspecified'))}</td><td>${esc(r.resourceLabel||t('unassignedStay'))}</td><td>${esc(r.start)} \u2192 ${esc(r.end)}</td><td>${esc(r.expected)}</td><td>${esc(r.registered)}</td><td>${r.missing?`<strong>${esc(r.missing)}</strong>`:'0'}</td><td>${esc(t(r.complete?'regComplete':'regIncompleteRow'))}</td><td>${esc(t(r.assigned?'roomAssigned':'unassignedStay'))}</td><td>${esc(t('status_'+r.status)||esc(r.status))}</td></tr>`).join('');
+  const detail=`<h3>${esc(t('reportDetails'))}</h3>${table(['reportDate','guest','source','roomType','room','mdrStay','regExpected','regRegistered','regMissing','regState','regAssigned','stayStatus'],body)}`;
+  return shell(filters+`<p>${esc(t('registrationNote'))}</p><p class="muted">${esc(t('registrationPrivacyNote'))}</p>${totals}${detail}`);
+ }catch(error){return shell(filters+`<p role="alert">${esc(t(error.message))}</p>`);}
+}
+
+export function commissionPage(state,{propertyId,from,to,source='all',sources=[],t,currency}={}){
+ const shell=crash(t('commissionDetail'));
+ try{
+  const report=commissionDetail(state,{propertyId,from,to,source});
+  const table=(headers,rows)=>`<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">${esc(t('empty'))}</td></tr>`}</tbody></table></div>`;
+  const link=r=>`<button data-open-stay="${esc(r.orderId)}">${esc(r.guest||r.orderId)}</button>`;
+  const blank=`<em>${esc(t('commissionNotRecorded'))}</em>`;
+  const totals=`<div class="table-wrap"><table><tbody>${[['commissionOrders',report.totals.orders],['nightCount',report.totals.nights],['roomRevenue',report.totals.room],['commissionCharged',report.totals.charge],['commissionPaid',report.totals.paid],['ledgerOutstanding',report.totals.outstanding],['commissionAmount',null]].map(([k,v])=>`<tr><th>${esc(t(k))}</th><td>${v===null?blank:esc(currency(v))}</td></tr>`).join('')}</tbody></table></div>`;
+  const byChannel=`<h3>${esc(t('commissionByChannel'))}</h3>${table(['source','commissionOrders','nightCount','roomRevenue','commissionCharged','commissionPaid','ledgerOutstanding','commissionAmount'],
+   report.channels.map(c=>`<tr><th>${esc(t(c.source))}</th><td>${esc(c.orders)}</td><td>${esc(c.nights)}</td><td>${esc(currency(c.room))}</td><td>${esc(currency(c.charge))}</td><td>${esc(currency(c.paid))}</td><td>${esc(currency(c.outstanding))}</td><td>${blank}</td></tr>`).join(''))}`;
+  const body=report.rows.map(r=>`<tr><td>${esc(r.start)}</td><td>${esc(t(r.source))}</td><td>${esc(r.channelOrderId||'\u2014')}</td><td>${link(r)}</td><td>${esc(r.roomTypeName||t('unspecified'))}</td><td>${esc(r.resourceLabel||t('unassignedStay'))}</td><td>${esc(r.start)} \u2192 ${esc(r.end)}</td><td>${esc(r.nights)}</td><td>${esc(currency(r.room))}</td><td>${esc(currency(r.extras))}</td><td>${esc(currency(r.penalty))}</td><td>${esc(currency(r.charge))}</td><td>${esc(currency(r.paid))}</td><td>${esc(currency(r.outstanding))}</td><td>${blank}</td><td>${esc(t('commissionNotRecorded'))}</td></tr>`).join('');
+  const detail=`<h3>${esc(t('reportDetails'))}</h3>${table(['reportDate','source','channelOrderId','guest','roomType','room','mdrStay','nightCount','roomRevenue','mdrExtras','mdrCancellation','commissionCharged','commissionPaid','ledgerOutstanding','commissionAmount','commissionSettlement'],body)}`;
+  const unallocated=report.unallocated?`<p role="status">${esc(t('commissionUnallocated'))}: ${esc(currency(report.unallocated))}</p>`:'';
+  return shell(rangeFilter(from,to,sources,source,t)+`<p role="status">${esc(t('commissionNote'))}</p><p class="muted">${esc(t('commissionNoteDetail'))}</p>${totals}${byChannel}${detail}${unallocated}`);
+ }catch(error){return shell(rangeFilter(from,to,sources,source,t)+`<p role="alert">${esc(t(error.message))}</p>`);}
+}
+
+const occupantWords={
+ zh:{roomOccupantDetail:'房间入住人明细',registrationRecord:'入住登记记录',commissionDetail:'佣金明细',
+  occupantBasis:'归属口径',basisArrival:'按到店日',basisOverlap:'期内任一晚在住',
+  occupantName:'入住人姓名',occupantGender:'性别',occupantParty:'同行人数',occupantPeople:'人数',occupantStays:'住宿笔数',
+  occupantUnnamed:'未填写姓名',occupantUnnamedCount:'缺姓名人数',occupantByGender:'按性别',
+  gender_female:'女',gender_male:'男',gender_any:'不限／未记录',
+  stayStatus:'订单状态',status_reserved:'预订',status_confirmed:'已确认',status_checked_in:'在住',status_checked_out:'已退房',status_cancelled:'已取消',
+  occupantNote:'按订单自带的到店日归属，不是营业日；取消的订单没有实际入住人，不列入。房间未分房时如实显示待分房。',
+  regStays:'住宿笔数',regExpected:'应登记人数',regRegistered:'已登记姓名',regMissing:'缺姓名',regIncomplete:'不完整单数',
+  regUnassigned:'未分房单数',regState:'登记状态',regAssigned:'房间',regComplete:'姓名齐备',regIncompleteRow:'待补全',
+  roomAssigned:'已分房',
+  registrationNote:'本页只核对订单自带的入住人姓名是否齐备，并按到店日归属。',
+  registrationPrivacyNote:'身份证件资料以加密形式保存在服务端，审核状态也在自助入住审核页；本报表不解密、不导出、不显示证件号。',
+  commissionOrders:'订单数',commissionCharged:'账单合计',commissionPaid:'已收',commissionAmount:'佣金金额',
+  commissionNotRecorded:'未记录',commissionSettlement:'结算状态',commissionByChannel:'按渠道汇总',
+  commissionUnallocated:'无营业日的费用（不计入合计）',
+  commissionNote:'渠道佣金尚未接入：订单不保存佣金金额，也没有任何渠道佣金率配置，因此本表不推算佣金。',
+  commissionNoteDetail:'下表列出每笔渠道订单的房费、附加费、违约金与已收金额，供人工与渠道账单核对；佣金列一律显示未记录。要产生真实佣金数字，需要录入渠道佣金率或接入渠道结算数据。'},
+ en:{roomOccupantDetail:'Room occupant detail',registrationRecord:'Registration record',commissionDetail:'Commission detail',
+  occupantBasis:'Placement',basisArrival:'By arrival date',basisOverlap:'Any night in the period',
+  occupantName:'Occupant',occupantGender:'Gender',occupantParty:'Party size',occupantPeople:'People',occupantStays:'Stays',
+  occupantUnnamed:'No name entered',occupantUnnamedCount:'People with no name',occupantByGender:'By gender',
+  gender_female:'Female',gender_male:'Male',gender_any:'Any / not recorded',
+  stayStatus:'Booking status',status_reserved:'Reserved',status_confirmed:'Confirmed',status_checked_in:'In house',status_checked_out:'Checked out',status_cancelled:'Cancelled',
+  occupantNote:'Placed on the arrival date the booking carries, not on a business date. A cancelled booking has nobody in the room and is left out. An unassigned room says so.',
+  regStays:'Stays',regExpected:'Occupants expected',regRegistered:'Names entered',regMissing:'Names missing',regIncomplete:'Incomplete stays',
+  regUnassigned:'Stays with no room',regState:'Registration',regAssigned:'Room',regComplete:'Names complete',regIncompleteRow:'Names to complete',
+  roomAssigned:'Assigned',
+  registrationNote:'This page only checks whether the names carried on the booking are complete, and places each stay on its arrival date.',
+  registrationPrivacyNote:'Identity documents stay encrypted on the server and the review state lives on the self-check-in review page. This report never decrypts, exports or shows a document number.',
+  commissionOrders:'Bookings',commissionCharged:'Billed',commissionPaid:'Received',commissionAmount:'Commission',
+  commissionNotRecorded:'Not recorded',commissionSettlement:'Settlement',commissionByChannel:'By channel',
+  commissionUnallocated:'Charges without a business date (excluded from totals)',
+  commissionNote:'Channel commission is not connected: an order stores no commission amount and no channel rate is configured, so no commission is calculated here.',
+  commissionNoteDetail:'What follows is what each channel booking was worth and what was received on it, which is what reconciling a channel invoice by hand needs. A real commission figure needs a stored channel rate or real settlement data.'},
+ ms:{roomOccupantDetail:'Butiran penghuni bilik',registrationRecord:'Rekod pendaftaran',commissionDetail:'Butiran komisen',
+  occupantBasis:'Asas penempatan',basisArrival:'Mengikut tarikh ketibaan',basisOverlap:'Sebarang malam dalam tempoh',
+  occupantName:'Penghuni',occupantGender:'Jantina',occupantParty:'Bilangan sekali',occupantPeople:'Orang',occupantStays:'Penginapan',
+  occupantUnnamed:'Nama tidak diisi',occupantUnnamedCount:'Orang tanpa nama',occupantByGender:'Mengikut jantina',
+  gender_female:'Perempuan',gender_male:'Lelaki',gender_any:'Sebarang / tidak direkod',
+  stayStatus:'Status tempahan',status_reserved:'Ditempah',status_confirmed:'Disahkan',status_checked_in:'Dalam penginapan',status_checked_out:'Daftar keluar',status_cancelled:'Dibatalkan',
+  occupantNote:'Diletakkan pada tarikh ketibaan yang dibawa tempahan, bukan tarikh operasi. Tempahan dibatalkan tiada penghuni dan dikecualikan. Bilik belum ditetapkan dinyatakan sedemikian.',
+  regStays:'Penginapan',regExpected:'Penghuni dijangka',regRegistered:'Nama diisi',regMissing:'Nama kurang',regIncomplete:'Penginapan tidak lengkap',
+  regUnassigned:'Penginapan tanpa bilik',regState:'Pendaftaran',regAssigned:'Bilik',regComplete:'Nama lengkap',regIncompleteRow:'Nama perlu dilengkapkan',
+  roomAssigned:'Ditetapkan',
+  registrationNote:'Halaman ini hanya menyemak sama ada nama yang dibawa tempahan lengkap, dan meletakkan setiap penginapan pada tarikh ketibaannya.',
+  registrationPrivacyNote:'Dokumen identiti disimpan tersulit di pelayan dan status semakan berada di halaman semakan daftar masuk kendiri. Laporan ini tidak menyahsulit, mengeksport atau memaparkan nombor dokumen.',
+  commissionOrders:'Tempahan',commissionCharged:'Dibilkan',commissionPaid:'Diterima',commissionAmount:'Komisen',
+  commissionNotRecorded:'Tidak direkod',commissionSettlement:'Penyelesaian',commissionByChannel:'Mengikut saluran',
+  commissionUnallocated:'Caj tanpa tarikh operasi (tidak termasuk jumlah)',
+  commissionNote:'Komisen saluran belum disambung: tempahan tidak menyimpan amaun komisen dan tiada kadar komisen saluran dikonfigurasi, jadi tiada komisen dikira di sini.',
+  commissionNoteDetail:'Yang berikut ialah nilai tempahan saluran dan apa yang diterima padanya, iaitu apa yang diperlukan untuk memadankan invois saluran secara manual. Angka komisen sebenar memerlukan kadar saluran yang disimpan atau data penyelesaian sebenar.'}
+};
+for(const language of Object.keys(occupantWords))Object.assign(financialWords[language],occupantWords[language]);
 for(const language of Object.keys(penaltyWords))Object.assign(financialWords[language],penaltyWords[language]);

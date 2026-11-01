@@ -402,6 +402,129 @@ export function cancellationPenaltyDetail(state,q){
     daily:[...daily].map(([date,value])=>({date,amount:value})).sort((a,b)=>a.date.localeCompare(b.date)),
     sources:[...bySource.values()].sort((a,b)=>a.source.localeCompare(b.source))};
 }
+// ---------------------------------------------------------------------------
+// Occupants, registration completeness and channel commission.
+// The occupant and registration pages read the stay records themselves: the
+// booking contact, every name carried on the stay, and whether a room was ever
+// assigned. The commission page has nothing to read. Orders carry no commission
+// amount, no channel rate is configured anywhere and no settlement is ever
+// received, so this page reports the gap - what was booked, what was received -
+// and refuses to multiply revenue by a percentage nobody entered.
+const GENDERS=['female','male','any'];
+const occupantName=person=>typeof person==='object'&&person!==null&&typeof person.name==='string'?person.name.trim():'';
+const genderOf=person=>GENDERS.includes(person?.gender)?person.gender:'any';
+const paidOnOrder=order=>(order.transactions||[]).reduce((n,t)=>n+(t.kind==='payment'?amount(t.amount):t.kind==='refund'?-amount(t.amount):0),0);
+// A stay occupies the nights in [start, end), so it touches the window when it
+// starts no later than the last day and ends strictly after the first day.
+const stayOverlaps=(order,q)=>validDate(order.start)&&validDate(order.end)&&order.start<=q.to&&order.end>q.from;
+// These pages are about people, not money. Nothing here is earned on a business
+// date that a night audit would move, so the stay carries its own booking dates
+// and the window selects by arrival or by any night in the period.
+const stayBasis=(order,q,basis)=>{
+  if(basis==='overlap')return stayOverlaps(order,q)?(order.start<q.from?q.from:order.start):null;
+  return validDate(order.start)&&inRange(order.start,q)?order.start:null;
+};
+
+export function roomOccupantDetail(state,q,{basis='arrival'}={}){
+  if(!['arrival','overlap'].includes(basis))throw Error('report_input');
+  const orders=scope(state,q),rows=[],byDay=new Map(),byGender=new Map(),byRoomType=new Map(),stayIds=new Set();
+  let unnamed=0,nights=0;
+  for(const o of orders){
+    if(o.status==='cancelled')continue;
+    const date=stayBasis(o,q,basis);
+    if(!date)continue;
+    const people=Array.isArray(o.occupants)?o.occupants:[];
+    const counted=people.length?people:[{}];
+    const resourceLabel=label(state,'resources',o.resourceId,'label');
+    for(const person of counted){
+      const name=occupantName(person);
+      if(!name)unnamed++;
+      const gender=genderOf(person);
+      rows.push({orderId:o.id,reservationId:o.reservationId||null,guest:o.guest||'',occupant:name,
+        gender,source:o.source||'direct',channelOrderId:o.channelOrderId||'',
+        roomTypeId:o.roomTypeId||'unspecified',roomTypeName:label(state,'roomTypes',o.roomTypeId),
+        resourceLabel,productId:o.productId||'unspecified',stayType:PRODUCTS.includes(o.productId)?o.productId:'room',
+        status:o.status||'reserved',start:o.start||'',end:o.end||'',nights:nightCount(o),party:people.length,date});
+      byDay.set(date,(byDay.get(date)||0)+1);
+      byGender.set(gender,(byGender.get(gender)||0)+1);
+    }
+    const key=o.roomTypeId||'unspecified';
+    let bucket=byRoomType.get(key);
+    if(!bucket){bucket={key,roomTypeName:label(state,'roomTypes',o.roomTypeId),people:0,stays:0};byRoomType.set(key,bucket);}
+    bucket.people+=counted.length;bucket.stays++;
+    stayIds.add(o.id);nights+=nightCount(o);
+  }
+  rows.sort((a,b)=>a.date.localeCompare(b.date)||a.guest.localeCompare(b.guest)||a.occupant.localeCompare(b.occupant)||a.orderId.localeCompare(b.orderId));
+  return {basis,rows,unnamed,totals:{people:rows.length,stays:stayIds.size,nights,unnamed},
+    daily:[...byDay].map(([date,people])=>({date,people})).sort((a,b)=>a.date.localeCompare(b.date)),
+    genders:[...byGender].map(([gender,people])=>({gender,people})).sort((a,b)=>b.people-a.people||a.gender.localeCompare(b.gender)),
+    roomTypes:[...byRoomType.values()].sort((a,b)=>b.people-a.people||a.key.localeCompare(b.key))};
+}
+
+// Identity documents are encrypted on the server and are never decrypted into a
+// report, so "registered" here can only ever mean what the stay record itself
+// holds: a name was written down for that occupant. A missing name is reported
+// as missing, not filled in from another stay.
+export function registrationRecord(state,q,{basis='arrival'}={}){
+  if(!['arrival','overlap'].includes(basis))throw Error('report_input');
+  const orders=scope(state,q),rows=[];
+  for(const o of orders){
+    if(o.status==='cancelled')continue;
+    const date=stayBasis(o,q,basis);
+    if(!date)continue;
+    const people=Array.isArray(o.occupants)?o.occupants:[];
+    const expected=people.length,registered=people.filter(p=>occupantName(p)).length;
+    rows.push({orderId:o.id,reservationId:o.reservationId||null,guest:o.guest||'',source:o.source||'direct',
+      channelOrderId:o.channelOrderId||'',roomTypeId:o.roomTypeId||'unspecified',
+      roomTypeName:label(state,'roomTypes',o.roomTypeId),
+      resourceLabel:label(state,'resources',o.resourceId,'label'),
+      productId:o.productId||'unspecified',stayType:PRODUCTS.includes(o.productId)?o.productId:'room',
+      status:o.status||'reserved',start:o.start||'',end:o.end||'',nights:nightCount(o),date,
+      expected,registered,missing:expected-registered,assigned:Boolean(o.resourceId),
+      complete:expected>0&&registered===expected});
+  }
+  rows.sort((a,b)=>a.date.localeCompare(b.date)||a.guest.localeCompare(b.guest)||a.orderId.localeCompare(b.orderId));
+  const totals=rows.reduce((t,r)=>({stays:t.stays+1,expected:t.expected+r.expected,registered:t.registered+r.registered,
+    missing:t.missing+r.missing,incomplete:t.incomplete+(r.complete?0:1),unassigned:t.unassigned+(r.assigned?0:1)}),
+    {stays:0,expected:0,registered:0,missing:0,incomplete:0,unassigned:0});
+  return {basis,rows,totals};
+}
+
+// No commission has ever been recorded: an order has no commission field, no
+// channel rate is configured and no settlement arrives from anywhere. The page
+// therefore lists what the channel booking was worth and what was received on
+// it, which is what an operator needs to reconcile a channel invoice by hand,
+// and leaves every commission figure empty rather than inventing a rate.
+export function commissionDetail(state,q){
+  const orders=scope(state,q),rows=[],channels=new Map();
+  let unallocated=0;
+  for(const o of orders){
+    if(!validDate(o.start)||!inRange(o.start,q))continue;
+    const {lines,unallocated:lost}=orderChargeLines(o);
+    const pick=kind=>lines.filter(l=>l.kind===kind).reduce((n,l)=>n+l.amount,0);
+    const room=pick('room'),penalty=pick('cancellation');
+    const extras=lines.filter(l=>l.kind!=='room'&&l.kind!=='cancellation').reduce((n,l)=>n+l.amount,0);
+    const charge=room+extras+penalty,paid=paidOnOrder(o);
+    unallocated+=lost.reduce((n,l)=>n+l.amount,0);
+    const row={orderId:o.id,reservationId:o.reservationId||null,guest:o.guest||'',source:o.source||'direct',
+      channelOrderId:o.channelOrderId||'',roomTypeId:o.roomTypeId||'unspecified',
+      roomTypeName:label(state,'roomTypes',o.roomTypeId),
+      resourceLabel:label(state,'resources',o.resourceId,'label'),
+      status:o.status||'reserved',start:o.start||'',end:o.end||'',nights:nightCount(o),
+      room,extras,penalty,charge,paid,outstanding:charge-paid,
+      commission:null,commissionRecorded:false,settlement:'unrecorded'};
+    rows.push(row);
+    let bucket=channels.get(row.source);
+    if(!bucket){bucket={source:row.source,orders:0,nights:0,room:0,charge:0,paid:0,outstanding:0,commission:null,unrecorded:0};channels.set(row.source,bucket);}
+    bucket.orders++;bucket.nights+=row.nights;bucket.room+=room;bucket.charge+=charge;
+    bucket.paid+=paid;bucket.outstanding+=row.outstanding;bucket.unrecorded++;
+  }
+  rows.sort((a,b)=>a.start.localeCompare(b.start)||a.guest.localeCompare(b.guest)||a.orderId.localeCompare(b.orderId));
+  const totals=rows.reduce((t,r)=>({orders:t.orders+1,nights:t.nights+r.nights,room:t.room+r.room,charge:t.charge+r.charge,
+    paid:t.paid+r.paid,outstanding:t.outstanding+r.outstanding}),{orders:0,nights:0,room:0,charge:0,paid:0,outstanding:0});
+  return {rows,channels:[...channels.values()].sort((a,b)=>a.source.localeCompare(b.source)),
+    totals,unrecorded:rows.length,unallocated};
+}
 export function cashflowReport(state,q){if(!q)throw Error('report_input');if(q.operator!==undefined&&q.operator!=='all'&&q.operator!=='unknown'&&!(typeof q.operator==='string'&&q.operator.startsWith('actor:')&&q.operator.length>6&&q.operator.length<=512))throw Error('report_input');if(q.transactionKind&&!['all','payment','refund','deposit_in','deposit_out'].includes(q.transactionKind))throw Error('report_input');const counts={payment:0,refund:0,deposit_in:0,deposit_out:0};const orders=scope(state,q),rows=[],totals={payment:0,refund:0,deposit_in:0,deposit_out:0,netAccommodation:0,netDeposit:0},byMethod=new Map();for(const o of orders)for(const tr of o.transactions||[]){if(!['payment','refund','deposit_in','deposit_out'].includes(tr.kind))continue;if(q.operator==='unknown'&&tr.actor||q.operator?.startsWith('actor:')&&tr.actor!==q.operator.slice(6))continue;if(q.transactionKind&&q.transactionKind!=='all'&&tr.kind!==q.transactionKind||q.method&&q.method!=='all'&&(tr.method||'unspecified')!==q.method)continue;const date=localDay(tr.at);if(!date||!inRange(date,q))continue;const value=amount(tr.amount);if(value<0)throw Error('report_amount');rows.push({orderId:o.id,reservationId:o.reservationId||null,guest:o.guest||'',source:o.source||'direct',...tr,date});totals[tr.kind]+=value;counts[tr.kind]++;const method=tr.method||'unspecified';if(!byMethod.has(method))byMethod.set(method,{method,counts:{payment:0,refund:0,deposit_in:0,deposit_out:0},payment:0,refund:0,deposit_in:0,deposit_out:0,netAccommodation:0,netDeposit:0});byMethod.get(method)[tr.kind]+=value;byMethod.get(method).counts[tr.kind]++;}for(const t of [totals,...byMethod.values()]){t.netAccommodation=t.payment-t.refund;t.netDeposit=t.deposit_in-t.deposit_out;}rows.sort((a,b)=>a.at.localeCompare(b.at));return {rows,totals,counts,methods:[...byMethod.values()].sort((a,b)=>a.method.localeCompare(b.method))};}
 
 export function accommodationBreakdown(state,q,dimension='date'){if(!['date','source','roomTypeId'].includes(dimension))throw Error('report_dimension');const report=accommodationReport(state,q),groups=new Map();for(const r of report.rows){const key=r[dimension]||'unspecified';if(!groups.has(key))groups.set(key,{key,total:0,roomFee:0,extras:0,unitNights:0,orderIds:[]});const g=groups.get(key);g.total+=r.amount;if(r.kind==='room'){g.roomFee+=r.amount;g.unitNights++;}else g.extras+=r.amount;if(!g.orderIds.includes(r.orderId))g.orderIds.push(r.orderId);}return {...report,dimension,groups:[...groups.values()].sort((a,b)=>a.key.localeCompare(b.key))};}
