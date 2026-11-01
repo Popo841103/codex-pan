@@ -28,24 +28,23 @@
 - **Facebook**：该帖右上角 `⋯` → **Pin to top of Page**（置顶到主页顶部，只能置顶 1 条）
 - **TikTok**：个人主页 → 打开该视频 → 右下角 `⋯` → **Pin to your profile**（最多置顶 3 条）
 
-## 优惠条款（业主提供，原文录入）
+---
 
-- 试营业**首两周**
-- **首次**到店的客人
-- 购买**任意一份正价餐饮**
-- 即可用 **RM1 加购一杯指定咖啡**
-- **每天限量 30 杯**，**每人限购一杯**
+# v2 文案：补充店铺介绍（业主 11:34 要求）
 
-> 「指定咖啡」未点名具体款，文案写 `a selected coffee`，由门店现场解释。
+> **背景**：业主指出原版只有优惠，后面刷到的人不知道 COHUB 是什么店。要求补上「我们有什么」—— 餐饮、饮料，简要。
+> **落地方式**：Metricool **无法修改已发布帖子的文案**，需业主在 IG / FB App 内手动 Edit 替换整段文字（不会重新发布、不丢互动）。TikTok 已发布视频文案多数情况改不了，可在评论区补一句。
 
-## 门店信息（首次录入，后续可直接复用）
+## 改动点（相对 v1）
 
-- **店名**：COHUB
-- **地址**：No. 38A & 38B, Jalan Berangan, 50200 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia
-- **WhatsApp**：+60178497319
-- **营业时间**：09:00–23:30
+新增一段店铺介绍，放在优惠条款之后、地址之前：
 
-## 已发布文案
+```
+COHUB is a café & bar in Bukit Bintang.
+Specialty coffee. Craft beer. Food all day.
+```
+
+## v2 完整文案（复制这段去替换）
 
 ```
 SOFT OPENING — FIRST 2 WEEKS
@@ -55,6 +54,9 @@ with any regular-priced food or drink.
 First visit only.
 
 30 cups a day. One per person.
+
+COHUB is a café & bar in Bukit Bintang.
+Specialty coffee. Craft beer. Food all day.
 
 COHUB
 No. 38A & 38B, Jalan Berangan,
@@ -66,18 +68,17 @@ Open daily 09:00–23:30
 #SoftOpening #KualaLumpur #BukitBintang #CoffeeKL
 ```
 
-## 成品素材
+## 手动替换步骤
 
-- 均裁为 **1080×1350（4:5 竖版）**，三平台共用
-- `CH-D007_opening_1.jpg` 三杯咖啡（主图）
-- `CH-D007_opening_2.jpg` 四宫格菜品
-- `CH-D007_opening_3.jpg` 吧台
-- 源图为业主店内实拍，无文字，未做 AI 生成
+- **Instagram**：打开该帖 → 右上角 `⋯` → **Edit** → 整段替换为上面文案 → Done
+- **Facebook**：该帖右上角 `⋯` → **Edit post** → 替换 → Save
+- **TikTok**：若 `⋯` 里没有 Edit，就在评论区自己补一条评论：
+  `COHUB — café & bar in Bukit Bintang. Specialty coffee, craft beer, food all day. 09:00–23:30.`
 
-## 红线核对
+## 事实依据（均来自业主此前确认，无编造）
 
-- ✅ 全英文（业主要求）
-- ✅ 写 **SOFT OPENING**，未写「已开业 / grand opening」
-- ✅ 地址、WhatsApp 为业主提供原文，未改写
-- ✅ 未写杯测分数、未写网速/设备参数
-- ⚠️ 优惠条款（30 杯/天、每人一杯、首两周）未经二次确认即发布 —— 若实际条款有出入，需立即发更正帖
+- 云南普洱阿拉比卡（SOE 水洗 + House Espresso Blend）→ specialty coffee
+- 自有精酿 → craft beer
+- 店内实拍含牛肉面 / 鸡排饭 / 意面等正餐 → food all day
+- 营业 09:00–23:30
+- 门店状态：**soft opening**，全篇未写「已开业 / grand opening」
