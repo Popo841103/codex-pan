@@ -293,6 +293,115 @@ export function roomMovementLog(state,q){
   const counts={};for(const r of rows)counts[r.movement]=(counts[r.movement]||0)+1;
   return {rows,counts,types:[...new Set(rows.map(r=>r.movement))].sort()};
 }
+// ---------------------------------------------------------------------------
+// Other (non-room) charges and cancellation penalties. Both are earned on a
+// business date, so both are cut on it; anything without one is unallocated
+// instead of being pushed onto a day it did not happen.
+// ---------------------------------------------------------------------------
+const signedExtra=extra=>amount(extra.quantity*extra.unitAmount)*(extra.kind==='discount'?-1:1);
+// A cancelled order, or one carrying a final charge, no longer bills its extra
+// lines: the final charge replaced them. Listing them again would charge the
+// same stay twice, so those orders are counted as superseded and named on the page.
+const extrasBillable=order=>order.status!=='cancelled'&&(order.finalCharge===undefined||order.finalCharge===null);
+const emptyExtras=()=>({charge:0,discount:0,net:0,count:0});
+
+export function extraChargeDetail(state,q){
+  const orders=scope(state,q),rows=[],unallocated=[],byName=new Map(),daily=new Map();
+  let superseded=0;
+  for(const o of orders){
+    if(!extrasBillable(o)){if((o.extraCharges||[]).length)superseded++;continue;}
+    for(const extra of o.extraCharges||[]){
+      const value=signedExtra(extra),quantity=amount(extra.quantity),unit=amount(extra.unitAmount);
+      const row={orderId:o.id,reservationId:o.reservationId||null,guest:o.guest||'',source:o.source||'direct',
+        channelOrderId:o.channelOrderId||'',roomTypeId:o.roomTypeId||'unspecified',
+        roomTypeName:label(state,'roomTypes',o.roomTypeId),
+        resourceLabel:label(state,'resources',o.resourceId,'label'),
+        productId:o.productId||'unspecified',stayType:PRODUCTS.includes(o.productId)?o.productId:'room',
+        name:extra.name||'',kind:extra.kind==='discount'?'discount':'charge',
+        quantity,unitAmount:unit,amount:value,date:validDate(extra.businessDate)?extra.businessDate:null};
+      if(!row.date){unallocated.push({...row,reason:'posting_date_missing'});continue;}
+      if(!inRange(row.date,q))continue;
+      rows.push(row);
+      daily.set(row.date,(daily.get(row.date)||0)+value);
+      const bucket=byName.get(row.name)||{name:row.name,chargeCount:0,charge:0,discountCount:0,discount:0,net:0,quantity:0};
+      if(row.kind==='discount'){bucket.discountCount++;bucket.discount+=-value;bucket.quantity-=quantity;}
+      else{bucket.chargeCount++;bucket.charge+=value;bucket.quantity+=quantity;}
+      bucket.net+=value;
+      byName.set(row.name,bucket);
+    }
+  }
+  rows.sort((a,b)=>a.date.localeCompare(b.date)||a.name.localeCompare(b.name)||a.orderId.localeCompare(b.orderId));
+  const totals=emptyExtras();
+  for(const r of rows){totals.count++;if(r.kind==='discount')totals.discount+=-r.amount;else totals.charge+=r.amount;}
+  totals.net=totals.charge-totals.discount;
+  return {rows,unallocated,superseded,totals,
+    daily:[...daily].map(([date,value])=>({date,amount:value})).sort((a,b)=>a.date.localeCompare(b.date)),
+    names:[...byName.values()].sort((a,b)=>a.name.localeCompare(b.name))};
+}
+
+// What the stay would have cost if it had not been cancelled. It is the booked
+// room nights plus the booked extras, never the penalty itself, so the share a
+// penalty takes of the booking can be shown without inventing a policy outcome.
+// Dates on old records are not always complete, so a missing range degrades to a
+// blank total instead of throwing a reservation error from inside a report.
+const nightCount=order=>Array.isArray(order.nightlyRates)&&order.nightlyRates.length?order.nightlyRates.length
+  :validDate(order.start)&&validDate(order.end)&&order.end>order.start?Math.round((Date.parse(order.end)-Date.parse(order.start))/86400000):0;
+const bookedTotal=order=>{
+  const room=Array.isArray(order.nightlyRates)&&order.nightlyRates.length
+    ?order.nightlyRates.reduce((n,r)=>n+amount(r.amount),0)
+    :nightCount(order)*(order.nightly||0);
+  const extras=(order.extraCharges||[]).reduce((n,e)=>n+signedExtra(e),0);
+  return {room,extras,total:room+extras};
+};
+// The policy is stored as a snapshot on the order. The moment of cancellation was
+// never recorded, so no fee is computed from it here: a "what the policy would have
+// charged" column would be a guess for any flexible policy.
+export function policySnapshot(order){
+  const p=order?.cancellationPolicy;
+  if(!p||typeof p!=='object')return {kind:null,percent:null,basis:null,days:null,time:null,deadline:null};
+  if(!['manual','free','nonrefundable','partial','flexible'].includes(p.kind))return {kind:null,percent:null,basis:null,days:null,time:null,deadline:null};
+  const out={kind:p.kind,percent:Number.isInteger(p.percent)?p.percent:null,
+    basis:p.basis==='firstNight'||p.basis==='total'?p.basis:null,
+    days:Number.isInteger(p.days)?p.days:null,
+    time:typeof p.time==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(p.time)?p.time:null,deadline:null};
+  if(out.kind==='flexible'&&out.days!==null&&out.time&&validDate(order.start)){
+    const date=new Date(Date.parse(order.start+'T00:00:00Z')-out.days*86400000).toISOString().slice(0,10);
+    out.deadline=`${date}T${out.time}:00+08:00`;
+  }
+  return out;
+}
+const cancelActor=(state,orderId)=>{const entry=(state.audit||[]).find(a=>a.type==='cancel'&&a.orderId===orderId);return entry?.actor||null;};
+
+export function cancellationPenaltyDetail(state,q){
+  const orders=scope(state,q),rows=[],unallocated=[],bySource=new Map(),daily=new Map();
+  for(const o of orders){
+    if(o.status!=='cancelled')continue;
+    if(o.finalCharge===undefined||o.finalCharge===null)continue;
+    const penalty=amount(o.finalCharge),booked=bookedTotal(o);
+    const received=(o.transactions||[]).reduce((n,t)=>n+(t.kind==='payment'?amount(t.amount):t.kind==='refund'?-amount(t.amount):0),0);
+    const row={orderId:o.id,reservationId:o.reservationId||null,guest:o.guest||'',source:o.source||'direct',
+      channelOrderId:o.channelOrderId||'',roomTypeId:o.roomTypeId||'unspecified',
+      roomTypeName:label(state,'roomTypes',o.roomTypeId),
+      resourceLabel:label(state,'resources',o.resourceId,'label'),
+      start:o.start||'',end:o.end||'',nights:nightCount(o),
+      booked:booked.total,bookedRoom:booked.room,bookedExtras:booked.extras,penalty,
+      share:booked.total===0?null:penalty/booked.total,
+      received,reason:o.cancelReason||'',actor:cancelActor(state,o.id),
+      policy:policySnapshot(o),date:validDate(o.cancelBusinessDate)?o.cancelBusinessDate:null};
+    if(!row.date){unallocated.push({...row,reason:'posting_date_missing'});continue;}
+    if(!inRange(row.date,q))continue;
+    rows.push(row);
+    daily.set(row.date,(daily.get(row.date)||0)+penalty);
+    const bucket=bySource.get(row.source)||{source:row.source,count:0,penalty:0,booked:0};
+    bucket.count++;bucket.penalty+=penalty;bucket.booked+=booked.total;
+    bySource.set(row.source,bucket);
+  }
+  rows.sort((a,b)=>a.date.localeCompare(b.date)||a.orderId.localeCompare(b.orderId));
+  const total=rows.reduce((n,r)=>n+r.penalty,0),booked=rows.reduce((n,r)=>n+r.booked,0);
+  return {rows,unallocated,total,count:rows.length,booked,share:booked===0?null:total/booked,
+    daily:[...daily].map(([date,value])=>({date,amount:value})).sort((a,b)=>a.date.localeCompare(b.date)),
+    sources:[...bySource.values()].sort((a,b)=>a.source.localeCompare(b.source))};
+}
 export function cashflowReport(state,q){if(!q)throw Error('report_input');if(q.operator!==undefined&&q.operator!=='all'&&q.operator!=='unknown'&&!(typeof q.operator==='string'&&q.operator.startsWith('actor:')&&q.operator.length>6&&q.operator.length<=512))throw Error('report_input');if(q.transactionKind&&!['all','payment','refund','deposit_in','deposit_out'].includes(q.transactionKind))throw Error('report_input');const counts={payment:0,refund:0,deposit_in:0,deposit_out:0};const orders=scope(state,q),rows=[],totals={payment:0,refund:0,deposit_in:0,deposit_out:0,netAccommodation:0,netDeposit:0},byMethod=new Map();for(const o of orders)for(const tr of o.transactions||[]){if(!['payment','refund','deposit_in','deposit_out'].includes(tr.kind))continue;if(q.operator==='unknown'&&tr.actor||q.operator?.startsWith('actor:')&&tr.actor!==q.operator.slice(6))continue;if(q.transactionKind&&q.transactionKind!=='all'&&tr.kind!==q.transactionKind||q.method&&q.method!=='all'&&(tr.method||'unspecified')!==q.method)continue;const date=localDay(tr.at);if(!date||!inRange(date,q))continue;const value=amount(tr.amount);if(value<0)throw Error('report_amount');rows.push({orderId:o.id,reservationId:o.reservationId||null,guest:o.guest||'',source:o.source||'direct',...tr,date});totals[tr.kind]+=value;counts[tr.kind]++;const method=tr.method||'unspecified';if(!byMethod.has(method))byMethod.set(method,{method,counts:{payment:0,refund:0,deposit_in:0,deposit_out:0},payment:0,refund:0,deposit_in:0,deposit_out:0,netAccommodation:0,netDeposit:0});byMethod.get(method)[tr.kind]+=value;byMethod.get(method).counts[tr.kind]++;}for(const t of [totals,...byMethod.values()]){t.netAccommodation=t.payment-t.refund;t.netDeposit=t.deposit_in-t.deposit_out;}rows.sort((a,b)=>a.at.localeCompare(b.at));return {rows,totals,counts,methods:[...byMethod.values()].sort((a,b)=>a.method.localeCompare(b.method))};}
 
 export function accommodationBreakdown(state,q,dimension='date'){if(!['date','source','roomTypeId'].includes(dimension))throw Error('report_dimension');const report=accommodationReport(state,q),groups=new Map();for(const r of report.rows){const key=r[dimension]||'unspecified';if(!groups.has(key))groups.set(key,{key,total:0,roomFee:0,extras:0,unitNights:0,orderIds:[]});const g=groups.get(key);g.total+=r.amount;if(r.kind==='room'){g.roomFee+=r.amount;g.unitNights++;}else g.extras+=r.amount;if(!g.orderIds.includes(r.orderId))g.orderIds.push(r.orderId);}return {...report,dimension,groups:[...groups.values()].sort((a,b)=>a.key.localeCompare(b.key))};}

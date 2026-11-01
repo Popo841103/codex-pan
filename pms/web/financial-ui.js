@@ -1,4 +1,4 @@
-import {accommodationReport,accommodationBreakdown,cashflowReport,financialComparison,managerDailyReport,guestLedger,roomChargeDetail,roomBusinessSummary,roomMovementLog} from '../src/financial-reports.js';
+import {accommodationReport,accommodationBreakdown,cashflowReport,financialComparison,managerDailyReport,guestLedger,roomChargeDetail,roomBusinessSummary,roomMovementLog,extraChargeDetail,cancellationPenaltyDetail} from '../src/financial-reports.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const financialWords={
 zh:{reportFrom:'开始日期',reportTo:'结束日期',reportDaily:'每日汇总',reportMethods:'支付方式汇总',reportDetails:'逐笔明细',reportUnallocated:'未确定营业日的费用（不计入期间汇总）',reportBusinessNote:'按住宿营业日统计收费，押金不计收入。缺少营业日的最终费用另列，不推定归属。',reportCashNote:'按马来西亚自然交易日统计手工收付记录；不代表银行到账。押金独立核算。',report_input:'请检查门店与日期范围。',report_amount:'账目金额无效，报表已停止计算。',reportTotal:'期间合计',reportNetRoom:'住宿净收款',reportNetDeposit:'押金净收款'},
@@ -15,7 +15,7 @@ export function financialPage(state,{kind,propertyId,from,to,source='all',dimens
  const money=n=>esc(currency(n));
  try{
  const query={propertyId,from,to,source,transactionKind,method,operator};let content;
- if(kind==='business'){const report=accommodationBreakdown(state,query,dimension);content=`<p>${esc(t('reportBusinessNote'))}</p><h3>${esc(t('reportTotal'))}: ${money(report.total)}</h3><h3>${esc(t('reportDaily'))}</h3>${table(['date','amount'],report.daily.map(r=>`<tr><td>${esc(r.date)}</td><td>${money(r.amount)}</td></tr>`))}<h3>${esc(t('reportGrouped'))}</h3>${table(['reportDimension','roomCharge','extraCharge','unitNights','amount','details'],report.groups.map(g=>`<tr><td>${esc(dimension==='source'?t(g.key):dimension==='roomTypeId'?(state.roomTypes||[]).find(r=>r.id===g.key)?.names?.[lang]||g.key:g.key)}</td><td>${money(g.roomFee)}</td><td>${money(g.extras)}</td><td>${g.unitNights}</td><td>${money(g.total)}</td><td>${g.orderIds.map(orderId=>link({orderId,guest:state.orders.find(o=>o.id===orderId&&o.propertyId===propertyId)?.guest})).join(' ')}</td></tr>`))}<h3>${esc(t('reportDetails'))}</h3>${table(['date','guest','source','kind','amount'],report.rows.map(r=>`<tr><td>${esc(r.date)}</td><td>${link(r)}</td><td>${esc(t(r.source))}</td><td>${esc(r.name||t(r.kind))}</td><td>${money(r.amount)}</td></tr>`))}${report.unallocatedCharges.length?`<h3>${esc(t('reportUnallocated'))}</h3>${table(['guest','amount'],report.unallocatedCharges.map(r=>`<tr><td>${link(r)}</td><td>${money(r.amount)}</td></tr>`))}`:''}`;}
+ if(kind==='business'){const report=accommodationBreakdown(state,query,dimension);content=`<p>${esc(t('reportBusinessNote'))}</p><h3>${esc(t('reportTotal'))}: ${money(report.total)}</h3><h3>${esc(t('reportDaily'))}</h3>${table(['reportDate','amount'],report.daily.map(r=>`<tr><td>${esc(r.date)}</td><td>${money(r.amount)}</td></tr>`))}<h3>${esc(t('reportGrouped'))}</h3>${table(['reportDimension','roomCharge','extraCharge','unitNights','amount','details'],report.groups.map(g=>`<tr><td>${esc(dimension==='source'?t(g.key):dimension==='roomTypeId'?(state.roomTypes||[]).find(r=>r.id===g.key)?.names?.[lang]||g.key:g.key)}</td><td>${money(g.roomFee)}</td><td>${money(g.extras)}</td><td>${g.unitNights}</td><td>${money(g.total)}</td><td>${g.orderIds.map(orderId=>link({orderId,guest:state.orders.find(o=>o.id===orderId&&o.propertyId===propertyId)?.guest})).join(' ')}</td></tr>`))}<h3>${esc(t('reportDetails'))}</h3>${table(['date','guest','source','kind','amount'],report.rows.map(r=>`<tr><td>${esc(r.date)}</td><td>${link(r)}</td><td>${esc(t(r.source))}</td><td>${esc(r.name||t(r.kind))}</td><td>${money(r.amount)}</td></tr>`))}${report.unallocatedCharges.length?`<h3>${esc(t('reportUnallocated'))}</h3>${table(['guest','amount'],report.unallocatedCharges.map(r=>`<tr><td>${link(r)}</td><td>${money(r.amount)}</td></tr>`))}`:''}`;}
  else{const report=cashflowReport(state,query);content=`<p>${esc(t('reportCashNote'))}</p><h3>${esc(t('reportNetRoom'))}: ${money(report.totals.netAccommodation)} · ${esc(t('reportNetDeposit'))}: ${money(report.totals.netDeposit)}</h3><h3>${esc(t('reportMethods'))}</h3>${table(['method','payment','refund','deposit_in','deposit_out'],report.methods.map(r=>`<tr><td>${esc(t(r.method))}</td>${['payment','refund','deposit_in','deposit_out'].map(k=>`<td>${money(r[k])}<small>${r.counts[k]} ${esc(t('reportEntries'))}</small></td>`).join('')}</tr>`))}<h3>${esc(t('reportDetails'))}</h3>${table(['date','guest','kind','method','amount','createdBy'],report.rows.map(r=>`<tr><td>${esc(r.date)}</td><td>${link(r)}</td><td>${esc(t(r.kind))}</td><td>${esc(t(r.method))}</td><td>${money(r.amount)}</td><td>${esc(r.actor||'—')}</td></tr>`))}`;}
  return `<section class="panel"><h2>${esc(t(kind==='business'?'businessSummary':'cashflowSummary'))}</h2>${filters}${content}</section>`;
  }catch(error){return `<section class="panel">${filters}<p role="alert">${esc(t(error.message))}</p></section>`;}
@@ -111,7 +111,7 @@ export function roomChargePage(state,{propertyId,from,to,source='all',sources=[]
   return shell(rangeFilter(from,to,sources,source,t)+`<p>${esc(t('roomChargeNote'))}</p>
    <div class="table-wrap"><table><thead><tr>${['reportDate','guest','channelOrderId','roomType','room','stayType','source','mdrStay','nightCount','ratePlan','amount'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="11">${esc(t('empty'))}</td></tr>`}</tbody></table></div>
    <p><strong>${esc(t('total'))}</strong> ${esc(currency(report.total))} \u00b7 ${esc(t('adr'))} ${esc(currency(report.adr||0))} \u00b7 ${esc(t('nightCount'))} ${esc(report.nightCount)}</p>`);
- }catch(error){return shell(`<p role="alert">${esc(t(error.message))}</p>`);}
+ }catch(error){return shell(rangeFilter(from,to,sources,source,t)+`<p role="alert">${esc(t(error.message))}</p>`);}
 }
 
 export function roomBusinessPage(state,{propertyId,from,to,source='all',sources=[],dimension='date',t,currency}={}){
@@ -127,7 +127,7 @@ export function roomBusinessPage(state,{propertyId,from,to,source='all',sources=
   const byProduct=`<h3>${esc(t('byProduct'))}</h3><div class="table-wrap"><table><thead><tr><th>${esc(t('compareMetricLabel'))}</th><th>${esc(t('stayType'))}</th><th>${esc(t('roomRevenue'))}</th><th>${esc(t('nightsSold'))}</th><th>${esc(t('adr'))}</th><th>${esc(t('occ'))}</th><th>${esc(t('revpar'))}</th><th>${esc(t('sellableNights'))}</th></tr></thead><tbody>${report.rows.flatMap(r=>r.byProduct.filter(p=>p.revenue||p.sold||p.unassigned||p.supplyNights).map(p=>`<tr><th>${esc(t(r.key)||esc(String(r.key)))}</th><td>${esc(t(p.productId))}</td><td>${esc(currency(p.revenue))}</td><td>${esc(p.sold+p.unassigned)}</td><td>${esc(currency(p.adr||0))}</td><td>${esc(percentOf(p.occ))}</td><td>${esc(currency(p.revpar||0))}</td><td>${esc(p.supplyNights)}</td></tr>`)).join('')}</tbody></table></div>`;
   return shell(`<div class="order-filters">${rangeFilter(from,to,sources,source,t).replace('<div class="order-filters">','').replace('</div>','')}${picker}</div>
    <p>${esc(t('roomBusinessNote'))}</p>${unavailable}${report.unassignedNights?`<p role="status">${esc(t('unassignedNights'))}: ${esc(report.unassignedNights)}</p>`:''}${summary}${byProduct}`);
- }catch(error){return shell(`<p role="alert">${esc(t(error.message))}</p>`);}
+ }catch(error){return shell(`<div class="order-filters">${rangeFilter(from,to,sources,source,t).replace('<div class="order-filters">','').replace('</div>','')}${picker}</div><p role="alert">${esc(t(error.message))}</p>`);}
 }
 
 export function roomMovementPage(state,{propertyId,from,to,source='all',sources=[],movement='all',t,currency}={}){
@@ -142,7 +142,63 @@ export function roomMovementPage(state,{propertyId,from,to,source='all',sources=
   return shell(`<div class="order-filters">${rangeFilter(from,to,sources,source,t).replace('<div class="order-filters">','').replace('</div>','')}${picker}</div>
    <p>${esc(t('roomMovementNote'))}</p>${counts}
    <div class="table-wrap"><table><thead><tr>${['time','createdBy','movementType','guest','source','movementRoom','movementStart','movementEnd','movementNightly','mdrCancellation','reason'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${body||`<tr><td colspan="11">${esc(t('empty'))}</td></tr>`}</tbody></table></div>`);
- }catch(error){return shell(`<p role="alert">${esc(t(error.message))}</p>`);}
+ }catch(error){return shell(rangeFilter(from,to,sources,source,t)+`<p role="alert">${esc(t(error.message))}</p>`);}
+}
+
+// Other (non-room) charges. Extras are accommodation only: JOVIAN never posts a
+// restaurant bill to a room, so this page never contains one.
+export function extraChargePage(state,{propertyId,from,to,source='all',sources=[],t,currency}={}){
+ const shell=crash(t('otherChargeDetail'));
+ try{
+  const report=extraChargeDetail(state,{propertyId,from,to,source});
+  const signed=n=>(n<0?'\u2212':'+')+currency(Math.abs(n));
+  const table=(headers,rows)=>`<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">${esc(t('empty'))}</td></tr>`}</tbody></table></div>`;
+  const link=r=>`<button data-open-stay="${esc(r.orderId)}">${esc(r.guest||r.orderId)}</button>`;
+  const totals=`<div class="table-wrap"><table><tbody>${[['extraChargeTotal',report.totals.charge],['extraDiscountTotal',-report.totals.discount],['extraNet',report.totals.net]].map(([k,v])=>`<tr><th>${esc(t(k))}</th><td>${esc(signed(v))}</td></tr>`).join('')}</tbody></table></div><p>${esc(t('extraCount'))}: ${esc(report.totals.count)}</p>`;
+  const byItem=`<h3>${esc(t('extraByItem'))}</h3>${table(['itemName','quantity','extraChargeCount','extraDiscountCount','extraChargeTotal','extraDiscountTotal','extraNet'],
+   report.names.map(n=>`<tr><th>${esc(n.name)}</th><td>${esc(n.quantity)}</td><td>${esc(n.chargeCount)}</td><td>${esc(n.discountCount)}</td><td>${esc(currency(n.charge))}</td><td>${esc(currency(n.discount))}</td><td>${esc(currency(n.net))}</td></tr>`).join(''))}`;
+  const daily=`<h3>${esc(t('reportDaily'))}</h3>${table(['reportDate','amount'],report.daily.map(d=>`<tr><td>${esc(d.date)}</td><td>${esc(currency(d.amount))}</td></tr>`).join(''))}`;
+  const body=report.rows.map(r=>`<tr><td>${esc(r.date)}</td><td>${link(r)}</td><td>${esc(t(r.source))}</td><td>${esc(r.roomTypeName||t('unspecified'))}</td><td>${esc(r.resourceLabel||t('unassignedStay'))}</td><td>${esc(r.name)}</td><td>${esc(t(r.kind==='discount'?'discount':'feeItem'))}</td><td>${esc(r.quantity)}</td><td>${esc(currency(r.unitAmount))}</td><td>${esc(signed(r.amount))}</td></tr>`).join('');
+  const detail=`<h3>${esc(t('reportDetails'))}</h3>${table(['reportDate','guest','source','roomType','room','itemName','kind','quantity','unitAmount','amount'],body)}`;
+  const superseded=report.superseded?`<p role="status">${esc(t('extraSuperseded'))}: ${esc(report.superseded)}</p><p class="muted">${esc(t('extraSupersededNote'))}</p>`:'';
+  const unallocated=report.unallocated.length?`<h3>${esc(t('reportUnallocated'))}</h3>${table(['guest','itemName','amount'],report.unallocated.map(r=>`<tr><td>${link(r)}</td><td>${esc(r.name)}</td><td>${esc(signed(r.amount))}</td></tr>`))}`:'';
+  return shell(rangeFilter(from,to,sources,source,t)+`<p>${esc(t('otherChargeNote'))}</p>${totals}${superseded}${byItem}${daily}${detail}${unallocated}`);
+ }catch(error){return shell(rangeFilter(from,to,sources,source,t)+`<p role="alert">${esc(t(error.message))}</p>`);}
+}
+
+// Cancellation penalties. The policy is only ever shown as the snapshot taken when
+// the stay was booked: the moment of cancellation was never stored, so no fee is
+// recomputed here and no outcome is claimed.
+export function cancellationPenaltyPage(state,{propertyId,from,to,source='all',sources=[],t,currency}={}){
+ const shell=crash(t('cancellationPenaltyDetail'));
+ try{
+  const report=cancellationPenaltyDetail(state,{propertyId,from,to,source});
+  const table=(headers,rows)=>`<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">${esc(t('empty'))}</td></tr>`}</tbody></table></div>`;
+  const link=r=>`<button data-open-stay="${esc(r.orderId)}">${esc(r.guest||r.orderId)}</button>`;
+  const basisWord=p=>p.basis==='firstNight'?t('policyBasisFirstNight'):p.basis==='total'?t('policyBasisTotal'):'';
+  const policyText=p=>{
+   if(!p.kind)return esc(t('policyMissing'));
+   const percent=p.percent===null?'':(p.percent/100).toFixed(2)+'%';
+   const base=basisWord(p);
+   if(p.kind==='free')return esc(t('policyFree'));
+   if(p.kind==='nonrefundable')return esc(t('policyNonrefundable'));
+   if(p.kind==='manual')return esc(t('policyManual'));
+   if(p.kind==='partial')return `${esc(t('policyPartial'))} ${esc(percent)} ${esc(base)}`.trim();
+   const days=p.days===null?'':p.days+' '+t('policyDays');
+   return `${esc(t('policyFlexibleBefore'))} ${esc(days)} ${esc(p.time||'')} · ${esc(percent)} ${esc(base)}`.trim();
+  };
+  const policyCell=r=>{
+   const text=policyText(r.policy);
+   const deadline=r.policy.deadline?`<small>${esc(t('penaltyDeadline'))}: ${esc(r.policy.deadline.slice(0,16).replace('T',' '))}</small>`:'';
+   return text+deadline;
+  };
+  const totals=`<div class="table-wrap"><table><tbody>${[['penaltyCount',report.count,'string'],['penaltyTotal',report.total,'money'],['penaltyBooked',report.booked,'money'],['penaltyShare',report.share,'percent']].map(([k,v,kind])=>`<tr><th>${esc(t(k))}</th><td>${kind==='string'?esc(v):kind==='percent'?esc(percentOf(v)):esc(currency(v))}</td></tr>`).join('')}</tbody></table></div>`;
+  const bySource=`<h3>${esc(t('penaltyBySource'))}</h3>${table(['source','penaltyCount','penaltyTotal','penaltyBooked'],report.sources.map(s=>`<tr><th>${esc(t(s.source))}</th><td>${esc(s.count)}</td><td>${esc(currency(s.penalty))}</td><td>${esc(currency(s.booked))}</td></tr>`).join(''))}`;
+  const body=report.rows.map(r=>`<tr><td>${esc(r.date)}</td><td>${link(r)}</td><td>${esc(t(r.source))}</td><td>${esc(r.roomTypeName||t('unspecified'))}</td><td>${esc(r.start)} \u2192 ${esc(r.end)}</td><td>${esc(r.nights)}</td><td>${esc(currency(r.booked))}</td><td>${esc(currency(r.penalty))}</td><td>${esc(percentOf(r.share))}</td><td>${esc(policyCell(r))}</td><td>${esc(r.reason||'\u2014')}</td><td>${esc(r.actor||'\u2014')}</td><td>${esc(currency(r.received))}</td></tr>`).join('');
+  const detail=`<h3>${esc(t('reportDetails'))}</h3>${table(['reportDate','guest','source','roomType','mdrStay','nightCount','penaltyBooked','mdrCancellation','penaltyShare','penaltyPolicy','reason','createdBy','penaltyReceived'],body)}`;
+  const unallocated=report.unallocated.length?`<h3>${esc(t('reportUnallocated'))}</h3>${table(['guest','mdrCancellation','penaltyBooked'],report.unallocated.map(r=>`<tr><td>${link(r)}</td><td>${esc(currency(r.penalty))}</td><td>${esc(currency(r.booked))}</td></tr>`))}`:'';
+  return shell(rangeFilter(from,to,sources,source,t)+`<p>${esc(t('penaltyNote'))}</p><p class="muted">${esc(t('penaltyPolicyNote'))}</p>${totals}${bySource}${detail}${unallocated}`);
+ }catch(error){return shell(rangeFilter(from,to,sources,source,t)+`<p role="alert">${esc(t(error.message))}</p>`);}
 }
 
 const accommodationWords={
@@ -151,9 +207,9 @@ const accommodationWords={
   roomRevenue:'\u623f\u8d39',nightsSold:'\u51fa\u552e\u95f4\u591c',adr:'ADR',occ:'\u5165\u4f4f\u7387',revpar:'RevPAR',sellableNights:'\u53ef\u552e\u95f4\u591c',
   byDate:'\u6309\u65e5\u671f',byRoomType:'\u6309\u623f\u578b',byProduct:'\u6309\u5165\u4f4f\u7c7b\u578b',byRoom:'\u6309\u623f\u53f7',bySource:'\u6309\u6e20\u9053',
   dimension:'\u7ef4\u5ea6',reportTotals:'\u6c47\u603b',unassignedStay:'\u5f85\u5206\u623f',unassignedNights:'\u672a\u5206\u623f\u95f4\u591c',
-  occUnavailable:'\u5e93\u5b58\u4e0d\u5c5e\u4e8e\u4efb\u4f55\u6e20\u9053\uff0c\u6e20\u9053\u7ef4\u5ea6\u65e0\u53ef\u9760\u5206母\uff0c\u5165\u4f4f\u7387\u4e0eRevPAR\u4e0d\u4f9b\u7ed9\u5b9a\u3002',
+  occUnavailable:'\u5e93\u5b58\u4e0d\u5c5e\u4e8e\u4efb\u4f55\u6e20\u9053\uff0c\u6e20\u9053\u7ef4\u5ea6\u65e0\u53ef\u9760\u5206\u6bcd\uff0c\u5165\u4f4f\u7387\u4e0eRevPAR\u4e0d\u4e88\u7ed9\u5b9a\u3002',
   roomChargeNote:'\u6bcf\u4e00\u665a\u6309\u5176\u81ea\u8eab\u4ef7\u683c\u5217\u793a\uff1b\u53d6\u6d88\u8fdd\u7ea6\u91d1\u4e0d\u7b97\u623f\u8d39\uff0c\u5386\u53f2\u8ba2\u5355\u672a\u7ed1\u5b9a\u4ef7\u8ba1\u5212\u65f6\u5982\u5b9e\u663e\u793a\u672a\u8bb0\u5f55\u3002',
-  roomBusinessNote:'\u623f\u3001\u5957\u4e0e\u5e8a\u5206\u522b\u8ba1\u7b97\u3002\u5957\u623f\u552e\u51fa\u540e\u5176\u7ec4\u6210\u623f\u95f4\u4e0e\u5e8a\u4f4d\u5f53\u665a\u4e0d再\u5355\u72ec\u53ef\u552e\uff0c\u4e0d重\u590d\u8ba1\u5165\u3002',
+  roomBusinessNote:'\u623f\u3001\u5957\u4e0e\u5e8a\u5206\u522b\u8ba1\u7b97\u3002\u5957\u623f\u552e\u51fa\u540e\u5176\u7ec4\u6210\u623f\u95f4\u4e0e\u5e8a\u4f4d\u5f53\u665a\u4e0d\u518d\u5355\u72ec\u53ef\u552e\uff0c\u4e0d\u91cd\u590d\u8ba1\u5165\u3002',
   movementType:'\u5f02\u52a8\u7c7b\u578b',movementRoom:'\u524d\u540e\u623f\u95f4',movementStart:'\u5165\u4f4f\u65e5',movementEnd:'\u79bb\u5e97\u65e5',movementNightly:'\u524d\u540e\u623f\u4ef7',
   roomMovementNote:'\u5f02\u52a8\u8bb0\u5f55\u4fdd\u7559\u64cd\u4f5c\u4eba\u4e0e\u524d\u540e\u72b6\u6001\uff1b\u63d0\u524d\u6216\u5ef6\u8fdf\u9000\u623f\u3001\u6362\u623f\u3001\u53d6\u6d88\u5747\u5355\u72ec\u5206\u7c7b\u3002',
   movement_early_departure:'\u63d0\u524d\u9000\u623f',movement_late_departure:'\u5ef6\u8fdf\u9000\u623f',movement_date_change:'\u6539\u671f',movement_price_change:'\u6539\u4ef7',movement_room_change:'\u5728\u4f4f\u6362\u623f',
@@ -187,3 +243,45 @@ const accommodationWords={
   movement_boxed:'Dalam kotak',movement_restored:'Dipulihkan',movement_create:'Cipta',movement_all:'Semua'}
 };
 for(const language of Object.keys(accommodationWords))Object.assign(financialWords[language],accommodationWords[language]);
+
+// Other charges and cancellation penalties. Both pages state what they refuse to do:
+// no restaurant posting, no invented policy outcome, no convenient posting date.
+const penaltyWords={
+ zh:{roomType:'\u623f\u578b',otherChargeDetail:'\u5ba2\u623f\u5176\u4ed6\u6d88\u8d39\u660e\u7ec6',cancellationPenaltyDetail:'\u5ba2\u623f\u8fdd\u7ea6\u91d1\u660e\u7ec6',
+  otherChargeNote:'\u4ec5\u5217\u4f4f\u5bbf\u9644\u52a0\u8d39\u4e0e\u4f18\u60e0\uff0c\u5404\u81ea\u6309\u5176\u8425\u4e1a\u65e5\u5f52\u5c5e\uff1b\u9910\u996e\u4e0d\u6302\u8d26\u3002\u4f18\u60e0\u4ee5\u8d1f\u6570\u5355\u72ec\u5217\u793a\uff0c\u4e0d\u5148\u6297\u9500\u540e\u518d\u5c55\u793a\u3002',
+  extraChargeTotal:'\u9644\u52a0\u8d39\u5408\u8ba1',extraDiscountTotal:'\u4f18\u60e0\u5408\u8ba1',extraNet:'\u51c0\u989d',extraCount:'\u7b14\u6570',
+  extraByItem:'\u6309\u9879\u76ee\u6c47\u603b',extraChargeCount:'\u6536\u8d39\u7b14\u6570',extraDiscountCount:'\u4f18\u60e0\u7b14\u6570',
+  extraSuperseded:'\u5df2\u88ab\u6700\u7ec8\u8d39\u7528\u53d6\u4ee3\u7684\u8ba2\u5355',
+  extraSupersededNote:'\u5df2\u53d6\u6d88\u6216\u5df2\u586b\u5199\u6700\u7ec8\u8d39\u7528\u7684\u8ba2\u5355\uff0c\u5176\u9644\u52a0\u8d39\u4e0d\u518d\u5355\u72ec\u8ba1\u8d39\uff0c\u56e0\u6b64\u4e0d\u8ba1\u5165\u672c\u8868\uff0c\u907f\u514d\u540c\u4e00\u7b14\u4f4f\u5bbf\u91cd\u590d\u8ba1\u7b97\u3002',
+  penaltyNote:'\u8fdd\u7ea6\u91d1\u5f52\u5c5e\u53d6\u6d88\u53d1\u751f\u5f53\u65e5\u7684\u8425\u4e1a\u65e5\uff1b\u5b83\u4e0d\u662f\u623f\u8d39\uff0c\u4e5f\u4e0d\u4e0e\u5176\u4ed6\u8425\u4e1a\u65e5\u6df7\u5217\u3002\u7f3a\u5c11\u53d6\u6d88\u8425\u4e1a\u65e5\u7684\u8bb0\u5f55\u5355\u72ec\u5217\u793a\uff0c\u4e0d\u63a8\u5b9a\u5f52\u5c5e\u3002',
+  penaltyPolicyNote:'\u653f\u7b56\u4e3a\u4e0b\u5355\u65f6\u7684\u5feb\u7167\uff0c\u4ec5\u4f9b\u53c2\u8003\uff1b\u7cfb\u7edf\u672a\u8bb0\u5f55\u53d6\u6d88\u65f6\u523b\uff0c\u56e0\u6b64\u4e0d\u91cd\u7b97\u5e94\u6536\u8d39\u7528\uff0c\u4e5f\u4e0d\u58f0\u79f0\u653f\u7b56\u5df2\u81ea\u52a8\u6267\u884c\u3002',
+  penaltyCount:'\u7b14\u6570',penaltyTotal:'\u8fdd\u7ea6\u91d1\u5408\u8ba1',penaltyBooked:'\u539f\u8ba2\u5355\u91d1\u989d',penaltyShare:'\u5360\u539f\u8ba2\u5355\u6bd4',
+  penaltyPolicy:'\u53d6\u6d88\u653f\u7b56',penaltyReceived:'\u8be5\u5355\u5df2\u6536',penaltyBySource:'\u6309\u6e20\u9053\u6c47\u603b',penaltyDeadline:'\u514d\u8d39\u622a\u6b62',
+  policyMissing:'\u672a\u8bb0\u5f55\u653f\u7b56',policyFree:'\u514d\u8d39\u53d6\u6d88',policyNonrefundable:'\u4e0d\u53ef\u9000\u6b3e',policyPartial:'\u90e8\u5206\u6536\u8d39',
+  policyManual:'\u4eba\u5de5\u6838\u5b9a',policyFlexibleBefore:'\u5165\u4f4f\u524d',policyDays:'\u5929',policyBasisTotal:'\u6309\u603b\u623f\u8d39',policyBasisFirstNight:'\u6309\u9996\u665a\u623f\u8d39'},
+ en:{roomType:'Room type',otherChargeDetail:'Other charge detail',cancellationPenaltyDetail:'Cancellation penalty detail',
+  otherChargeNote:'Accommodation extras and discounts only, each placed on its own business date; restaurant charges are never posted to a room. Discounts are listed as negative lines and are not netted away before display.',
+  extraChargeTotal:'Extras total',extraDiscountTotal:'Discounts total',extraNet:'Net',extraCount:'Lines',
+  extraByItem:'By item',extraChargeCount:'Charge lines',extraDiscountCount:'Discount lines',
+  extraSuperseded:'Bookings replaced by a final charge',
+  extraSupersededNote:'Once a stay is cancelled or carries a final charge its extras are no longer billed separately, so they are left out here rather than charging the same stay twice.',
+  penaltyNote:'A penalty belongs to the business date the cancellation happened on. It is not room revenue and is never mixed into another day. A penalty with no business date is listed separately instead of being assigned to a convenient day.',
+  penaltyPolicyNote:'The policy is the snapshot taken when the stay was booked. The moment of cancellation was never recorded, so no fee is recomputed and no automatic policy outcome is claimed.',
+  penaltyCount:'Bookings',penaltyTotal:'Penalties total',penaltyBooked:'Value booked',penaltyShare:'Share of booking',
+  penaltyPolicy:'Cancellation policy',penaltyReceived:'Already received',penaltyBySource:'By channel',penaltyDeadline:'Free until',
+  policyMissing:'No policy recorded',policyFree:'Free cancellation',policyNonrefundable:'Non-refundable',policyPartial:'Partial charge',
+  policyManual:'Manually confirmed',policyFlexibleBefore:'Before arrival',policyDays:'days',policyBasisTotal:'of total room charges',policyBasisFirstNight:'of the first night'},
+ ms:{roomType:'Jenis bilik',otherChargeDetail:'Butiran caj lain',cancellationPenaltyDetail:'Butiran penalti pembatalan',
+  otherChargeNote:'Caj tambahan dan diskaun penginapan sahaja, setiap satu pada tarikh operasinya; caj restoran tidak pernah diposkan ke bilik. Diskaun disenaraikan sebagai baris negatif dan tidak ditolak sebelum dipaparkan.',
+  extraChargeTotal:'Jumlah caj tambahan',extraDiscountTotal:'Jumlah diskaun',extraNet:'Bersih',extraCount:'Baris',
+  extraByItem:'Mengikut item',extraChargeCount:'Baris caj',extraDiscountCount:'Baris diskaun',
+  extraSuperseded:'Tempahan yang diganti oleh caj akhir',
+  extraSupersededNote:'Sebaik penginapan dibatalkan atau mempunyai caj akhir, caj tambahannya tidak lagi dibilkan berasingan, jadi ia dikecualikan di sini supaya penginapan sama tidak dikira dua kali.',
+  penaltyNote:'Penalti milik tarikh operasi semasa pembatalan berlaku. Ia bukan hasil bilik dan tidak dicampur ke hari lain. Penalti tanpa tarikh operasi disenaraikan berasingan, bukan diberikan tarikh yang mudah.',
+  penaltyPolicyNote:'Polisi ialah syot tangkap semasa tempahan dibuat. Masa pembatalan tidak direkodkan, jadi tiada caj dikira semula dan tiada keputusan polisi automatik didakwa.',
+  penaltyCount:'Tempahan',penaltyTotal:'Jumlah penalti',penaltyBooked:'Nilai ditempah',penaltyShare:'Bahagian daripada tempahan',
+  penaltyPolicy:'Polisi pembatalan',penaltyReceived:'Sudah diterima',penaltyBySource:'Mengikut saluran',penaltyDeadline:'Percuma sehingga',
+  policyMissing:'Polisi tidak direkod',policyFree:'Pembatalan percuma',policyNonrefundable:'Tidak boleh dipulangkan',policyPartial:'Caj sebahagian',
+  policyManual:'Disahkan manual',policyFlexibleBefore:'Sebelum ketibaan',policyDays:'hari',policyBasisTotal:'daripada jumlah caj bilik',policyBasisFirstNight:'daripada malam pertama'}
+};
+for(const language of Object.keys(penaltyWords))Object.assign(financialWords[language],penaltyWords[language]);

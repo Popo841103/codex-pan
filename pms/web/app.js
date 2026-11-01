@@ -3,7 +3,7 @@ import {rateAvailability} from '../src/rate-availability.js';
 import {previewCancellation} from '../src/cancellation-policy.js';
 import {rateCalendar} from './rate-calendar.js';
 import {countryOptions,languageOptions} from './guest-locales.js';
-import {financialPage,financialWords,renderFolioHistory,comparisonPage,managerReportPage,guestLedgerPage,roomChargePage,roomBusinessPage,roomMovementPage} from './financial-ui.js';
+import {financialPage,financialWords,renderFolioHistory,comparisonPage,managerReportPage,guestLedgerPage,roomChargePage,roomBusinessPage,roomMovementPage,extraChargePage,cancellationPenaltyPage} from './financial-ui.js';
 import {filterOrders,orderTabs} from '../src/order-filters.js';
 import {settlementStatus,columns,columnsWords,defaultColumns,loadColumns,saveColumns,columnLabel,renderOrderTable} from './order-columns.js';
 import {icon,shellWords,navigation,customersPage,channelsPage,nightAuditWords,nightAuditPage,handoverWindow} from './workspace-ui.js';
@@ -133,7 +133,7 @@ function render() {
   const stat = (label,n,sub) => `<div class="stat"><span>${t(label)}</span><strong>${n}</strong><small>${escape(sub)}</small></div>`;
   const stats = `<div class="stats">${stat('total',resources.length,t('salesAlternatives'))}${stat('booked',active.length,date)}${stat('available',available,t('salesAlternatives'))}${stat('unassigned',orders.filter(o=>o.status==='confirmed'&&!isBoxed(o)&&!o.resourceId).length,t('allocation'))}</div>`;
   if(view==='home') { const scoped=nightAuditState();$('#content').innerHTML=dashboardPage(state,propertyId,date,lang,t,currency,can,{items:homeShortcuts(),memoText:memoDrafts.get(propertyId),businessDate:scoped.businessDate,lastAudit:(scoped.nightAudits||[]).slice().sort((a,b)=>b.at.localeCompare(a.at))[0]||null}); }
-  else if(['business','cashflow','comparison','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement'].includes(view)) { $('#content').innerHTML=financialSummary(view); }
+  else if(['business','cashflow','comparison','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation'].includes(view)) { $('#content').innerHTML=financialSummary(view); }
   else if(view==='nightAudit') { $('#content').innerHTML=nightAuditPage(nightAuditState(),propertyId,{t,escape,currency,can,lang}); }
   else if(view==='customers') { $('#content').innerHTML=customersPage(state,propertyId,t,escape,customerQuery); }
   else if(view==='channels') { $('#content').innerHTML=channelsPage(t,escape,channelProperty===propertyId?channelProvider:null,can)+`<button data-rates-open>${rateLabel('房价管理','Rate management','Pengurusan kadar')}</button>`; }
@@ -453,12 +453,14 @@ function financialSummary(kind){
   const options={propertyId,date:filters.date,source:filters.source,sources:sourceValues,t,currency,lang};
   return kind==='managerDaily'?managerReportPage(state,options):guestLedgerPage(state,options);
  }
- if(kind==='roomCharge'||kind==='roomBusiness'||kind==='roomMovement'){
+ if(kind==='roomCharge'||kind==='roomBusiness'||kind==='roomMovement'||kind==='extraCharge'||kind==='cancellation'){
   const filters=financeFilters.get(key)||{from:businessDate(),to:businessDate(),source:'all',dimension:'date'};
   const options={propertyId,from:filters.from,to:filters.to,source:filters.source,sources:sourceValues,t,currency,lang};
   if(kind==='roomCharge')return roomChargePage(state,options);
   if(kind==='roomBusiness')return roomBusinessPage(state,{...options,dimension:filters.dimension});
-  return roomMovementPage(state,{...options,movement:filters.movement||'all'});
+  if(kind==='roomMovement')return roomMovementPage(state,{...options,movement:filters.movement||'all'});
+  if(kind==='extraCharge')return extraChargePage(state,options);
+  return cancellationPenaltyPage(state,options);
  }
  if(kind==='comparison'){
   if(!financeFilters.has(key)){const defaults=defaultComparisonPeriods(businessDate(),businessDate());financeFilters.set(key,{source:'all',...Object.fromEntries(Object.entries(defaults).flatMap(([period,dates])=>[[period+'From',dates.from],[period+'To',dates.to]]))});}
