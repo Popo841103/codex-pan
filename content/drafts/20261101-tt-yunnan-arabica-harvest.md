@@ -1,14 +1,16 @@
-# 草稿：云南高山阿拉比卡产季（TikTok 竖屏视频）
+# 草稿：云南普洱高山阿拉比卡产季（TikTok 竖屏视频）
 
 > 命名 `20261101-tt-yunnan-arabica-harvest.md` ｜ 状态：**草稿（待业主审核）**
 > 主视频用 **YN-08**（35.7 秒），不用 YN-07（3.6 秒太短）。
-> **2026-11-01 修订**：庄园为**合作庄园**（非自有）；加入「世界咖啡黄金种植带 / 高海拔」产区卖点。
+> **修订记录**：
+> - 2026-11-01（一）庄园为**合作庄园**（非自有）
+> - 2026-11-01（二）**海拔 1,800 m、产区普洱**经业主确认，字幕与 caption 改为具体数字与产区名；**庄园名不公开**
 
 ## 基本信息
 
 - **编号**：CH-D002（草稿编号）
-- **主题**：云南高山阿拉比卡 · 世界咖啡种植带 · 产季实拍
-- **核心信息**：用 Arabica 带入陌生的云南产区，点出高海拔咖啡带 + 产季时效
+- **主题**：云南普洱高山阿拉比卡 · 海拔 1,800 m · 产季实拍
+- **核心信息**：1800 米高山的普洱阿拉比卡，产季 11 月–次年 3 月，视频带你看豆子的来处
 - **目标平台账号**：TikTok @cohub.klcc
 - **状态**：草稿 → 待业主审核
 - **计划发布时间**：待定（Asia/Kuala_Lumpur）
@@ -32,27 +34,28 @@
 
 | 时间点 | 字幕 | 对应画面 |
 |--------|------|----------|
-| 0:00–0:06 | Arabica, grown high in Yunnan. | 园景远景开场 |
-| 0:06–0:14 | Low latitude. High altitude. | 咖啡树／山坡 |
-| 0:14–0:24 | Part of the world's coffee belt. | 咖啡果特写 |
+| 0:00–0:06 | 1,800 m up in Pu'er, Yunnan. | 园景远景开场 |
+| 0:06–0:14 | High altitude. Slow-ripening cherries. | 咖啡树／山坡 |
+| 0:14–0:24 | This is where our Arabica grows. | 咖啡果特写 |
 | 0:24–0:31 | Nov – Mar is harvest season. | 咖啡果特写 |
 | 0:31–0:35 | Now pouring at COHUB. | 收尾 |
 
 **视频说明文字（caption）**
 
 ```
-Arabica, grown high in Yunnan — part of the world's coffee belt.
+1,800 m up in Pu'er, Yunnan — where our Arabica grows.
 Nov–Mar is harvest season.
 
-云南高山阿拉比卡，产季 11–3 月。来自我们这次走访的合作庄园。
+云南普洱，海拔 1800 米。产季 11–3 月。来自我们这次走访的合作庄园。
 
-#YunnanCoffee #Arabica #HighAltitude #KualaLumpur
+#YunnanCoffee #Arabica #PuerCoffee #KualaLumpur
 ```
 
 ## 备注（红线）
 
-- ✅ **已更正**：庄园为**合作庄园，非 COHUB 自有**。caption 已写明「我们这次走访的合作庄园」，**不得写 our farm**。
+- ✅ **海拔 1,800 m、产区普洱**已由业主确认，可直接写数字与产区名。
+- ⛔ **庄园名称：业主决定不公开** —— 字幕、caption、标签**一律不得出现庄园名**。
+- ✅ 庄园为**合作庄园，非 COHUB 自有**。caption 写「我们这次走访的合作庄园」，**不得写 our farm**。
 - **发 TikTok 前必须确认 YN-08 的来源授权**（登记表第 7 项）。该视频经微信收到，业主称系本人庄园实拍；若实为庄园／供应商拍摄，须先取得使用许可。
-- ⚠️ **海拔不写数字**（来源口径冲突），只写 *high altitude*。待业主确认合作庄园确切海拔后可补。
 - 字幕全程，不加解说，只配背景音乐。
-- 不得出现价格、杯测分数、庄园名、具体产区名等未确认信息。
+- 不得出现价格、杯测分数等未确认信息。
