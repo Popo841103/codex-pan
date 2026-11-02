@@ -20,7 +20,7 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover'],
+  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save'],
   operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover'],
   finance: ['settle','payment'], viewer: []
 };
@@ -49,6 +49,10 @@ export class Store {
       CREATE TABLE IF NOT EXISTS used_recovery_tokens (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), used_at TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS recovery_no_delete BEFORE DELETE ON used_recovery_tokens BEGIN SELECT RAISE(ABORT,'recovery_append_only'); END;
       CREATE TRIGGER IF NOT EXISTS recovery_no_update BEFORE UPDATE ON used_recovery_tokens BEGIN SELECT RAISE(ABORT,'recovery_append_only'); END;
+      CREATE TABLE IF NOT EXISTS member_audit (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id),
+        action TEXT NOT NULL, at TEXT NOT NULL, summary TEXT NOT NULL);
+      CREATE TRIGGER IF NOT EXISTS member_audit_no_update BEFORE UPDATE ON member_audit BEGIN SELECT RAISE(ABORT,'member_audit_append_only'); END;
+      CREATE TRIGGER IF NOT EXISTS member_audit_no_delete BEFORE DELETE ON member_audit BEGIN SELECT RAISE(ABORT,'member_audit_append_only'); END;
       CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS receipts (user_id TEXT NOT NULL REFERENCES users(id), request_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
         response TEXT NOT NULL, PRIMARY KEY(user_id,request_key));
@@ -58,6 +62,11 @@ export class Store {
         action TEXT NOT NULL, at TEXT NOT NULL, revision INTEGER NOT NULL, summary TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS audit_no_update BEFORE UPDATE ON audit BEGIN SELECT RAISE(ABORT,'audit_append_only'); END;
       CREATE TRIGGER IF NOT EXISTS audit_no_delete BEFORE DELETE ON audit BEGIN SELECT RAISE(ABORT,'audit_append_only'); END;`);
+    // A property can override the account's role, so one person can run operations
+    // in one property and only read in another. Older databases predate the column
+    // and are widened here rather than being recreated.
+    if(!this.db.prepare('PRAGMA table_info(user_properties)').all().some(c=>c.name==='role'))
+      this.db.exec('ALTER TABLE user_properties ADD COLUMN role TEXT');
     this.support=new SupportDesk(this);
     this.guest=new GuestMessages(this,messagesAdapter);
     this.checkin=new SelfCheckin(this,selfCheckin);
@@ -87,7 +96,7 @@ export class Store {
       for(const p of propertyIds) if(!this.db.prepare('SELECT 1 FROM properties WHERE id=?').get(p)) error(400,'scope');
       const id=randomUUID();
       this.db.prepare('INSERT INTO users (id,username,salt,password_hash,role) VALUES(?,?,?,?,?)').run(id,username,salt,passwordHash,role);
-      for(const p of propertyIds)this.db.prepare('INSERT INTO user_properties VALUES(?,?)').run(id,p);
+      for(const p of propertyIds)this.db.prepare('INSERT INTO user_properties (user_id,property_id) VALUES(?,?)').run(id,p);
       return {id,username,role,propertyIds};
     });
   }
@@ -120,9 +129,141 @@ export class Store {
       return {ok:true,username:user.username};
     });
   }
+  // Everything an account may do comes from one place, so the page that explains
+  // permissions and the check that enforces them can never drift apart.
+  actionsFor(role){
+    const base=roleTypes[role]||[];
+    return [...new Set([...base,...supportPermissions(role),...guestPermissions(role),...checkinPermissions(role)])];
+  }
+  // A property override wins over the account role; with no override the account
+  // role applies everywhere it is scoped.
+  propertyRole(user,propertyId){
+    if(!user)return null;
+    const row=this.db.prepare('SELECT role FROM user_properties WHERE user_id=? AND property_id=?').get(user.id,propertyId);
+    return row?.role||user.role;
+  }
+  propertyRoles(user){
+    const rows=this.db.prepare('SELECT property_id,role FROM user_properties WHERE user_id=? ORDER BY property_id').all(user.id);
+    const out={};
+    for(const row of rows)if(row.role)out[row.property_id]=row.role;
+    return out;
+  }
   publicUser(user) {
-    return { id:user.id,username:user.username,role:user.role,allowedActions:[...roleTypes[user.role],...supportPermissions(user.role),...guestPermissions(user.role),...checkinPermissions(user.role)],
-      propertyIds:this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=? ORDER BY property_id').all(user.id).map(p=>p.property_id) };
+    const roles=this.propertyRoles(user);
+    const ids=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=? ORDER BY property_id').all(user.id).map(p=>p.property_id);
+    const byProperty={};
+    for(const id of ids)byProperty[id]=this.actionsFor(roles[id]||user.role);
+    return { id:user.id,username:user.username,role:user.role,allowedActions:this.actionsFor(user.role),
+      allowedActionsByProperty:byProperty,propertyRoles:roles,propertyIds:ids };
+  }
+  // Members are only visible to an administrator, and only inside the properties
+  // that administrator is themselves scoped to: an administrator of one property
+  // never sees the staff of another.
+  visibleMembers(user){
+    if(user.role!=='admin')return [];
+    return this.db.prepare(`SELECT u.id,u.username,u.role,u.active,
+        (SELECT group_concat(property_id) FROM user_properties WHERE user_id=u.id ORDER BY property_id) ids FROM users u
+      WHERE EXISTS (SELECT 1 FROM user_properties mine WHERE mine.user_id=? AND mine.property_id IN
+        (SELECT property_id FROM user_properties WHERE user_id=u.id)) ORDER BY u.username`).all(user.id)
+      .map(row=>({id:row.id,username:row.username,role:row.role,active:!!row.active,
+        propertyIds:(row.ids||'').split(',').filter(Boolean),propertyRoles:this.propertyRoles(row)}));
+  }
+  visibleMemberAudit(user){
+    if(user.role!=='admin')return [];
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    return this.db.prepare(`SELECT m.*,a.username actor,t.username target FROM member_audit m
+        JOIN users a ON a.id=m.actor_id JOIN users t ON t.id=m.target_id ORDER BY m.at DESC LIMIT 200`).all()
+      .filter(row=>{
+        const summary=JSON.parse(row.summary);
+        return (summary.propertyIds||[]).some(id=>scope.includes(id))||(summary.previous?.propertyIds||[]).some(id=>scope.includes(id));
+      })
+      .slice(0,100)
+      .map(row=>({id:row.id,actor:row.actor,target:row.target,action:row.action,at:row.at,...JSON.parse(row.summary)}));
+  }
+  // Team access. This writes the user tables, not a property body, so it is handled
+  // before the property reducer and never advances a property revision.
+  saveMember(actor,command,key,fingerprint){
+    if(actor.role!=='admin')error(403,'forbidden');
+    const username=command.username;
+    if(typeof username!=='string'||!/^[a-zA-Z0-9._-]{3,64}$/.test(username))error(400,'member_input');
+    if(actor.username===username)error(400,'member_self');
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(actor.id).map(p=>p.property_id);
+    const inScope=id=>scope.includes(id);
+    const cleanIds=value=>{
+      if(!Array.isArray(value)||!value.length||new Set(value).size!==value.length||!value.every(id=>typeof id==='string'&&inScope(id)))error(400,'member_scope');
+      return value;
+    };
+    const cleanRoles=value=>{
+      if(value===undefined||value===null)return null;
+      if(typeof value!=='object'||Array.isArray(value))error(400,'member_input');
+      const out={};
+      for(const [id,role] of Object.entries(value)){
+        if(!inScope(id))error(400,'member_scope');
+        if(role!==null&&!Object.hasOwn(roleTypes,role))error(400,'member_input');
+        out[id]=role;
+      }
+      return out;
+    };
+    const target=this.db.prepare('SELECT * FROM users WHERE username=?').get(username);
+    if(target){
+      const existing=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(target.id).map(p=>p.property_id);
+      // An administrator may only reach people who already share a property with them.
+      if(!existing.some(id=>inScope(id)))error(403,'member_scope');
+    }
+    const role=command.role===undefined?null:command.role;
+    if(role!==null&&!Object.hasOwn(roleTypes,role))error(400,'member_input');
+    const propertyIds=command.propertyIds===undefined?null:cleanIds(command.propertyIds);
+    const propertyRoles=cleanRoles(command.propertyRoles);
+    const active=command.active===undefined?null:command.active;
+    if(active!==null&&typeof active!=='boolean')error(400,'member_input');
+    const password=command.password===undefined?null:command.password;
+    if(password!==null&&(typeof password!=='string'||password.length<12||password.length>256))error(400,'password_length');
+    if(!target&&(password===null||propertyIds===null||role===null))error(400,'member_input');
+    // Losing the last active administrator would lock the team out of its own access
+    // page, so the change is refused rather than applied and discovered afterwards.
+    const demoting=(role!==null&&role!=='admin')||(active===false);
+    if(target&&target.role==='admin'&&target.active===1&&demoting){
+      const others=this.db.prepare("SELECT 1 FROM users WHERE role='admin' AND active=1 AND id<>?").get(target.id);
+      if(!others)error(400,'member_last_admin');
+    }
+    const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
+    if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+    const at=new Date().toISOString(),id=randomUUID();
+    const before=target?{role:target.role,active:!!target.active,
+      propertyIds:this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(target.id).map(p=>p.property_id),
+      propertyRoles:this.propertyRoles(target)}:null;
+    let userId=target?.id;
+    if(!target){
+      const salt=randomBytes(16).toString('hex'),passwordHash=scryptSync(password,salt,64).toString('hex');
+      userId=randomUUID();
+      this.db.prepare('INSERT INTO users (id,username,salt,password_hash,role,active) VALUES(?,?,?,?,?,?)').run(userId,username,salt,passwordHash,role,active===false?0:1);
+      for(const p of propertyIds)this.db.prepare('INSERT INTO user_properties (user_id,property_id) VALUES(?,?)').run(userId,p);
+    }else{
+      if(role!==null)this.db.prepare('UPDATE users SET role=? WHERE id=?').run(role,userId);
+      if(active!==null)this.db.prepare('UPDATE users SET active=? WHERE id=?').run(active?1:0,userId);
+      if(password!==null){
+        const salt=randomBytes(16).toString('hex'),passwordHash=scryptSync(password,salt,64).toString('hex');
+        this.db.prepare('UPDATE users SET salt=?,password_hash=? WHERE id=?').run(salt,passwordHash,userId);
+        // A changed password ends every existing session for that account at once.
+        this.db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
+      }
+      if(active===false)this.db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
+      if(propertyIds!==null){
+        const keep=propertyIds.map(()=>'?').join(',');
+        this.db.prepare(`DELETE FROM user_properties WHERE user_id=? AND property_id IN (${keep})`).run(userId,...propertyIds);
+        for(const p of propertyIds)this.db.prepare('INSERT OR REPLACE INTO user_properties (user_id,property_id,role) VALUES(?,?,NULL)').run(userId,p);
+      }
+    }
+    if(propertyRoles)for(const [p,r] of Object.entries(propertyRoles))
+      this.db.prepare('UPDATE user_properties SET role=? WHERE user_id=? AND property_id=?').run(r,userId,p);
+    const summary={username,role:role??(before?.role??null),active:active??(before?.active??true),
+      propertyIds:propertyIds??(before?.propertyIds??[]),
+      propertyRoles:propertyRoles?{...before?.propertyRoles,...propertyRoles}:before?.propertyRoles??{},
+      passwordChanged:password!==null,previous:before,created:!target};
+    this.db.prepare('INSERT INTO member_audit VALUES(?,?,?,?,?,?)').run(id,actor.id,userId,'member_save',at,JSON.stringify(summary));
+    const response={id,username,created:!target};
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    return response;
   }
   session(token) {
     if(typeof token!=='string'||!/^[a-f0-9]{64}$/.test(token))error(401,'login_required');
@@ -140,7 +281,7 @@ export class Store {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
     const ids=this.publicUser(fresh).propertyIds;
-    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[]};
+    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[]};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
@@ -154,6 +295,8 @@ export class Store {
     result.audit=this.db.prepare(`SELECT a.*,u.username actor FROM audit a JOIN users u ON u.id=a.actor_id
       JOIN user_properties p ON p.user_id=? AND p.property_id=a.property_id ORDER BY a.at DESC LIMIT 500`).all(user.id).map(a=>({
         id:a.id,propertyId:a.property_id,type:a.action,at:a.at,actor:a.actor,revision:a.revision,...JSON.parse(a.summary) }));
+    result.members=this.visibleMembers(fresh);
+    result.memberAudit=this.visibleMemberAudit(fresh);
     return result;
   }
   command(user,{key,expectedRevision,command},{beforeApply}={}) {
@@ -171,10 +314,15 @@ export class Store {
       const propertyId=command.propertyId;
       if(typeof propertyId!=='string')error(400,'input');
       this.authorize(user,propertyId);
-      if(command.type==='create_reservation'&&command.mode==='checkin'&&!roleTypes[rowUser.role].includes('checkin'))error(403,'forbidden');
+      // Team access is not a property business command: it writes the user tables and
+      // is answered here instead of being folded into a property revision.
+      if(command.type==='member_save')return this.saveMember(rowUser,command,key,fingerprint);
+      // A property override decides what this account may do here, not its account role.
+      const effectiveRole=this.propertyRole(rowUser,propertyId);
+      if(command.type==='create_reservation'&&command.mode==='checkin'&&!roleTypes[effectiveRole].includes('checkin'))error(403,'forbidden');
       // Rewriting nights already closed by a night audit stays an administrator-only override.
       if(command.auditOverride===true&&rowUser.role!=='admin')error(403,'forbidden');
-      if(!roleTypes[rowUser.role].includes(command.type))error(403,'forbidden');
+      if(!roleTypes[effectiveRole].includes(command.type))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(propertyId);

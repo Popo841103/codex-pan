@@ -74,7 +74,12 @@ test('SQLite boxing uses one revision, audit and receipt; unauthorized and stale
   store.command(admin,request);assert.equal(store.command(admin,request).replayed,true);assert.equal(store.db.prepare('SELECT COUNT(*) n FROM claims').get().n,0);
   const state=store.read(admin);assert.equal(state.revisions[pid],2);const audit=state.audit.find(a=>a.type==='box_stays');assert.equal(audit.stayIds[0],created.id);assert.equal(audit.inventoryChange.before[0].resourceId,'TEST-KL-R1');assert.equal(audit.inventoryChange.after[0].inventoryStatus,'boxed');
   for(const role of ['finance','viewer']){const user=store.createUser({username:'test-box-'+role,password:'test-password-only',role,propertyIds:[pid]});assert.throws(()=>store.command(user,{key:randomUUID(),expectedRevision:2,command:cmd('restore_stays',{orderIds:[created.id],autoAssign:true,reason:'TEST restore'})}),/forbidden/);}
-  assert.throws(()=>store.command(admin,{key:randomUUID(),expectedRevision:1,command:cmd('restore_stays',{orderIds:[created.id],autoAssign:true,reason:'TEST restore'})}),/stale_revision/);assert.deepEqual(store.read(admin),state);
+  // A refused and a stale write must leave the property state untouched. Member
+  // administration is deliberately compared separately: it is not property state.
+  const replayed=store.read(admin);
+  assert.deepEqual(replayed.orders,state.orders);assert.deepEqual(replayed.blocks,state.blocks);
+  assert.deepEqual(replayed.audit,state.audit);assert.deepEqual(replayed.revisions,state.revisions);
+  assert.throws(()=>store.command(admin,{key:randomUUID(),expectedRevision:1,command:cmd('restore_stays',{orderIds:[created.id],autoAssign:true,reason:'TEST restore'})}),/stale_revision/);
   store.command(admin,{key:randomUUID(),expectedRevision:2,command:cmd('restore_stays',{orderIds:[created.id],autoAssign:true,reason:'TEST restore'})});assert.equal(store.db.prepare('SELECT COUNT(*) n FROM claims').get().n,3);
  }finally{store.close();}
 });

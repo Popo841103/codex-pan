@@ -5,10 +5,10 @@ const paths={home:'M3 11 12 3l9 8v10h-6v-7H9v7H3Z',calendar:'M4 5h16v16H4ZM7 2v6
 export const icon=name=>`<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.summary}"/></svg>`;
 export const shellWords={zh:{channels:'渠道',customers:'客户',mainOrders:'订单',navCalendar:'日历',navSummary:'房情表',navOverview:'房态表',collapseNavigation:'收起导航',expandNavigation:'展开导航',batchCleaning:'批量置脏/净',batchRoomState:'批量开/关房',today:'今天',todayShort:'今',customerDirectory:'住客资料',customerDirectoryNote:'来自本店现有订单的联系人记录；尚无独立CRM合并和去重审核。',relatedOrders:'关联订单',notConnected:'未连接',readConnection:'刷新连接状态',connectionUnknown:'连接状态尚未读取',channelScope:'渠道连接与消息',channelScopeNote:'NOBEDS作为付费渠道服务；本页从当前门店安全配置读取连接状态，不代表已经完成供应商联调。',messageCapability:'消息能力',manualSource:'手工订单来源',manualSourceNote:'订单来源标签不表示已连接OTA；其他平台消息能力需供应商确认。',notVerified:'尚未完成真实账号验收',openMessages:'打开OTA客人聊天',filterCustomers:'搜索姓名、邮箱、手机号、订单号',noCustomers:'本店暂无住客联系人',customerCount:'联系人记录',closeGroups:'收起',openGroups:'展开',viewInstructions:'查看说明',nightAuditLabel:'夜审',nightAuditUnavailable:'未启用',collapseGroupNote:'点击展开可恢复房型下的全部房号。'},en:{channels:'Channels',customers:'Guests',mainOrders:'Orders',navCalendar:'Calendar',navSummary:'Room summary',navOverview:'Room status',collapseNavigation:'Collapse navigation',expandNavigation:'Expand navigation',batchCleaning:'Bulk dirty / clean',batchRoomState:'Bulk open / close',today:'Today',todayShort:'Now',customerDirectory:'Guest contacts',customerDirectoryNote:'Contacts from existing property bookings; independent CRM merge and deduplication review are not implemented.',relatedOrders:'Related bookings',notConnected:'Not connected',readConnection:'Refresh connection',connectionUnknown:'Connection not read yet',channelScope:'Channel connection and messages',channelScopeNote:'NOBEDS is the paid channel service. Status comes from this property’s private configuration and does not establish a tested integration.',messageCapability:'Messaging capability',manualSource:'Manual booking source',manualSourceNote:'A source label does not connect an OTA. Other platform messaging needs supplier confirmation.',notVerified:'Live account verification incomplete',openMessages:'Open OTA guest inbox',filterCustomers:'Search name, email, phone or booking',noCustomers:'No guest contacts in this property',customerCount:'Contact records',closeGroups:'Collapse',openGroups:'Expand',viewInstructions:'View notes',nightAuditLabel:'Night audit',nightAuditUnavailable:'Not enabled',collapseGroupNote:'Expand to restore all unit rows.'},ms:{channels:'Saluran',customers:'Tetamu',mainOrders:'Pesanan',navCalendar:'Kalendar',navSummary:'Ringkasan bilik',navOverview:'Status bilik',collapseNavigation:'Tutup navigasi',expandNavigation:'Buka navigasi',batchCleaning:'Kotor / bersih pukal',batchRoomState:'Buka / tutup pukal',today:'Hari ini',todayShort:'Kini',customerDirectory:'Kenalan tetamu',customerDirectoryNote:'Kenalan daripada tempahan hartanah. Penggabungan CRM dan semakan pendua belum tersedia.',relatedOrders:'Tempahan berkaitan',notConnected:'Belum disambung',readConnection:'Muat semula sambungan',connectionUnknown:'Status belum dibaca',channelScope:'Sambungan dan mesej saluran',channelScopeNote:'NOBEDS ialah perkhidmatan saluran berbayar. Status konfigurasi bukan bukti integrasi sebenar telah diuji.',messageCapability:'Keupayaan mesej',manualSource:'Sumber manual',manualSourceNote:'Label sumber bukan sambungan OTA. Mesej platform lain perlu pengesahan pembekal.',notVerified:'Akaun sebenar belum disahkan',openMessages:'Buka peti masuk OTA',filterCustomers:'Cari nama, e-mel, telefon atau tempahan',noCustomers:'Tiada kenalan tetamu',customerCount:'Rekod kenalan',closeGroups:'Tutup',openGroups:'Buka',viewInstructions:'Lihat nota',nightAuditLabel:'Audit malam',nightAuditUnavailable:'Belum aktif',collapseGroupNote:'Buka untuk lihat semua unit.'}};
 export function navigation(view,t){
- const group=['calendar','overview','tasks','rates'].includes(view)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(view)?'stats':view==='resourcesSettings'?'settings':view;
+ const group=['calendar','overview','tasks','rates'].includes(view)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(view)?'stats':['resourcesSettings','teamAccess'].includes(view)?'settings':view;
  const mains=[['home','home','home'],['calendar','roomState','home'],['channels','channels','channels'],['orders','mainOrders','orders'],['customers','customers','customers'],['business','operationalReports','stats'],['resourcesSettings','settings','settings']];
- const section=v=>['calendar','overview','tasks','rates'].includes(v)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(v)?'stats':v==='resourcesSettings'?'settings':v;
- const side={rooms:[['calendar','navCalendar','home'],['rates','rateInventory','cash'],['overview','navSummary','summary'],['tasks','tasks','clean']],orders:[['orders','orders','orders'],['audit','audit','audit']],stats:[['managerDaily','managerDailyReport','stats'],['guestLedger','guestLedger','cash'],['roomCharge','roomChargeDetail','stats'],['roomBusiness','roomBusinessSummary','stats'],['roomMovement','roomMovementLog','audit'],['extraCharge','otherChargeDetail','cash'],['cancellation','cancellationPenaltyDetail','pig'],['occupants','roomOccupantDetail','single'],['registration','registrationRecord','audit'],['commission','commissionDetail','cash'],['comparison','comparison','summary'],['business','businessSummary','stats'],['cashflow','cashflowSummary','cash'],['nightAudit','nightAudit','audit']],settings:[['resourcesSettings','resourcesSettings','settings']],channels:[['channels','channels','channels']],customers:[['customers','customerDirectory','customers']]}[group]||[];
+ const section=v=>['calendar','overview','tasks','rates'].includes(v)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(v)?'stats':['resourcesSettings','teamAccess'].includes(v)?'settings':v;
+ const side={rooms:[['calendar','navCalendar','home'],['rates','rateInventory','cash'],['overview','navSummary','summary'],['tasks','tasks','clean']],orders:[['orders','orders','orders'],['audit','audit','audit']],stats:[['managerDaily','managerDailyReport','stats'],['guestLedger','guestLedger','cash'],['roomCharge','roomChargeDetail','stats'],['roomBusiness','roomBusinessSummary','stats'],['roomMovement','roomMovementLog','audit'],['extraCharge','otherChargeDetail','cash'],['cancellation','cancellationPenaltyDetail','pig'],['occupants','roomOccupantDetail','single'],['registration','registrationRecord','audit'],['commission','commissionDetail','cash'],['comparison','comparison','summary'],['business','businessSummary','stats'],['cashflow','cashflowSummary','cash'],['nightAudit','nightAudit','audit']],settings:[['resourcesSettings','resourcesSettings','settings'],['teamAccess','teamAccess','lock']],channels:[['channels','channels','channels']],customers:[['customers','customerDirectory','customers']]}[group]||[];
  const buttons=items=>items.map(([id,key,name])=>`<button data-view="${id}" class="${section(id)===group&&items===mains||id===view?'active':''}" ${id===view?'aria-current="page"':''}>${items===mains?'':icon(name)}<span>${t(key)}</span></button>`).join('');
  return {main:buttons(mains),side:buttons(side)};
 }
@@ -133,3 +133,85 @@ export function handoverWindow(businessDate, shift) {
   const crossesMidnight = shift.end <= shift.start;
   return { from: `${businessDate}T${shift.start}:00+08:00`, to: `${crossesMidnight ? nextDay(businessDate) : businessDate}T${shift.end}:00+08:00` };
 }
+
+// Team access. Roles are shown as what they actually allow, and the page never
+// claims more than the server enforces: a property override is displayed per
+// property, and an account can never edit itself here.
+export function teamAccessPage({members=[],memberAudit=[],properties=[],propertyId,user,can,t,escape}) {
+ const esc=escape||(v=>String(v??''));
+ const editable=can('member_save');
+ const roles=[['admin','role_admin'],['operations','role_operations'],['finance','role_finance'],['viewer','role_viewer']];
+ const propertyName=id=>properties.find(p=>p.id===id)?.name||id;
+ const scopeCell=m=>`<td>${m.propertyIds.map(id=>`${esc(propertyName(id))}${m.propertyRoles[id]?` <small>(${esc(t('role_'+m.propertyRoles[id]))})</small>`:''}`).join(' · ')||'—'}</td>`;
+ const rows=members.map(m=>{
+  const self=user&&m.username===user.username;
+  if(self)return `<tr><th>${esc(m.username)}</th><td>${esc(t('role_'+m.role))}</td>${scopeCell(m)}<td>${esc(t(m.active?'memberEnabled':'memberDisabled'))}</td><td colspan="3" class="muted">${esc(t('memberSelf'))}</td></tr>`;
+  return `<tr><th>${esc(m.username)}</th>
+   <td><select data-member-role="${esc(m.username)}">${roles.map(([id,word])=>`<option value="${esc(id)}" ${id===m.role?'selected':''}>${esc(t(word))}</option>`).join('')}</select></td>
+   ${scopeCell(m)}
+   <td><select data-member-property-role="${esc(m.username)}"><option value="" ${m.propertyRoles[propertyId]?'':'selected'}>${esc(t('role_account'))}</option>${roles.map(([id,word])=>`<option value="${esc(id)}" ${m.propertyRoles[propertyId]===id?'selected':''}>${esc(t(word))}</option>`).join('')}</select></td>
+   <td><select data-member-active="${esc(m.username)}"><option value="true" ${m.active?'selected':''}>${esc(t('memberEnabled'))}</option><option value="false" ${m.active?'':'selected'}>${esc(t('memberDisabled'))}</option></select></td>
+   <td><input type="password" data-member-password="${esc(m.username)}" autocomplete="new-password" minlength="12" placeholder="${esc(t('memberPasswordHint'))}"></td>
+   <td><button data-member-apply="${esc(m.username)}">${esc(t('save'))}</button></td></tr>`;
+ }).join('');
+ const newForm=editable?`<h3>${esc(t('memberNew'))}</h3>
+  <form id="member-new" class="order-filters">
+   <label>${esc(t('memberUsername'))}<input name="username" required minlength="3" maxlength="64" autocomplete="off"></label>
+   <label>${esc(t('memberNewPassword'))}<input name="password" type="password" required minlength="12" autocomplete="new-password"></label>
+   <label>${esc(t('memberRole'))}<select name="role">${roles.map(([id,word])=>`<option value="${esc(id)}">${esc(t(word))}</option>`).join('')}</select></label>
+   <label>${esc(t('memberProperties'))}<select name="properties" multiple required>${properties.map(p=>`<option value="${esc(p.id)}" ${p.id===propertyId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
+   <button class="primary">${esc(t('memberCreate'))}</button>
+  </form>`:'';
+ const table=`<div class="table-wrap"><table><thead><tr>${['memberUsername','memberRole','memberProperties','memberPropertyRole','memberState','memberPassword','actions'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="7">${esc(t('empty'))}</td></tr>`}</tbody></table></div>`;
+ const audit=memberAudit.length?`<h3>${esc(t('memberAuditTitle'))}</h3><div class="table-wrap"><table><thead><tr>${['time','createdBy','memberTarget','memberRole','memberProperties','memberState'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${memberAudit.map(a=>`<tr><td>${esc(a.at)}</td><td>${esc(a.actor)}</td><td>${esc(a.target)}</td><td>${esc(t('role_'+a.role))}</td><td>${esc((a.propertyIds||[]).map(propertyName).join(' · ')||'—')}</td><td>${esc(t(a.active?'memberEnabled':'memberDisabled'))}${a.passwordChanged?' · '+esc(t('memberPasswordChanged')):''}${a.created?' · '+esc(t('memberCreated')):''}</td></tr>`).join('')}</tbody></table></div>`:'';
+ const rolesTable=`<h3>${esc(t('memberRolesTitle'))}</h3><div class="table-wrap"><table><tbody>${roles.map(([id,word])=>`<tr><th>${esc(t(word))}</th><td>${esc(t('roleDesc_'+id))}</td></tr>`).join('')}</tbody></table></div>`;
+ return `<section class="panel"><div class="panel-head"><h2>${esc(t('teamAccess'))}</h2></div>
+  <p class="muted">${esc(t('teamAccessNote'))}</p>
+  ${editable?'':`<p class="muted">${esc(t('teamReadOnly'))}</p>`}
+  ${rolesTable}${newForm}<h3>${esc(t('memberList'))}</h3>${table}${audit}</section>`;
+}
+
+export const teamWords={
+ zh:{teamAccess:'团队与权限',teamAccessNote:'账号角色是该成员在所有门店的默认权限；门店角色只在该门店生效并覆盖账号角色。只有账号管理员可以修改成员，且只能管理与其共享门店的成员；不能修改自己，也不会停用最后一位管理员。',
+  teamReadOnly:'只有账号管理员可以查看和修改团队权限。',
+  memberList:'成员',memberNew:'新增成员',memberCreate:'创建成员',memberUsername:'账号',memberRole:'账号角色',
+  memberNewPassword:'初始密码（至少12位）',memberPassword:'重置密码',memberPasswordHint:'留空表示不改密码',
+  memberProperties:'门店范围',memberPropertyRole:'本店角色',memberState:'状态',memberEnabled:'启用',memberDisabled:'停用',
+  memberSelf:'本人账号，不能在此修改',memberPasswordChanged:'已改密码',memberCreated:'新建',memberTarget:'对象',
+  memberRolesTitle:'角色说明',memberAuditTitle:'最近权限变更',actions:'操作',
+  role_admin:'管理员',role_operations:'运营',role_finance:'财务',role_viewer:'只读',role_account:'跟随账号角色',
+  roleDesc_admin:'房价与资源设置、成员与权限、夜审、交班、以及全部日常操作。',
+  roleDesc_operations:'房态、订单、分房、入住退房、收款、清洁与关房、夜审与交班；不含房价、资源和成员设置。',
+  roleDesc_finance:'结账与收款记录；不含房态、房价和成员设置。',
+  roleDesc_viewer:'仅查看，不能写入任何业务数据。',
+  member_input:'请检查账号、密码长度、角色与门店范围。',member_scope:'只能管理与你共享门店的成员，且门店必须在你的权限范围内。',
+  member_self:'不能在此修改自己的权限。',member_last_admin:'至少保留一位启用的管理员。',password_length:'密码至少12位。'},
+ en:{teamAccess:'Team & access',teamAccessNote:'The account role is the default everywhere; a property role applies to that property only and overrides it. Only account administrators can change members, only inside properties they share with them, never themselves, and never the last administrator.',
+  teamReadOnly:'Only account administrators can view and change team access.',
+  memberList:'Members',memberNew:'Add a member',memberCreate:'Create member',memberUsername:'Account',memberRole:'Account role',
+  memberNewPassword:'Initial password (12 characters or more)',memberPassword:'Reset password',memberPasswordHint:'Leave blank to keep the password',
+  memberProperties:'Properties',memberPropertyRole:'Role in this property',memberState:'State',memberEnabled:'Active',memberDisabled:'Disabled',
+  memberSelf:'Your own account cannot be changed here',memberPasswordChanged:'password changed',memberCreated:'created',memberTarget:'Member',
+  memberRolesTitle:'What each role allows',memberAuditTitle:'Recent access changes',actions:'Actions',
+  role_admin:'Administrator',role_operations:'Operations',role_finance:'Finance',role_viewer:'Read only',role_account:'Use account role',
+  roleDesc_admin:'Rates and resources, members and access, night audit, shift handovers, and every day-to-day operation.',
+  roleDesc_operations:'Room state, bookings, assignment, check-in and check-out, receipts, cleaning and blocking, night audit and handovers. No rates, resources or member settings.',
+  roleDesc_finance:'Settlement and receipt records only. No room state, rates or member settings.',
+  roleDesc_viewer:'Read only. Cannot write any business data.',
+  member_input:'Check the account, password length, role and property scope.',member_scope:'You can only manage members who share a property with you, inside properties you can reach.',
+  member_self:'Your own access cannot be changed here.',member_last_admin:'At least one active administrator must remain.',password_length:'The password needs at least 12 characters.'},
+ ms:{teamAccess:'Pasukan & akses',teamAccessNote:'Peranan akaun ialah lalai di semua hartanah; peranan hartanah hanya berkuat kuasa di hartanah itu dan mengatasinya. Hanya pentadbir akaun boleh menukar ahli, hanya dalam hartanah yang dikongsi, tidak pernah diri sendiri, dan tidak pernah pentadbir terakhir.',
+  teamReadOnly:'Hanya pentadbir akaun boleh melihat dan menukar akses pasukan.',
+  memberList:'Ahli',memberNew:'Tambah ahli',memberCreate:'Cipta ahli',memberUsername:'Akaun',memberRole:'Peranan akaun',
+  memberNewPassword:'Kata laluan awal (12 aksara atau lebih)',memberPassword:'Tetap semula kata laluan',memberPasswordHint:'Biarkan kosong untuk kekalkan kata laluan',
+  memberProperties:'Hartanah',memberPropertyRole:'Peranan di hartanah ini',memberState:'Status',memberEnabled:'Aktif',memberDisabled:'Dinyahaktif',
+  memberSelf:'Akaun sendiri tidak boleh diubah di sini',memberPasswordChanged:'kata laluan ditukar',memberCreated:'dicipta',memberTarget:'Ahli',
+  memberRolesTitle:'Apa yang setiap peranan benarkan',memberAuditTitle:'Perubahan akses terkini',actions:'Tindakan',
+  role_admin:'Pentadbir',role_operations:'Operasi',role_finance:'Kewangan',role_viewer:'Baca sahaja',role_account:'Ikut peranan akaun',
+  roleDesc_admin:'Kadar dan sumber, ahli dan akses, audit malam, serahan syif, serta semua operasi harian.',
+  roleDesc_operations:'Status bilik, tempahan, penetapan, daftar masuk dan keluar, terimaan, pembersihan dan sekatan, audit malam dan serahan. Tiada kadar, sumber atau tetapan ahli.',
+  roleDesc_finance:'Penyelesaian dan rekod terimaan sahaja. Tiada status bilik, kadar atau tetapan ahli.',
+  roleDesc_viewer:'Baca sahaja. Tidak boleh menulis sebarang data perniagaan.',
+  member_input:'Semak akaun, panjang kata laluan, peranan dan skop hartanah.',member_scope:'Anda hanya boleh mengurus ahli yang berkongsi hartanah dengan anda, dalam hartanah yang boleh anda capai.',
+  member_self:'Akses sendiri tidak boleh diubah di sini.',member_last_admin:'Sekurang-kurangnya seorang pentadbir aktif mesti kekal.',password_length:'Kata laluan perlu sekurang-kurangnya 12 aksara.'}
+};
