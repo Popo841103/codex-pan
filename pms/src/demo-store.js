@@ -220,6 +220,21 @@ export function apply(state, command) {
   const needsOrder = ['settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock'].includes(type);
   if (needsOrder && !order) reject('scope');
   if(order?.folioClosed&&['edit','payment','cancel'].includes(type))reject('folio_closed');
+  // Clearing test bookings removes them outright rather than cancelling them, so a
+  // property can be emptied of seeded or rehearsal data without leaving it in the
+  // ledger as cancelled revenue. It only ever touches stays whose guest name begins
+  // with the prefix it was given, so a real booking cannot be caught by accident,
+  // and it refuses to run when nothing matches rather than reporting a false success.
+  if (type === 'purge_test_orders') {
+    const prefix = (typeof command.prefix === 'string' && command.prefix.trim() ? command.prefix.trim() : 'TEST').slice(0,20);
+    const match = prefix.toUpperCase();
+    const doomed = next.orders.filter(o => o.propertyId === propertyId && String(o.guest||'').toUpperCase().startsWith(match));
+    if (!doomed.length) reject('nothing_to_purge');
+    const gone = new Set(doomed.map(o => o.id));
+    next.orders = next.orders.filter(o => !gone.has(o.id));
+    // A booking record exists only to hold its stays, so one left with none goes too.
+    next.reservations = (next.reservations||[]).filter(r => r.propertyId !== propertyId || r.stayIds.some(id => !gone.has(id)));
+  }
   // Nights already closed by a night audit cannot be rewritten without an explicit override.
   // Authorization for that override is enforced by the shared service, never by the browser.
   // A closed night freezes the revenue it earned: rewriting or cancelling a stay can
@@ -349,7 +364,7 @@ export function apply(state, command) {
     const block = next.blocks.find(b => b.id === command.blockId && b.propertyId === propertyId);
     if (!block) reject('scope');
     next.blocks = next.blocks.filter(b => b !== block);
-  } else reject('input');
+  } else if (type !== 'purge_test_orders') reject('input');
   preview(next, propertyId);
   const movedTo = next.orders.find(o => o.id === (order?.id || command.id)) || null;
   next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, orderId: order?.id || null, resourceId: resource?.id || null, resourceIds: command.resourceIds, cleaning:command.cleaning, actor: command.actor || 'local',

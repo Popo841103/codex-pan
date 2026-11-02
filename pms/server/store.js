@@ -22,7 +22,7 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save'],
+  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save','purge_test_orders'],
   operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover'],
   finance: ['settle','payment'], viewer: []
 };
@@ -495,7 +495,12 @@ export class Store {
       const catalogEntity = body => cmd.type==='room_type_save' ? body.roomTypes.find(t=>t.id===(cmd.roomTypeId||cmd.id)) :
         cmd.type==='physical_room_save' ? body.physicalRooms.find(r=>r.id===(cmd.physicalRoomId||`${cmd.id}-space`)) :
         body.resources.find(r=>r.id===(cmd.resourceId||cmd.id));
-      const summary={...(cmd.type==='create_reservation'?{reservationId:cmd.id,stayIds:next.reservations.find(r=>r.id===cmd.id).stayIds}:{}),orderId:cmd.type==='create'?cmd.id:cmd.orderId||null,
+      const summary={...(cmd.type==='create_reservation'?{reservationId:cmd.id,stayIds:next.reservations.find(r=>r.id===cmd.id).stayIds}:{}),
+        // A purge is destructive, so the audit keeps what was removed: which stays, whose
+        // names, which nights and what state they were in. The orders themselves are gone.
+        ...(cmd.type==='purge_test_orders'?{purged:before.orders.filter(o=>!next.orders.some(n=>n.id===o.id))
+          .map(o=>({id:o.id,guest:o.guest,start:o.start,end:o.end,status:o.status,reservationId:o.reservationId||null})),
+          prefix:typeof cmd.prefix==='string'?cmd.prefix:null}:{}),orderId:cmd.type==='create'?cmd.id:cmd.orderId||null,
         ...(stayTypes.includes(cmd.type)?{stayChange:{before:staySnapshot(before,cmd.orderId),after:staySnapshot(next,cmd.orderId),reason:typeof cmd.reason==='string'?cmd.reason.trim():null}}:{}),
         ...(cmd.type==='create'?{stayChange:{before:null,after:staySnapshot(next,cmd.id),reason:null}}:{}),resourceId:cmd.resourceId||null,
         ...(cmd.roomTypeId?{roomTypeId:cmd.roomTypeId}:{}),
