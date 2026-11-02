@@ -6,7 +6,7 @@ import {countryOptions,languageOptions} from './guest-locales.js';
 import {financialPage,financialWords,renderFolioHistory,comparisonPage,managerReportPage,guestLedgerPage,roomChargePage,roomBusinessPage,roomMovementPage,extraChargePage,cancellationPenaltyPage,roomOccupantPage,registrationRecordPage,commissionPage} from './financial-ui.js';
 import {filterOrders,orderTabs} from '../src/order-filters.js';
 import {settlementStatus,columns,columnsWords,defaultColumns,loadColumns,saveColumns,columnLabel,renderOrderTable} from './order-columns.js';
-import {icon,shellWords,navigation,customersPage,channelsPage,nightAuditWords,nightAuditPage,handoverWindow,teamAccessPage,teamWords} from './workspace-ui.js';
+import {icon,shellWords,navigation,customersPage,channelsPage,nightAuditWords,nightAuditPage,handoverWindow,teamAccessPage,teamWords,propertySitePage,siteWords} from './workspace-ui.js';
 import {checkinWords,createCheckinAdmin} from './checkin-admin-ui.js';
 import {communicationWords,createCommunications} from './communication-ui.js';
 import { isBoxed, blockType, inventoryState } from '../src/inventory-actions.js';
@@ -139,6 +139,7 @@ function render() {
   else if(view==='channels') { $('#content').innerHTML=channelsPage(t,escape,channelProperty===propertyId?channelProvider:null,can)+`<button data-rates-open>${rateLabel('房价管理','Rate management','Pengurusan kadar')}</button>`; }
   else if(view==='resourcesSettings') { $('#content').innerHTML=catalogPage(state,propertyId,lang,t,can); }
   else if(view==='teamAccess') { $('#content').innerHTML=teamAccessPage({members:state.members||[],memberAudit:state.memberAudit||[],properties:state.properties,propertyId,user:backend.user,can,t,escape}); }
+  else if(view==='propertySite') { $('#content').innerHTML=propertySitePage({sites:state.sites||[],siteAudit:state.siteAudit||[],roomTypes:state.roomTypes,ratePlans:state.ratePlans,propertyId,can,t,escape}); }
   else if(view==='rates'){const from=ratePageDates.get(propertyId)||businessDate();$('#content').innerHTML='<section class="panel"><p>'+rateLabel('可售量按每日及房型独立计算，整套与床位不能相加；跨日连续库存以提交校验为准。','Availability is per day and type; suites and beds cannot be added together. Continuous stays are validated on submission.','Ketersediaan mengikut hari dan jenis; suite dan katil tidak boleh dijumlah. Penginapan berterusan disemak semasa hantar.')+'</p><div class="panel-head"><h2>'+t('rateInventory')+'</h2><button data-rates-open>'+rateLabel('批量更新与计划管理','Bulk updates and plans','Kemas kini pukal dan pelan')+'</button></div><label>'+rateLabel('日历开始日期','Calendar start','Tarikh mula kalendar')+'<input id="rate-page-date" type="date" value="'+escape(from)+'" required></label>'+rateCalendar(state,{propertyId,start:from,currency,t,availability:(id,day)=>rateAvailability(state,propertyId,id,day,businessDate())})+'</section>';}
   else if(view==='calendar') { $('#content').innerHTML = calendar(resources,orders,plan,calendarDate); } else if(view==='overview' || view==='tasks') {
     $('#content').innerHTML = (view==='overview'?stats:'') + ['room','bed','suite'].map(product=>`<section class="panel"><div class="panel-head"><h2>${t(product==='room'?'rooms':product==='bed'?'beds':'suite')}</h2><span class="muted">${resources.filter(r=>r.productId===product).length} ${t(product)}</span></div><div class="grid">${resources.filter(r=>r.productId===product).map(r=>{
@@ -485,6 +486,24 @@ $('#content').addEventListener('submit',async event=>{
   try{await commit({type:'member_save',username:String(data.get('username')||'').trim(),password:String(data.get('password')||''),role:String(data.get('role')||''),propertyIds});render();}
   catch(error){$('#message').textContent=errorText(error);}
 });
+$('#content').addEventListener('submit',async event=>{
+  if(event.target.id!=='site-form')return;
+  event.preventDefault();
+  const form=event.target;
+  // Three languages are collected per field, so a missing language is stored as an
+  // empty string rather than silently reusing another language.
+  const texts={};
+  for(const input of form.querySelectorAll('[data-site-text]')){
+    const name=input.dataset.siteText;
+    (texts[name]??={})[input.dataset.siteLang]=input.value.trim();
+  }
+  try{
+    await commit({type:'site_save',slug:form.elements.slug.value.trim()||null,enabled:form.elements.enabled.value==='true',
+      ...texts,roomTypeIds:[...form.elements.roomTypes.selectedOptions].map(o=>o.value),
+      planCodes:[...form.elements.plans.selectedOptions].map(o=>o.value)});
+    render();
+  }catch(error){$('#message').textContent=errorText(error);}
+});
 $('#content').addEventListener('click',async event=>{
   const button=event.target.closest('[data-member-apply]');if(!button)return;
   const username=button.dataset.memberApply;
@@ -529,7 +548,7 @@ const composer=createComposer({getState:()=>state,getProperty:()=>propertyId,get
 communications=createCommunications({backend,getProperty:()=>propertyId,getState:()=>state,getLanguage:()=>lang,getContext:()=>view,can,t,openUtility,closeUtility:()=>$('#utility-dialog').close(),errorText});
 selfCheckinUI=createCheckinAdmin({backend,getProperty:()=>propertyId,getState:()=>state,can,t,openUtility,closeUtility:()=>$('#utility-dialog').close(),errorText,toMinor});
 $('#technical-support').onclick=()=>{if(!selfCheckinUI.leave())return;communications.openSupport();};$('#guest-messages').onclick=()=>{if(!selfCheckinUI.leave())return;communications.openMessages();};$('#help-center').onclick=()=>{if(!selfCheckinUI.leave())return;communications.openHelp();};$('#self-checkin').onclick=()=>{if(leaveDialogs())selfCheckinUI.open();};
-for(const language of Object.keys(words))Object.assign(words[language],shellWords[language],teamWords[language]);
+for(const language of Object.keys(words))Object.assign(words[language],shellWords[language],teamWords[language],siteWords[language]);
 Object.assign(words.zh,{calendar:'日历',orders:'住宿订单',overview:'房情表',new:'新增订单',guest:'姓名',details:'详细信息',source:'渠道',guestLanguage:'偏好语言',channelOrderId:'渠道订单号',notes:'备注',propertySummary:'房情表',singleDay:'单日',businessSummary:'房费总览',memo:'备忘录',created:'今日新办',exceptions:'异常订单',pending:'待处理退款',print:'打印'});
 
 function openOrderColumns(){

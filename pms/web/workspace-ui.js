@@ -5,10 +5,10 @@ const paths={home:'M3 11 12 3l9 8v10h-6v-7H9v7H3Z',calendar:'M4 5h16v16H4ZM7 2v6
 export const icon=name=>`<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.summary}"/></svg>`;
 export const shellWords={zh:{channels:'渠道',customers:'客户',mainOrders:'订单',navCalendar:'日历',navSummary:'房情表',navOverview:'房态表',collapseNavigation:'收起导航',expandNavigation:'展开导航',batchCleaning:'批量置脏/净',batchRoomState:'批量开/关房',today:'今天',todayShort:'今',customerDirectory:'住客资料',customerDirectoryNote:'来自本店现有订单的联系人记录；尚无独立CRM合并和去重审核。',relatedOrders:'关联订单',notConnected:'未连接',readConnection:'刷新连接状态',connectionUnknown:'连接状态尚未读取',channelScope:'渠道连接与消息',channelScopeNote:'NOBEDS作为付费渠道服务；本页从当前门店安全配置读取连接状态，不代表已经完成供应商联调。',messageCapability:'消息能力',manualSource:'手工订单来源',manualSourceNote:'订单来源标签不表示已连接OTA；其他平台消息能力需供应商确认。',notVerified:'尚未完成真实账号验收',openMessages:'打开OTA客人聊天',filterCustomers:'搜索姓名、邮箱、手机号、订单号',noCustomers:'本店暂无住客联系人',customerCount:'联系人记录',closeGroups:'收起',openGroups:'展开',viewInstructions:'查看说明',nightAuditLabel:'夜审',nightAuditUnavailable:'未启用',collapseGroupNote:'点击展开可恢复房型下的全部房号。'},en:{channels:'Channels',customers:'Guests',mainOrders:'Orders',navCalendar:'Calendar',navSummary:'Room summary',navOverview:'Room status',collapseNavigation:'Collapse navigation',expandNavigation:'Expand navigation',batchCleaning:'Bulk dirty / clean',batchRoomState:'Bulk open / close',today:'Today',todayShort:'Now',customerDirectory:'Guest contacts',customerDirectoryNote:'Contacts from existing property bookings; independent CRM merge and deduplication review are not implemented.',relatedOrders:'Related bookings',notConnected:'Not connected',readConnection:'Refresh connection',connectionUnknown:'Connection not read yet',channelScope:'Channel connection and messages',channelScopeNote:'NOBEDS is the paid channel service. Status comes from this property’s private configuration and does not establish a tested integration.',messageCapability:'Messaging capability',manualSource:'Manual booking source',manualSourceNote:'A source label does not connect an OTA. Other platform messaging needs supplier confirmation.',notVerified:'Live account verification incomplete',openMessages:'Open OTA guest inbox',filterCustomers:'Search name, email, phone or booking',noCustomers:'No guest contacts in this property',customerCount:'Contact records',closeGroups:'Collapse',openGroups:'Expand',viewInstructions:'View notes',nightAuditLabel:'Night audit',nightAuditUnavailable:'Not enabled',collapseGroupNote:'Expand to restore all unit rows.'},ms:{channels:'Saluran',customers:'Tetamu',mainOrders:'Pesanan',navCalendar:'Kalendar',navSummary:'Ringkasan bilik',navOverview:'Status bilik',collapseNavigation:'Tutup navigasi',expandNavigation:'Buka navigasi',batchCleaning:'Kotor / bersih pukal',batchRoomState:'Buka / tutup pukal',today:'Hari ini',todayShort:'Kini',customerDirectory:'Kenalan tetamu',customerDirectoryNote:'Kenalan daripada tempahan hartanah. Penggabungan CRM dan semakan pendua belum tersedia.',relatedOrders:'Tempahan berkaitan',notConnected:'Belum disambung',readConnection:'Muat semula sambungan',connectionUnknown:'Status belum dibaca',channelScope:'Sambungan dan mesej saluran',channelScopeNote:'NOBEDS ialah perkhidmatan saluran berbayar. Status konfigurasi bukan bukti integrasi sebenar telah diuji.',messageCapability:'Keupayaan mesej',manualSource:'Sumber manual',manualSourceNote:'Label sumber bukan sambungan OTA. Mesej platform lain perlu pengesahan pembekal.',notVerified:'Akaun sebenar belum disahkan',openMessages:'Buka peti masuk OTA',filterCustomers:'Cari nama, e-mel, telefon atau tempahan',noCustomers:'Tiada kenalan tetamu',customerCount:'Rekod kenalan',closeGroups:'Tutup',openGroups:'Buka',viewInstructions:'Lihat nota',nightAuditLabel:'Audit malam',nightAuditUnavailable:'Belum aktif',collapseGroupNote:'Buka untuk lihat semua unit.'}};
 export function navigation(view,t){
- const group=['calendar','overview','tasks','rates'].includes(view)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(view)?'stats':['resourcesSettings','teamAccess'].includes(view)?'settings':view;
+ const group=['calendar','overview','tasks','rates'].includes(view)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(view)?'stats':['resourcesSettings','teamAccess','propertySite'].includes(view)?'settings':view;
  const mains=[['home','home','home'],['calendar','roomState','home'],['channels','channels','channels'],['orders','mainOrders','orders'],['customers','customers','customers'],['business','operationalReports','stats'],['resourcesSettings','settings','settings']];
- const section=v=>['calendar','overview','tasks','rates'].includes(v)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(v)?'stats':['resourcesSettings','teamAccess'].includes(v)?'settings':v;
- const side={rooms:[['calendar','navCalendar','home'],['rates','rateInventory','cash'],['overview','navSummary','summary'],['tasks','tasks','clean']],orders:[['orders','orders','orders'],['audit','audit','audit']],stats:[['managerDaily','managerDailyReport','stats'],['guestLedger','guestLedger','cash'],['roomCharge','roomChargeDetail','stats'],['roomBusiness','roomBusinessSummary','stats'],['roomMovement','roomMovementLog','audit'],['extraCharge','otherChargeDetail','cash'],['cancellation','cancellationPenaltyDetail','pig'],['occupants','roomOccupantDetail','single'],['registration','registrationRecord','audit'],['commission','commissionDetail','cash'],['comparison','comparison','summary'],['business','businessSummary','stats'],['cashflow','cashflowSummary','cash'],['nightAudit','nightAudit','audit']],settings:[['resourcesSettings','resourcesSettings','settings'],['teamAccess','teamAccess','lock']],channels:[['channels','channels','channels']],customers:[['customers','customerDirectory','customers']]}[group]||[];
+ const section=v=>['calendar','overview','tasks','rates'].includes(v)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(v)?'stats':['resourcesSettings','teamAccess','propertySite'].includes(v)?'settings':v;
+ const side={rooms:[['calendar','navCalendar','home'],['rates','rateInventory','cash'],['overview','navSummary','summary'],['tasks','tasks','clean']],orders:[['orders','orders','orders'],['audit','audit','audit']],stats:[['managerDaily','managerDailyReport','stats'],['guestLedger','guestLedger','cash'],['roomCharge','roomChargeDetail','stats'],['roomBusiness','roomBusinessSummary','stats'],['roomMovement','roomMovementLog','audit'],['extraCharge','otherChargeDetail','cash'],['cancellation','cancellationPenaltyDetail','pig'],['occupants','roomOccupantDetail','single'],['registration','registrationRecord','audit'],['commission','commissionDetail','cash'],['comparison','comparison','summary'],['business','businessSummary','stats'],['cashflow','cashflowSummary','cash'],['nightAudit','nightAudit','audit']],settings:[['resourcesSettings','resourcesSettings','settings'],['teamAccess','teamAccess','lock'],['propertySite','propertySite','globe']],channels:[['channels','channels','channels']],customers:[['customers','customerDirectory','customers']]}[group]||[];
  const buttons=items=>items.map(([id,key,name])=>`<button data-view="${id}" class="${section(id)===group&&items===mains||id===view?'active':''}" ${id===view?'aria-current="page"':''}>${items===mains?'':icon(name)}<span>${t(key)}</span></button>`).join('');
  return {main:buttons(mains),side:buttons(side)};
 }
@@ -214,4 +214,76 @@ export const teamWords={
   roleDesc_viewer:'Baca sahaja. Tidak boleh menulis sebarang data perniagaan.',
   member_input:'Semak akaun, panjang kata laluan, peranan dan skop hartanah.',member_scope:'Anda hanya boleh mengurus ahli yang berkongsi hartanah dengan anda, dalam hartanah yang boleh anda capai.',
   member_self:'Akses sendiri tidak boleh diubah di sini.',member_last_admin:'Sekurang-kurangnya seorang pentadbir aktif mesti kekal.',password_length:'Kata laluan perlu sekurang-kurangnya 12 aksara.'}
+};
+
+// Property site. The page publishes a read-only public page for one property. It
+// never claims a booking was taken: no payment is connected and nothing is emailed,
+// so the site shows room types and availability and leaves the booking to a person.
+export function propertySitePage({sites=[],siteAudit=[],roomTypes=[],ratePlans=[],propertyId,propertyName='',can,t,escape}) {
+ const esc=escape||(v=>String(v??''));
+ const editable=can('site_save');
+ const site=sites.find(s=>s.propertyId===propertyId)||null;
+ const languages=[['zh','langZh'],['en','langEn'],['ms','langMs']];
+ const textField=(name,label,max)=>`<label class="site-text">${esc(t(label))}<span class="muted">${esc(t(name+'Hint'))}</span>${
+   languages.map(([lang])=>`<input data-site-text="${esc(name)}" data-site-lang="${lang}" maxlength="${max}"
+     placeholder="${esc(lang.toUpperCase())}" value="${esc(site?.[name]?.[lang]||'')}" ${editable?'':'disabled'}>`).join('')}</label>`;
+ const typeOptions=roomTypes.filter(r=>!r.archived).map(r=>`<option value="${esc(r.id)}" ${(site?.roomTypeIds||[]).includes(r.id)?'selected':''} ${
+   (site?.roomTypeIds||[]).includes(r.id)?'':'data-off'}>${esc(r.names?.[Object.keys(r.names||{})[0]]||r.id)}</option>`).join('');
+ const planOptions=ratePlans.filter(p=>!p.archived).map(p=>`<option value="${esc(p.code)}" ${(site?.planCodes||[]).includes(p.code)?'selected':''}>${
+   esc(typeof p.name==='string'?p.name:p.code)}</option>`).join('');
+ const url=site?.slug?`${typeof location==='undefined'?'':location.origin}/sites/${esc(site.slug)}`:'';
+ const form=`<form id="site-form" class="order-filters">
+  <label>${esc(t('siteSlug'))}<input name="slug" value="${esc(site?.slug||'')}" pattern="[a-z0-9][a-z0-9-]{0,46}[a-z0-9]"
+    placeholder="kl-bukit-bintang" ${editable?'':'disabled'}></label>
+  <label>${esc(t('siteEnabled'))}<select name="enabled" ${editable?'':'disabled'}>
+   <option value="false" ${site?.enabled?'':'selected'}>${esc(t('siteDraft'))}</option>
+   <option value="true" ${site?.enabled?'selected':''}>${esc(t('sitePublished'))}</option></select></label>
+  ${textField('title','siteTitle',120)}${textField('description','siteDescription',2000)}
+  ${textField('contact','siteContact',500)}${textField('bookingNote','siteBookingNote',500)}
+  <label>${esc(t('siteRoomTypes'))}<select name="roomTypes" multiple ${editable?'':'disabled'}>${typeOptions}</select></label>
+  <label>${esc(t('sitePlans'))}<select name="plans" multiple ${editable?'':'disabled'}>${planOptions}</select></label>
+  ${editable?`<button class="primary">${esc(t('save'))}</button>`:''}
+ </form>`;
+ const audit=siteAudit.length?`<h3>${esc(t('siteAuditTitle'))}</h3><div class="table-wrap"><table><thead><tr>${['time','createdBy','slug','siteState'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${
+   siteAudit.map(a=>`<tr><td>${esc(a.at)}</td><td>${esc(a.actor)}</td><td>${esc(a.slug||'—')}</td><td>${
+     esc(t(a.enabled?'sitePublished':'siteDraft'))}</td></tr>`).join('')}</tbody></table></div>`:'';
+ return `<section class="panel"><div class="panel-head"><h2>${esc(t('propertySite'))}</h2></div>
+  <p class="muted">${esc(t('siteNote'))}</p>
+  ${site?.slug?`<p>${esc(t('siteUrl'))} <a href="/sites/${esc(site.slug)}" target="_blank" rel="noopener">${esc(url)}</a>${
+    site.enabled?'':` <strong>${esc(t('siteNotLive'))}</strong>`}</p>`:`<p class="muted">${esc(t('siteNoSlug'))}</p>`}
+  ${editable?'':`<p class="muted">${esc(t('siteReadOnly'))}</p>`}
+  ${form}${audit}</section>`;
+}
+
+export const siteWords={
+ zh:{propertySite:'\u95e8\u5e97\u7f51\u7ad9',siteNote:'\u53d1\u5e03\u540e\u4f1a\u751f\u6210\u4e00\u4e2a\u516c\u5f00\u53ea\u8bfb\u9875\u9762\uff0c\u5c55\u793a\u623f\u578b\u4e0e\u53ef\u8ba2\u60c5\u51b5\u3002\u7cfb\u7edf\u672a\u63a5\u5165\u5728\u7ebf\u652f\u4ed8\uff0c\u4e5f\u4e0d\u4f1a\u81ea\u52a8\u53d1\u4fe1\uff0c\u6240\u4ee5\u9875\u9762\u4e0d\u63a5\u53d7\u5728\u7ebf\u4e0b\u5355\uff0c\u9884\u8ba2\u4ecd\u9700\u4eba\u5de5\u8054\u7cfb\u786e\u8ba4\u3002',
+  siteSlug:'\u7f51\u5740\u6807\u8bc6\uff08\u5c0f\u5199\u5b57\u6bcd\u3001\u6570\u5b57\u4e0e\u8fde\u5b57\u7b26\uff09',siteEnabled:'\u53d1\u5e03\u72b6\u6001',siteDraft:'\u8349\u7a3f',sitePublished:'\u5df2\u53d1\u5e03',
+  siteTitle:'\u7ad9\u70b9\u6807\u9898',titleHint:'\u4e09\u79cd\u8bed\u8a00\u5404\u586b\u4e00\u884c',siteDescription:'\u7b80\u4ecb',descriptionHint:'\u5c55\u793a\u5728\u9875\u9762\u9876\u90e8',
+  siteContact:'\u8054\u7cfb\u65b9\u5f0f',contactHint:'\u7535\u8bdd\u3001\u90ae\u7bb1\u6216\u5176\u4ed6\u8054\u7cfb\u65b9\u5f0f',siteBookingNote:'\u9884\u8ba2\u8bf4\u660e',bookingNoteHint:'\u544a\u8bc9\u5ba2\u4eba\u5982\u4f55\u5b8c\u6210\u9884\u8ba2',
+  siteRoomTypes:'\u5bf9\u5916\u5c55\u793a\u7684\u623f\u578b\uff08\u4e0d\u9009\u5219\u5c55\u793a\u5168\u90e8\uff09',sitePlans:'\u5bf9\u5916\u516c\u5f00\u7684\u4ef7\u8ba1\u5212\uff08\u4e0d\u9009\u5219\u4e0d\u663e\u793a\u4ef7\u683c\uff09',
+  siteUrl:'\u516c\u5f00\u5730\u5740',siteNoSlug:'\u5c1a\u672a\u8bbe\u7f6e\u7f51\u5740\u6807\u8bc6\uff0c\u9875\u9762\u8fd8\u4e0d\u4f1a\u5bf9\u5916\u5f00\u653e\u3002',siteNotLive:'\u5f53\u524d\u4e3a\u8349\u7a3f\uff0c\u5916\u90e8\u65e0\u6cd5\u8bbf\u95ee\u3002',
+  siteReadOnly:'\u53ea\u6709\u672c\u95e8\u5e97\u7684\u7ba1\u7406\u5458\u53ef\u4ee5\u53d1\u5e03\u7f51\u7ad9\u3002',siteAuditTitle:'\u6700\u8fd1\u53d1\u5e03\u8bb0\u5f55',
+  langZh:'\u4e2d\u6587',langEn:'English',langMs:'Bahasa Melayu',slug:'\u7f51\u5740\u6807\u8bc6',
+  site_slug:'\u7f51\u5740\u6807\u8bc6\u53ea\u80fd\u4f7f\u7528\u5c0f\u5199\u5b57\u6bcd\u3001\u6570\u5b57\u4e0e\u8fde\u5b57\u7b26\uff0c\u4e14\u4e0d\u80fd\u4e0e\u5176\u4ed6\u95e8\u5e97\u91cd\u590d\u3002',
+  site_input:'\u8bf7\u68c0\u67e5\u6240\u9009\u7684\u623f\u578b\u4e0e\u4ef7\u8ba1\u5212\u662f\u5426\u5c5e\u4e8e\u672c\u95e8\u5e97\u3002'},
+ en:{propertySite:'Property site',siteNote:'Publishing creates a public read-only page showing room types and availability. No online payment is connected and nothing is sent automatically, so the site takes no booking: a reservation still has to be confirmed by a person.',
+  siteSlug:'Address slug (lower-case letters, digits and hyphens)',siteEnabled:'Publication',siteDraft:'Draft',sitePublished:'Published',
+  siteTitle:'Site title',titleHint:'One line per language',siteDescription:'Introduction',descriptionHint:'Shown at the top of the page',
+  siteContact:'Contact details',contactHint:'Phone, email or anything else a guest can reach',siteBookingNote:'Booking note',bookingNoteHint:'Tell guests how to complete a booking',
+  siteRoomTypes:'Room types shown (leave empty to show all)',sitePlans:'Rate plans published (leave empty to show no price)',
+  siteUrl:'Public address',siteNoSlug:'No address slug set yet, so the page is not reachable from outside.',siteNotLive:'Currently a draft, so it cannot be opened from outside.',
+  siteReadOnly:'Only an administrator of this property can publish the site.',siteAuditTitle:'Recent publishing activity',
+  langZh:'Chinese',langEn:'English',langMs:'Malay',slug:'Address slug',
+  site_slug:'The slug may only use lower-case letters, digits and hyphens, and must not be reused by another property.',
+  site_input:'Check that the room types and rate plans you selected belong to this property.'},
+ ms:{propertySite:'Laman hartanah',siteNote:'Penerbitan menghasilkan halaman awam baca sahaja yang memaparkan jenis bilik dan ketersediaan. Tiada pembayaran dalam talian disambungkan dan tiada apa dihantar secara automatik, jadi laman ini tidak mengambil tempahan: tempahan masih perlu disahkan oleh seseorang.',
+  siteSlug:'Slug alamat (huruf kecil, nombor dan sengkang)',siteEnabled:'Penerbitan',siteDraft:'Draf',sitePublished:'Diterbitkan',
+  siteTitle:'Tajuk laman',titleHint:'Satu baris bagi setiap bahasa',siteDescription:'Pengenalan',descriptionHint:'Dipaparkan di bahagian atas halaman',
+  siteContact:'Butiran hubungan',contactHint:'Telefon, e-mel atau apa-apa yang boleh dicapai tetamu',siteBookingNote:'Nota tempahan',bookingNoteHint:'Beritahu tetamu cara melengkapkan tempahan',
+  siteRoomTypes:'Jenis bilik dipaparkan (kosongkan untuk papar semua)',sitePlans:'Pelan kadar diterbitkan (kosongkan untuk tiada harga)',
+  siteUrl:'Alamat awam',siteNoSlug:'Tiada slug alamat ditetapkan, jadi halaman tidak boleh dicapai dari luar.',siteNotLive:'Masih draf, jadi tidak boleh dibuka dari luar.',
+  siteReadOnly:'Hanya pentadbir hartanah ini boleh menerbitkan laman.',siteAuditTitle:'Aktiviti penerbitan terkini',
+  langZh:'Cina',langEn:'Inggeris',langMs:'Melayu',slug:'Slug alamat',
+  site_slug:'Slug hanya boleh menggunakan huruf kecil, nombor dan sengkang, dan tidak boleh digunakan semula oleh hartanah lain.',
+  site_input:'Semak bahawa jenis bilik dan pelan kadar yang dipilih milik hartanah ini.'}
 };

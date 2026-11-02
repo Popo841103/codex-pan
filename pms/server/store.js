@@ -5,7 +5,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { seed, apply, preview } from '../src/demo-store.js';
 import { InventoryConflict } from '../src/inventory.js';
-import { upgradeCatalog } from '../src/catalog.js';
+import { upgradeCatalog, saleResources } from '../src/catalog.js';
+import { rateAvailability } from '../src/rate-availability.js';
+import { localDay } from '../src/dashboard.js';
 export class ServiceError extends Error {
   constructor(status, code) { super(code); this.status = status; }
 }
@@ -20,7 +22,7 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save'],
+  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save'],
   operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover'],
   finance: ['settle','payment'], viewer: []
 };
@@ -53,6 +55,14 @@ export class Store {
         action TEXT NOT NULL, at TEXT NOT NULL, summary TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS member_audit_no_update BEFORE UPDATE ON member_audit BEGIN SELECT RAISE(ABORT,'member_audit_append_only'); END;
       CREATE TRIGGER IF NOT EXISTS member_audit_no_delete BEFORE DELETE ON member_audit BEGIN SELECT RAISE(ABORT,'member_audit_append_only'); END;
+      -- A published site is public content, so publishing it is recorded like any
+      -- other access change: who published what, and what it replaced.
+      CREATE TABLE IF NOT EXISTS property_sites (property_id TEXT PRIMARY KEY REFERENCES properties(id),
+        slug TEXT UNIQUE, enabled INTEGER NOT NULL DEFAULT 0, body TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL REFERENCES users(id));
+      CREATE TABLE IF NOT EXISTS site_audit (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL REFERENCES users(id), property_id TEXT NOT NULL REFERENCES properties(id),
+        action TEXT NOT NULL, at TEXT NOT NULL, summary TEXT NOT NULL);
+      CREATE TRIGGER IF NOT EXISTS site_audit_no_update BEFORE UPDATE ON site_audit BEGIN SELECT RAISE(ABORT,'site_audit_append_only'); END;
+      CREATE TRIGGER IF NOT EXISTS site_audit_no_delete BEFORE DELETE ON site_audit BEGIN SELECT RAISE(ABORT,'site_audit_append_only'); END;
       CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS receipts (user_id TEXT NOT NULL REFERENCES users(id), request_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
         response TEXT NOT NULL, PRIMARY KEY(user_id,request_key));
@@ -265,6 +275,132 @@ export class Store {
     this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
     return response;
   }
+  // A published property site is public content. It is stored and audited apart from
+  // property state, so publishing never advances a property revision and can never
+  // be mixed into the operational audit a night audit or a handover reads.
+  siteText(value,max){
+    const out={};
+    for(const language of ['zh','en','ms']){
+      const raw=value&&typeof value[language]==='string'?value[language]:'';
+      out[language]=raw.replace(/\s+/g,' ').trim().slice(0,max);
+    }
+    return out;
+  }
+  saveSite(actor,command,key,fingerprint){
+    const propertyId=command.propertyId;
+    // Publishing is administrator-only within the property itself. A property-level
+    // admin override does not reach here, because what is published is public.
+    if(actor.role!=='admin'||!this.db.prepare('SELECT 1 FROM user_properties WHERE user_id=? AND property_id=?').get(actor.id,propertyId))error(403,'forbidden');
+    const slug=command.slug===undefined?null:command.slug;
+    if(slug!==null&&(typeof slug!=='string'||!/^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/.test(slug)))error(400,'site_slug');
+    const enabled=command.enabled===true;
+    if(enabled&&!slug)error(400,'site_slug');
+    if(slug){const clash=this.db.prepare('SELECT property_id FROM property_sites WHERE slug=? AND property_id<>?').get(slug,propertyId);if(clash)error(409,'site_slug_taken');}
+    const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(propertyId);
+    if(!row)error(404,'not_found');
+    const body=upgradeCatalog(JSON.parse(row.body));
+    // Only this property's own live room types and rate plans can be published, so a
+    // site can never advertise a type or a plan from somewhere else.
+    const ids=command.roomTypeIds,codes=command.planCodes;
+    if(ids!==undefined&&ids!==null){if(!Array.isArray(ids)||new Set(ids).size!==ids.length)error(400,'site_input');
+      for(const id of ids)if(!body.roomTypes.some(t=>t.id===id&&!t.archived))error(400,'site_input');}
+    if(codes!==undefined&&codes!==null){if(!Array.isArray(codes)||new Set(codes).size!==codes.length)error(400,'site_input');
+      for(const code of codes)if(!(body.ratePlans||[]).some(p=>p.code===code&&!p.archived))error(400,'site_input');}
+    const before=this.db.prepare('SELECT * FROM property_sites WHERE property_id=?').get(propertyId);
+    const previous=before?{...JSON.parse(before.body),enabled:!!before.enabled,slug:before.slug}:null;
+    const blank={zh:'',en:'',ms:''};
+    const keep=(value,fallback,max)=>value===undefined||value===null?fallback:this.siteText(value,max);
+    const next={title:keep(command.title,previous?.title??blank,120),description:keep(command.description,previous?.description??blank,2000),
+      contact:keep(command.contact,previous?.contact??blank,500),bookingNote:keep(command.bookingNote,previous?.bookingNote??blank,500),
+      roomTypeIds:ids??previous?.roomTypeIds??[],planCodes:codes??previous?.planCodes??[]};
+    const at=new Date().toISOString(),id=randomUUID();
+    this.db.prepare(`INSERT INTO property_sites VALUES(?,?,?,?,?,?) ON CONFLICT(property_id) DO UPDATE SET
+      slug=excluded.slug,enabled=excluded.enabled,body=excluded.body,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
+      .run(propertyId,slug??before?.slug??null,enabled?1:0,JSON.stringify(next),at,actor.id);
+    this.db.prepare('INSERT INTO site_audit VALUES(?,?,?,?,?,?)').run(id,actor.id,propertyId,'site_save',at,
+      JSON.stringify({slug:slug??before?.slug??null,enabled,previous,next}));
+    const response={id,propertyId,slug:slug??before?.slug??null,enabled};
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    return response;
+  }
+  visibleSites(user){
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    return this.db.prepare('SELECT * FROM property_sites').all()
+      .filter(row=>scope.includes(row.property_id))
+      .map(row=>({propertyId:row.property_id,slug:row.slug,enabled:!!row.enabled,updatedAt:row.updated_at,
+        ...JSON.parse(row.body)}));
+  }
+  visibleSiteAudit(user){
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    // Two entries written in the same millisecond must still come back in the order
+    // they happened, so the newest change is never shown as an older one.
+    return this.db.prepare(`SELECT s.*,u.username actor FROM site_audit s JOIN users u ON u.id=s.actor_id ORDER BY s.at DESC, s.rowid DESC LIMIT 200`).all()
+      .filter(row=>scope.includes(row.property_id))
+      .map(row=>{const summary=JSON.parse(row.summary);return {id:row.id,at:row.at,actor:row.actor,propertyId:row.property_id,
+        slug:summary.slug,enabled:!!summary.enabled,previous:summary.previous,next:summary.next};});
+  }
+  // Everything below is public: it answers without a session, and only for a site
+  // that has actually been published.
+  publicSite(slug){
+    if(typeof slug!=='string'||!/^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/.test(slug))error(404,'not_found');
+    const row=this.db.prepare('SELECT * FROM property_sites WHERE slug=? AND enabled=1').get(slug);
+    if(!row)error(404,'not_found');
+    const property=this.db.prepare('SELECT * FROM properties WHERE id=?').get(row.property_id);
+    if(!property)error(404,'not_found');
+    const body=upgradeCatalog(JSON.parse(property.body)),site=JSON.parse(row.body);
+    const types=body.roomTypes.filter(t=>!t.archived&&t.propertyId===row.property_id&&(!site.roomTypeIds.length||site.roomTypeIds.includes(t.id)));
+    return {propertyId:row.property_id,slug,enabled:true,updatedAt:row.updated_at,
+      propertyName:body.properties.find(p=>p.id===row.property_id)?.name||row.property_id,
+      title:site.title,description:site.description,contact:site.contact,bookingNote:site.bookingNote,planCodes:site.planCodes,
+      roomTypes:types.map(type=>({id:type.id,names:type.names||{},productId:type.productId,gender:type.gender||'any',
+        maxGuests:type.maxGuests||1,
+        units:saleResources(body,row.property_id).filter(r=>r.roomTypeId===type.id).length}))};
+  }
+  // Availability is read from the same inventory the front desk sells from, and a
+  // price is only ever reported when a published rate plan actually has one.
+  publicAvailability({slug,from,to,guests}={}){
+    const site=this.publicSite(slug);
+    const valid=day=>typeof day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isFinite(Date.parse(day+'T00:00:00Z'))&&
+      new Date(day+'T00:00:00Z').toISOString().slice(0,10)===day;
+    if(!valid(from)||!valid(to)||to<=from||(Date.parse(to)-Date.parse(from))/86400000>31)error(400,'date_range');
+    const count=Number(guests);if(!Number.isSafeInteger(count)||count<1||count>20)error(400,'guest_count');
+    const property=this.db.prepare('SELECT * FROM properties WHERE id=?').get(site.propertyId);
+    const body=upgradeCatalog(JSON.parse(property.body));
+    const businessDate=body.businessDate||localDay(new Date());
+    const nights=[];for(let day=from;day<to;day=new Date(Date.parse(day+'T00:00:00Z')+86400000).toISOString().slice(0,10))nights.push(day);
+    const plans=(body.ratePlans||[]).filter(p=>!p.archived&&site.planCodes.includes(p.code));
+    const nightlyPrice=(roomTypeId,day)=>{
+      let lowest=null;
+      for(const plan of plans){
+        if(!plan.roomTypeIds.includes(roomTypeId))continue;
+        const cell=(body.rateCells||[]).find(c=>c.propertyId===site.propertyId&&c.planCode===plan.code&&c.roomTypeId===roomTypeId&&c.date===day);
+        if(!cell||cell.sale==='closed'||!Number.isSafeInteger(cell.amount)||cell.amount<0)continue;
+        if(lowest===null||cell.amount<lowest)lowest=cell.amount;
+      }
+      return lowest;
+    };
+    const roomTypes=site.roomTypes.map(type=>{
+      let available=null,error_=null;
+      try{
+        for(const day of nights){
+          const free=rateAvailability(body,site.propertyId,type.id,day,businessDate);
+          available=available===null?free:Math.min(available,free);
+        }
+      }catch(e){error_='availability_unavailable';}
+      const prices=nights.map(day=>nightlyPrice(type.id,day));
+      const priced=prices.every(p=>p!==null);
+      return {id:type.id,names:type.names,productId:type.productId,maxGuests:type.maxGuests,units:type.units,
+        available:error_?null:available,unknown:!!error_,
+        fitsGuests:type.maxGuests>=count,
+        nightlyFrom:(priced&&prices.length)?Math.min(...prices):null,
+        total:(priced&&prices.length)?prices.reduce((n,p)=>n+p,0):null,
+        nights:nights.length};
+    });
+    return {...site,nights:nights.length,from,to,guests:count,businessDate,
+      // A price is only trustworthy when every night of the stay actually has one.
+      priceKnown:roomTypes.some(t=>t.total!==null),
+      roomTypes};
+  }
   session(token) {
     if(typeof token!=='string'||!/^[a-f0-9]{64}$/.test(token))error(401,'login_required');
     const row=this.db.prepare(`SELECT u.*,s.csrf FROM sessions s JOIN users u ON u.id=s.user_id WHERE token_hash=? AND expires>? AND u.active=1`).get(hash(token),Date.now());
@@ -281,7 +417,7 @@ export class Store {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
     const ids=this.publicUser(fresh).propertyIds;
-    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[]};
+    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[]};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
@@ -297,6 +433,8 @@ export class Store {
         id:a.id,propertyId:a.property_id,type:a.action,at:a.at,actor:a.actor,revision:a.revision,...JSON.parse(a.summary) }));
     result.members=this.visibleMembers(fresh);
     result.memberAudit=this.visibleMemberAudit(fresh);
+    result.sites=this.visibleSites(fresh);
+    result.siteAudit=this.visibleSiteAudit(fresh);
     return result;
   }
   command(user,{key,expectedRevision,command},{beforeApply}={}) {
@@ -317,6 +455,8 @@ export class Store {
       // Team access is not a property business command: it writes the user tables and
       // is answered here instead of being folded into a property revision.
       if(command.type==='member_save')return this.saveMember(rowUser,command,key,fingerprint);
+      // Publishing a property site writes public content, not property state.
+      if(command.type==='site_save')return this.saveSite(rowUser,command,key,fingerprint);
       // A property override decides what this account may do here, not its account role.
       const effectiveRole=this.propertyRole(rowUser,propertyId);
       if(command.type==='create_reservation'&&command.mode==='checkin'&&!roleTypes[effectiveRole].includes('checkin'))error(403,'forbidden');
