@@ -18,11 +18,15 @@ p=Page();p.feed(page)
 assert len(p.ids)==len(set(p.ids)),'Duplicate element IDs'
 assert '#host-event' in p.links
 assert 'https://wa.me/60178497319' in p.links
-assert p.src==['languages.js','today.js','member-config.js','host-event.js']
-for file in p.src:assert (root/file).is_file()
+assert p.src==['languages.js','today.js?v=20261102-close1','member-config.js','host-event.js']
+for file in p.src:assert (root/file.split('?')[0]).is_file()
 assert '步行 5 分钟' in page and '步行 3 分钟' not in page
 js=(root/'today.js').read_text(encoding='utf-8')
 assert '[source=in_venue_screen]' in js
 assert '.insert(' not in js and 'createClient' not in js,'Do not duplicate member API'
 assert (root/'host-event.js').read_text(encoding='utf-8').count("from('cohub_events').insert(event)")==1
 print('PASS: original dialog/scripts, unique IDs, existing API, provenance and five-minute walk')
+
+controller=(root/'host-event.js').read_text(encoding='utf-8')
+for control in set(re.findall(r"\$\('([^']+)'\)",controller)):
+ assert control in p.ids, 'Missing shared controller dependency: '+control
