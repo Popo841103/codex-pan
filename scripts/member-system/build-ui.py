@@ -26,6 +26,12 @@ tree=html.fromstring((R/'community.html').read_bytes());dialog=tree.xpath('//*[@
 for old in list(dialog):
  if 'host-dialog-top' not in old.get('class',''):dialog.remove(old)
 dialog.set('aria-labelledby','member-dialog-title');dialog.xpath('.//h2')[0].set('id','member-dialog-title')
+close=dialog.xpath('.//*[@id="close-host-event"]')[0]
+if close.getparent().tag!='form':
+ close.set('type','submit')
+ wrapper=etree.Element('form',method='dialog',attrib={'class':'member-close-form'})
+ close.addprevious(wrapper);wrapper.append(close)
+
 dialog.append(html.fromstring('<div class="member-content"><p id="member-status" role="status" aria-live="polite"></p>'+form+'</div>'))
 lead=tree.xpath('//section[contains(@class,"community-discovery")]/div')[0];lead.append(html.fromstring(btn('My activities','id="member-open-mine"')))
 section='<section class="section" id="member-events">'+el('h2','Upcoming events')+el('p','Confirmed events will appear here. You can register your interests below.')+'<button type="button" class="button button-secondary" id="member-load-events" data-en="Upcoming events" data-zh="即将举行的活动" data-ms="Aktiviti akan datang">Upcoming events</button><div id="member-public-list"></div></section>'

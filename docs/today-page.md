@@ -29,3 +29,5 @@ redir /live/ /live 308
 
 ## 2026-11-02 修正
 补齐原控制器依赖的 member-open-mine、member-load-events 与 member-public-list，防止初始化提前异常造成关闭按钮无响应。场地免费，发起者可说明并收取活动成本费用；19语同步。
+
+关闭按钮改用原生 form method=dialog，无需等待账号脚本或网络；发起模式隐藏退出登录，账号中心保留真正退出功能。

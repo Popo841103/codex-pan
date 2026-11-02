@@ -35,6 +35,7 @@
   syncDialogCopy();
   $('member-auth-view').hidden=!!user||recovery;
   $('member-session').hidden=!user;
+  $('member-logout').hidden=mode==='host';
   $('member-email-display').textContent=user?.email||'';
   $('member-create-form').hidden=!user||mode!=='host'||recovery;
   $('member-mine-view').hidden=!user||mode!=='mine'||recovery;
