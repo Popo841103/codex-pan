@@ -165,3 +165,119 @@ test('the newest unread comes first',()=>{
   assert.deepEqual(order,['Second Guest','First Guest'],'what is still waiting comes ahead of what was read');
   store.close();
 });
+
+// Standing facts, not events: they are worked out from the property each time, so one
+// that has been dealt with stops appearing instead of lingering as a stale message.
+const withBusinessDate = (store,u,date='2027-06-01',propertyId='TEST-KL') =>
+  send(store,u,{type:'business_date_init',date},propertyId);
+const roomType = (store,propertyId='TEST-KL') => JSON.parse(store.db.prepare('SELECT body FROM properties WHERE id=?').get(propertyId).body)
+  .roomTypes.find(t=>t.productId==='room');
+const book = (store,u,{guest,start,end,mode='reserve'}) => send(store,u,{type:'create_reservation',mode,bookingKind:'individual',
+  companyName:'',source:'direct',autoAssign:false,guest,date:start,
+  stays:[{productId:'room',roomTypeId:roomType(store).id,gender:'any',start,end,adults:1,children:0,infants:0,
+    occupants:[{name:mode==='checkin'?guest:'',gender:'any'}],nightly:10000,
+    nightlyRates:days(start,end).map(date=>({date,amount:10000}))}]});
+function days(from,to){const out=[];for(let d=from;d<to;d=new Date(Date.parse(d+'T00:00:00Z')+86400000).toISOString().slice(0,10))out.push(d);return out;}
+const setBody = (store,change,propertyId='TEST-KL') => {
+  const value=JSON.parse(store.db.prepare('SELECT body FROM properties WHERE id=?').get(propertyId).body);
+  change(value);store.db.prepare('UPDATE properties SET body=? WHERE id=?').run(JSON.stringify(value),propertyId);
+};
+const kinds = (store,u) => store.read({id:u.id}).notifications.map(n=>n.kind);
+
+test('a guest who should have arrived, and one who should have left, are both raised',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  book(store,boss,{guest:'No Show',start:'2027-06-01',end:'2027-06-03'});
+  book(store,boss,{guest:'Overstay',start:'2027-05-30',end:'2027-06-05',mode:'checkin'});
+  setBody(store,value=>{value.orders.find(o=>o.guest==='Overstay').end='2027-06-01';});
+  const list=store.read({id:boss.id}).notifications;
+  assert.ok(kinds(store,boss).includes('no_show'),'the arrival that never arrived is raised');
+  assert.ok(kinds(store,boss).includes('overdue_checkout'),'the departure that never left is raised');
+  const noShow=list.find(n=>n.kind==='no_show');
+  assert.equal(noShow.guest,'No Show');
+  assert.equal(noShow.date,'2027-06-01');
+  assert.ok(noShow.id.startsWith('derived:'),'it is a standing fact, not a stored event');
+  assert.ok(noShow.orderId,'it points at the booking to deal with');
+  store.close();
+});
+
+test('a booking arriving today with no room yet is raised once',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  book(store,boss,{guest:'Unassigned',start:'2027-06-01',end:'2027-06-03'});
+  assert.equal(kinds(store,boss).filter(k=>k==='unassigned_arrival').length,1);
+  // Giving them a room is enough: the notice is a fact, so it stops being true.
+  setBody(store,value=>{value.orders[0].resourceId=value.resources.find(r=>r.productId==='room').id;});
+  assert.equal(kinds(store,boss).includes('unassigned_arrival'),false,'a room was given, so it is no longer standing');
+  store.close();
+});
+
+test('rooms needing cleaning are raised as one notice for the property',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  assert.equal(kinds(store,boss).includes('rooms_to_clean'),false,'nothing is dirty yet');
+  setBody(store,value=>{value.resources.filter(r=>r.productId==='room').slice(0,3).forEach(r=>{r.cleaning='dirty';});});
+  const notice=store.read({id:boss.id}).notifications.find(n=>n.kind==='rooms_to_clean');
+  assert.equal(notice.count,3,'one notice counts them rather than raising three');
+  setBody(store,value=>{value.resources.forEach(r=>{r.cleaning='clean';});});
+  assert.equal(kinds(store,boss).includes('rooms_to_clean'),false,'cleaned, so no longer standing');
+  store.close();
+});
+
+test('a request left waiting more than a day is raised, but not one just sent',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  publish(store,boss);
+  ask(store);
+  assert.equal(kinds(store,boss).includes('request_waiting'),false,'a fresh request is not chased yet');
+  // Two days on with nobody answering it.
+  const row=store.db.prepare("SELECT id FROM booking_requests WHERE status='pending'").get();
+  store.db.prepare('UPDATE booking_requests SET created_at=? WHERE id=?').run(new Date(Date.now()-2*86400000).toISOString(),row.id);
+  const waiting=store.read({id:boss.id}).notifications.find(n=>n.kind==='request_waiting');
+  assert.ok(waiting,'a request nobody answered is raised');
+  assert.equal(waiting.guest,'Tan Mei Ling');
+  assert.ok(waiting.requestId,'it points at the request to decide on');
+  // Deciding it is what makes it stop.
+  send(store,boss,{type:'booking_request_decision',requestId:row.id,decision:'decline',reason:'No rooms left'});
+  assert.equal(kinds(store,boss).includes('request_waiting'),false,'decided, so it is no longer waiting');
+  store.close();
+});
+
+test('a standing notice is told only to whoever can deal with it',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  book(store,boss,{guest:'No Show',start:'2027-06-01',end:'2027-06-03'});
+  setBody(store,value=>{value.resources.find(r=>r.productId==='room').cleaning='dirty';});
+  const watcher=user(store,'viewer');
+  assert.equal(store.read({id:watcher.id}).notifications.length,0,'a viewer can do none of it, so is told none of it');
+  const keeper=user(store,'operations');
+  assert.deepEqual(kinds(store,keeper).sort(),['no_show','rooms_to_clean','unassigned_arrival'],'an operator is told what they can act on');
+  store.close();
+});
+
+test('a standing notice can be read, and a made-up one cannot',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  book(store,boss,{guest:'No Show',start:'2027-06-01',end:'2027-06-03'});
+  const notice=store.read({id:boss.id}).notifications.find(n=>n.kind==='no_show');
+  const before=revision(store);
+  const marked=send(store,boss,{type:'notification_read',notificationId:notice.id});
+  assert.equal(marked.read,1,'a standing fact can be marked read like any other');
+  assert.equal(revision(store),before);
+  assert.ok(store.read({id:boss.id}).notifications.find(n=>n.id===notice.id).readAt);
+  assert.throws(()=>send(store,boss,{type:'notification_read',notificationId:'derived:no_show:INVENTED:2027-06-01'}),
+    e=>e.status===404,'an id nobody is being shown is not readable');
+  store.close();
+});
+
+test('marking a whole property read clears standing notices too',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  book(store,boss,{guest:'No Show',start:'2027-06-01',end:'2027-06-03'});
+  setBody(store,value=>{value.resources.find(r=>r.productId==='room').cleaning='dirty';});
+  assert.equal(store.notificationFeed(store.db.prepare('SELECT * FROM users WHERE id=?').get(boss.id)).unread>=2,true);
+  send(store,boss,{type:'notification_read',all:true});
+  assert.equal(store.notificationFeed(store.db.prepare('SELECT * FROM users WHERE id=?').get(boss.id)).unread,0,
+    'everything waiting in this property is now read');
+  store.close();
+});

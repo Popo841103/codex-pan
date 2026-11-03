@@ -95,6 +95,40 @@ try {
     'and reading left the request for a person to decide');
   assert.equal(store.read({id:admin.id}).orders.length,0,'reading created no booking');
   assert.ok(store.db.prepare('SELECT * FROM notification_reads').all().length>=1,'the read is recorded');
+
+  // Standing facts are notices too: what is still wrong with today, not what happened.
+  const day='2027-06-01';
+  adminCommand({type:'business_date_init',date:day});
+  const room=body().roomTypes.find(t=>t.productId==='room');
+  const nights=[day,'2027-06-02'].map(date=>({date,amount:10000}));
+  adminCommand({type:'create_reservation',mode:'reserve',bookingKind:'individual',companyName:'',source:'direct',
+    autoAssign:false,guest:'Late Arrival',date:day,
+    stays:[{productId:'room',roomTypeId:room.id,gender:'any',start:day,end:'2027-06-03',adults:1,children:0,infants:0,
+      occupants:[{name:'',gender:'any'}],nightly:10000,nightlyRates:nights}]});
+  $('#refresh').click();
+  await until(()=>$('#notifications').dataset.count==='2','a guest due today with no room raises two standing notices');
+  $('#nav [data-view="notifications"]').click();
+  await until(()=>document.body.dataset.view==='notifications','the notices view again');
+  await until(()=>text().includes('Late Arrival'),'the standing notice names the guest');
+  assert.match(text(),/Arrival that never arrived|应入住未入住/,'it says what is still wrong');
+  assert.match(text(),/Arriving today, no room yet|今日到店未分房/,'and that no room has been given');
+
+  // It opens the booking, and still decides nothing.
+  $('#content [data-open-stay]').click();
+  await until(()=>document.querySelector('dialog[open]'),'the booking opens from the notice');
+  assert.match(document.body.textContent,/Late Arrival/,'the booking that was opened is the one named');
+  assert.equal(store.db.prepare('SELECT status FROM booking_requests WHERE slug=?').get(slug).status,'pending',
+    'opening the booking decided nothing either');
+
+  // Reading clears the bell until the facts change.
+  $('#nav [data-view="notifications"]').click();
+  await until(()=>document.body.dataset.view==='notifications','back to the notices');
+  $('#content [data-notice-all]').click();
+  await until(()=>$('#notifications').dataset.count===undefined,'the bell clears once they are read');
+  const orders=JSON.parse(store.db.prepare('SELECT body FROM properties WHERE id=?').get('TEST-KL').body).orders;
+  assert.equal(orders.length,1,'reading created no extra booking');
+  assert.equal(orders[0].status,'confirmed','and left the booking as it was');
+
   console.log('passed: notices tell the desk, and reading one only ever reads it');
 } catch(error){
   console.error(error);process.exitCode=1;

@@ -418,17 +418,32 @@ export function notificationsPage({notifications=[],properties=[],propertyId,can
  const mine=notifications.filter(n=>n.propertyId===propertyId);
  const unread=mine.filter(n=>!n.readAt).length;
  const other=notifications.filter(n=>!n.readAt&&n.propertyId!==propertyId).length;
- const kindKey=kind=>({booking_request:'noticeBookingRequest'}[kind]||kind);
- const detail=n=>n.kind==='booking_request'
-   ?`${esc(n.guest||'')} · ${esc(n.from||'')} → ${esc(n.to||'')} · ${esc(n.nights??'')} ${esc(t('nights'))}${n.quotedTotal?' · '+esc(t('requestQuote')):''}`
-   :esc(t(kindKey(n.kind)));
- const rows=mine.map(n=>`<tr class="${n.readAt?'':'unread'}"><td>${esc(String(n.at||'').slice(0,16).replace('T',' '))}</td>
+ const kindKey=kind=>({booking_request:'noticeBookingRequest',no_show:'noticeNoShow',overdue_checkout:'noticeOverdue',
+  unassigned_arrival:'noticeUnassigned',rooms_to_clean:'noticeCleaning',request_waiting:'noticeWaiting'}[kind]||kind);
+ // A stored notice repeats what was asked for; a standing one names what is still wrong.
+ const detail=n=>{
+   if(n.kind==='booking_request')return `${esc(n.guest||'')} · ${esc(n.from||'')} → ${esc(n.to||'')} · ${esc(n.nights??'')} ${esc(t('nights'))}${n.quotedTotal?' · '+esc(t('requestQuote')):''}`;
+   if(n.kind==='no_show')return `${esc(n.guest||'')} · ${esc(t('noticeDue'))} ${esc(n.date||'')}`;
+   if(n.kind==='overdue_checkout')return `${esc(n.guest||'')} · ${esc(t('noticeDue'))} ${esc(n.date||'')}`;
+   if(n.kind==='unassigned_arrival')return `${esc(n.guest||'')} · ${esc(n.date||'')}`;
+   if(n.kind==='rooms_to_clean')return `${esc(n.count??0)} ${esc(t('noticeRoomsUnit'))}`;
+   if(n.kind==='request_waiting')return `${esc(n.guest||'')} · ${esc(t('noticeWaitingNote'))}`;
+   return esc(t(kindKey(n.kind)));
+ };
+ // Where the work actually is: an order opens its own details, cleaning opens the task
+ // board, and a request opens the queue. None of them decides anything by itself.
+ const action=n=>{
+   if(n.kind==='booking_request'||n.kind==='request_waiting')return n.requestId?`<button type="button" data-notice-open="${esc(n.requestId)}">${esc(t('noticeOpen'))}</button>`:'';
+   if(n.kind==='rooms_to_clean')return `<button type="button" data-notice-view="tasks">${esc(t('noticeOpen'))}</button>`;
+   return n.orderId?`<button type="button" data-open-stay="${esc(n.orderId)}">${esc(t('noticeOpenOrder'))}</button>`:'';
+ };
+ const rows=mine.map(n=>`<tr class="${n.readAt?'':'unread'}"><td>${esc(n.due??String(n.at||'').slice(0,16).replace('T',' '))}</td>
    <td>${esc(t(kindKey(n.kind)))}</td><td>${detail(n)}</td><td>${esc(propertyName(n.propertyId))}</td>
    <td>${esc(t(n.readAt?'noticeRead':'noticeUnread'))}</td>
-   <td>${n.kind==='booking_request'&&n.requestId?`<button type="button" data-notice-open="${esc(n.requestId)}">${esc(t('noticeOpen'))}</button>`:''}
-    ${n.readAt?'':`<button type="button" data-notice-read="${esc(n.id)}">${esc(t('noticeMarkRead'))}</button>`}</td></tr>`).join('');
+   <td>${action(n)}${n.readAt?'':`<button type="button" data-notice-read="${esc(n.id)}">${esc(t('noticeMarkRead'))}</button>`}</td></tr>`).join('');
  return `<section class="panel"><div class="panel-head"><h2>${esc(t('notifications'))}</h2><span>${esc(t('noticeUnreadCount'))}: ${unread}</span></div>
   <p class="muted">${esc(t('noticeNote'))}</p>
+  <p class="muted">${esc(t('noticeStandingNote'))}</p>
   ${other?`<p class="muted">${esc(t('noticeOtherProperty'))}: ${other}</p>`:''}
   ${mine.length?`<div class="table-wrap"><table><thead><tr>${['time','noticeKind','noticeDetail','noticeProperty','noticeState','noticeActions'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`
     :`<p class="empty">${esc(t('noticeNone'))}</p>`}
@@ -440,15 +455,26 @@ export const noticeWords={
   noticeOtherProperty:'其它门店的未读',noticeKind:'类型',noticeDetail:'内容',noticeProperty:'门店',noticeState:'状态',noticeActions:'操作',
   noticeUnread:'未读',noticeRead:'已读',noticeOpen:'前往处理',noticeMarkRead:'标记已读',noticeMarkAllRead:'把当前门店全部标为已读',
   noticeBookingRequest:'新的网站预订请求',noticeNone:'暂时没有提醒。',nights:'晚',requestQuote:'含报价',
+  noticeNoShow:'应入住未入住',noticeOverdue:'应离店未退房',noticeUnassigned:'今日到店未分房',noticeCleaning:'待清洁房',
+  noticeWaiting:'预订请求等待过久',noticeDue:'到期日',noticeRoomsUnit:'间待清洁',noticeWaitingNote:'已等待超过一天',
+  noticeOpenOrder:'打开订单',noticeStandingNote:'下面这些是当前仍未处理的事实，不是事件：一旦处理完，它们会自己消失。',
   notice_read_failed:'标记已读失败，请稍后再试。',notifications_polling:'提醒每约一分钟自动检查一次，不刷新你正在操作的页面。'},
  en:{notifications:'Notifications',noticeUnreadCount:'Unread',noticeNote:'Notices stay inside JOVIAN: no email, SMS or push is connected, so nothing is sent to anyone and they are only seen by signing in. A notice points at the work; it never does the work.',
   noticeOtherProperty:'Unread in other properties',noticeKind:'Type',noticeDetail:'Detail',noticeProperty:'Property',noticeState:'State',noticeActions:'Actions',
   noticeUnread:'Unread',noticeRead:'Read',noticeOpen:'Go to it',noticeMarkRead:'Mark read',noticeMarkAllRead:'Mark everything in this property read',
   noticeBookingRequest:'New booking request from the site',noticeNone:'Nothing to notify you about.',nights:'nights',requestQuote:'quoted',
+  noticeNoShow:'Arrival that never arrived',noticeOverdue:'Departure that never left',noticeUnassigned:'Arriving today, no room yet',
+  noticeCleaning:'Rooms needing cleaning',noticeWaiting:'Booking request left waiting',noticeDue:'Due',noticeRoomsUnit:'to clean',
+  noticeWaitingNote:'waiting for more than a day',noticeOpenOrder:'Open booking',
+  noticeStandingNote:'These are facts still standing rather than things that happened. Once one is dealt with it disappears by itself.',
   notice_read_failed:'Marking as read failed, so please try again.',notifications_polling:'Notices are checked about once a minute. The page you are working on is not reloaded.'},
  ms:{notifications:'Pemberitahuan',noticeUnreadCount:'Belum dibaca',noticeNote:'Pemberitahuan kekal dalam JOVIAN: tiada e-mel, SMS atau push disambungkan, jadi tiada apa dihantar dan hanya kelihatan selepas log masuk. Ia menunjuk kepada kerja, bukan melakukannya.',
   noticeOtherProperty:'Belum dibaca di hartanah lain',noticeKind:'Jenis',noticeDetail:'Butiran',noticeProperty:'Hartanah',noticeState:'Status',noticeActions:'Tindakan',
   noticeUnread:'Belum dibaca',noticeRead:'Dibaca',noticeOpen:'Pergi ke situ',noticeMarkRead:'Tanda dibaca',noticeMarkAllRead:'Tandakan semua di hartanah ini sebagai dibaca',
   noticeBookingRequest:'Permintaan tempahan baharu dari laman',noticeNone:'Tiada pemberitahuan.',nights:'malam',requestQuote:'ada sebut harga',
+  noticeNoShow:'Ketibaan yang tidak tiba',noticeOverdue:'Berlepas yang tidak keluar',noticeUnassigned:'Tiba hari ini, belum ada bilik',
+  noticeCleaning:'Bilik perlu dibersihkan',noticeWaiting:'Permintaan tempahan terbiar',noticeDue:'Tarikh akhir',noticeRoomsUnit:'perlu dibersih',
+  noticeWaitingNote:'menunggu lebih daripada sehari',noticeOpenOrder:'Buka tempahan',
+  noticeStandingNote:'Ini fakta yang masih berlaku, bukan peristiwa. Setelah selesai ia hilang dengan sendirinya.',
   notice_read_failed:'Menanda dibaca gagal, sila cuba lagi.',notifications_polling:'Pemberitahuan diperiksa kira-kira setiap minit. Halaman yang sedang digunakan tidak dimuat semula.'}
 };

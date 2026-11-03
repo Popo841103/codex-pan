@@ -672,6 +672,8 @@ $('#content').addEventListener('click',async event=>{
   if(one){one.disabled=true;try{await commit({type:'notification_read',notificationId:one.dataset.noticeRead});}catch(e){$('#message').textContent=errorText(e);one.disabled=false;}return;}
   const all=event.target.closest('[data-notice-all]');
   if(all){all.disabled=true;try{await commit({type:'notification_read',all:true});}catch(e){$('#message').textContent=errorText(e);all.disabled=false;}return;}
+  const board=event.target.closest('[data-notice-view]');
+  if(board){goView(board.dataset.noticeView);return;}
   const open=event.target.closest('[data-notice-open]');
   if(!open)return;
   // A notice points at the work rather than doing it, so it opens the page where the

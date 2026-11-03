@@ -3,11 +3,12 @@ import {GuestMessages,guestPermissions} from './guest-messages.js';
 import {SupportDesk,supportPermissions} from './support.js';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
-import { seed, apply, preview } from '../src/demo-store.js';
+import { seed, apply, preview, nightAuditExceptions } from '../src/demo-store.js';
 import { InventoryConflict } from '../src/inventory.js';
 import { upgradeCatalog, saleResources } from '../src/catalog.js';
 import { rateAvailability } from '../src/rate-availability.js';
 import { localDay } from '../src/dashboard.js';
+import { isBoxed } from '../src/inventory-actions.js';
 export class ServiceError extends Error {
   constructor(status, code) { super(code); this.status = status; }
 }
@@ -409,21 +410,69 @@ export class Store {
     return raised;
   }
   // Only the notices addressed to this account, and only for properties it is scoped to.
+  // Stored events and standing facts are put together here so the desk sees one list.
   visibleNotifications(user){
     const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
-    // Unread first, then newest first: what is still waiting on a person comes ahead of
-    // what they have already seen.
-    return this.db.prepare(`SELECT n.*,r.at read_at FROM notifications n LEFT JOIN notification_reads r
-      ON r.notification_id=n.id AND r.user_id=? WHERE n.user_id=? ORDER BY n.at DESC LIMIT 200`).all(user.id,user.id)
+    const reads=new Map(this.db.prepare('SELECT notification_id id,at FROM notification_reads WHERE user_id=?').all(user.id).map(r=>[r.id,r.at]));
+    const stored=this.db.prepare('SELECT * FROM notifications WHERE user_id=? ORDER BY at DESC LIMIT 500').all(user.id)
       .filter(row=>scope.includes(row.property_id))
-      .sort((a,b)=>(a.read_at?1:0)-(b.read_at?1:0)||(a.at<b.at?1:a.at>b.at?-1:0))
-      .map(row=>({id:row.id,propertyId:row.property_id,kind:row.kind,at:row.at,readAt:row.read_at,...JSON.parse(row.summary)}));
+      .map(row=>({id:row.id,propertyId:row.property_id,kind:row.kind,at:row.at,...JSON.parse(row.summary)}));
+    const all=[...stored,...this.derivedNotifications(user)].map(n=>({...n,readAt:reads.get(n.id)??null}));
+    // Unread first, then newest first: what is still waiting on a person comes ahead of
+    // what they have already seen. Notices from the same moment keep a stable order.
+    return all.sort((a,b)=>(a.readAt?1:0)-(b.readAt?1:0)||(a.at<b.at?1:a.at>b.at?-1:0)||(a.id<b.id?-1:1));
+  }
+  // Notices that are not events but facts still standing: a guest who should have arrived,
+  // one who should have left, a room nobody has been given. They are worked out from the
+  // property each time instead of being stored, so one that has been dealt with disappears
+  // by itself rather than lingering as a message about something already done. Only
+  // required night-audit exceptions are raised; advisory ones would only add noise.
+  derivedNotifications(user){
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    const isDate=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value);
+    const today=localDay(new Date().toISOString());
+    const out=[];
+    for(const propertyId of scope){
+      const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(propertyId);
+      if(!row)continue;
+      const body=upgradeCatalog(JSON.parse(row.body));
+      const on=body.businessDate;
+      const orders=(body.orders||[]).filter(o=>o.propertyId===propertyId);
+      // The same rule as a stored notice: only somebody who can act on it is told.
+      const allowed=action=>this.actionsFor(this.propertyRole(user,propertyId)).includes(action);
+      const add=(kind,action,notice)=>{
+        if(!allowed(action))return;
+        out.push({id:`derived:${kind}:${notice.orderId||notice.requestId||propertyId}:${notice.due}`,kind,propertyId,
+          at:`${notice.due}T00:00:00.000Z`,...notice});
+      };
+      if(isDate(on)){
+        for(const item of nightAuditExceptions({orders},on,o=>isBoxed(o))){
+          if(item.kind==='no_show')add('no_show','edit',{orderId:item.orderId,guest:item.guest,due:item.date,date:item.date});
+          else if(item.kind==='overdue_checkout')add('overdue_checkout','edit',{orderId:item.orderId,guest:item.guest,due:item.date,date:item.date});
+        }
+        // Arriving today with no room yet: as things stand they cannot be let in.
+        for(const order of orders.filter(o=>o.status==='confirmed'&&!o.resourceId&&!isBoxed(o)&&o.start<=on&&o.end>on))
+          add('unassigned_arrival','assign',{orderId:order.id,guest:order.guest,due:on,date:on});
+        const dirty=saleResources(body,propertyId).filter(r=>r.cleaning==='dirty').length;
+        if(dirty)add('rooms_to_clean','clean',{due:on,date:on,count:dirty});
+      }
+      // A request nobody has answered is the one thing the site itself cannot chase.
+      for(const request of this.db.prepare("SELECT * FROM booking_requests WHERE property_id=? AND status='pending'").all(propertyId)){
+        if(Date.now()-Date.parse(request.created_at)<24*60*60*1000)continue;
+        add('request_waiting','booking_request_decision',{requestId:request.id,guest:request.guest_name,due:today,date:today});
+      }
+    }
+    return out;
   }
   // A small feed for the bell in the header: how much is still unread, and the newest
   // few. Polling this is cheap next to reading the whole state, so the desk can be told
   // something arrived without reloading the page they are working on.
   notificationFeed(user){
-    const all=this.visibleNotifications(user);
+    // The account is read from the table rather than taken on trust, so what may be done
+    // here is decided by the stored role and not by whatever the caller passed in.
+    const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user?.id);
+    if(!fresh)error(401,'login_required');
+    const all=this.visibleNotifications(fresh);
     return {unread:all.filter(n=>!n.readAt).length,items:all.slice(0,20)};
   }
   // Reading is personal and changes nothing else: no revision moves, no inventory is
@@ -432,14 +481,22 @@ export class Store {
     const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
     if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
     const propertyId=command.propertyId;
+    const read=new Set(this.db.prepare('SELECT notification_id id FROM notification_reads WHERE user_id=?').all(actor.id).map(r=>r.id));
+    // A standing fact has no stored row, so its id is only readable if this account is
+    // actually being shown it: anything else is answered as absent.
+    const factual=new Set(this.derivedNotifications(actor).filter(n=>n.propertyId===propertyId).map(n=>n.id));
     let ids;
-    if(command.all===true)ids=this.db.prepare(`SELECT n.id id FROM notifications n LEFT JOIN notification_reads r
-      ON r.notification_id=n.id AND r.user_id=? WHERE n.user_id=? AND n.property_id=? AND r.at IS NULL`).all(actor.id,actor.id,propertyId).map(r=>r.id);
+    if(command.all===true){
+      const stored=this.db.prepare('SELECT id FROM notifications WHERE user_id=? AND property_id=?').all(actor.id,propertyId)
+        .map(r=>r.id).filter(id=>!read.has(id));
+      ids=[...stored,...[...factual].filter(id=>!read.has(id))];
+    }
     else{
       const single=this.db.prepare('SELECT * FROM notifications WHERE id=?').get(command.notificationId);
       // A notice addressed to somebody else is not readable, and is treated as absent.
-      if(!single||single.user_id!==actor.id||single.property_id!==propertyId)error(404,'not_found');
-      ids=[single.id];
+      if(single){if(single.user_id!==actor.id||single.property_id!==propertyId)error(404,'not_found');}
+      else if(!factual.has(command.notificationId))error(404,'not_found');
+      ids=[command.notificationId];
     }
     const at=new Date().toISOString();
     for(const id of ids)this.db.prepare('INSERT OR IGNORE INTO notification_reads VALUES(?,?,?)').run(id,actor.id,at);
