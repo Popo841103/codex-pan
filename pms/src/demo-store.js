@@ -193,7 +193,7 @@ export function seed() {
     ...Array.from({ length: p.id === 'TEST-KL' ? 10 : 2 }, (_, i) => ({ id: `${p.id}-R${i+1}`, label: `R${String(i+1).padStart(2,'0')}`, roomId: `${p.id}-R${i+1}`, propertyId: p.id, productId: 'room', gender: 'any', atoms: [`${p.id}-R${i+1}`], cleaning: 'clean' })),
     ...Array.from({ length: p.id === 'TEST-KL' ? 30 : 6 }, (_, i) => ({ id: `${p.id}-B${i+1}`, label: `D${Math.floor(i/6)+1} · B${i%6+1}`, roomId: `${p.id}-D${Math.floor(i/6)+1}`, propertyId: p.id, productId: 'bed', gender: i < 12 ? 'female' : i < 24 ? 'male' : 'any', atoms: [`${p.id}-B${i+1}`], cleaning: 'clean' }))
   ]);
-  return upgradeCatalog({ version: 1, properties, resources, orders: [], blocks: [], audit: [] });
+  return upgradeCatalog({ version: 1, properties, resources, orders: [], blocks: [], audit: [], notifications: [] });
 }
 export function preview(state, propertyId) {
   state = upgradeCatalog(state);

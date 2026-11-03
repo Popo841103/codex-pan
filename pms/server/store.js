@@ -76,6 +76,19 @@ export class Store {
         action TEXT NOT NULL, at TEXT NOT NULL, summary TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS booking_request_events_no_update BEFORE UPDATE ON booking_request_events BEGIN SELECT RAISE(ABORT,'booking_request_events_append_only'); END;
       CREATE TRIGGER IF NOT EXISTS booking_request_events_no_delete BEFORE DELETE ON booking_request_events BEGIN SELECT RAISE(ABORT,'booking_request_events_append_only'); END;
+      -- Something happened that a person has to know about. A notification points at it;
+      -- it never acts on it. Nothing here is sent anywhere: no email, no SMS, no push,
+      -- because no delivery channel is connected, so these are only seen by signing in.
+      CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY, property_id TEXT NOT NULL REFERENCES properties(id),
+        user_id TEXT NOT NULL REFERENCES users(id), kind TEXT NOT NULL, at TEXT NOT NULL, summary TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS notifications_user ON notifications(user_id,at DESC);
+      CREATE TRIGGER IF NOT EXISTS notifications_no_update BEFORE UPDATE ON notifications BEGIN SELECT RAISE(ABORT,'notifications_append_only'); END;
+      -- Read state is a separate append-only row, so reading never rewrites the notice
+      -- and there is no way to quietly undo having seen something.
+      CREATE TABLE IF NOT EXISTS notification_reads (notification_id TEXT NOT NULL, user_id TEXT NOT NULL, at TEXT NOT NULL,
+        PRIMARY KEY(notification_id,user_id));
+      CREATE TRIGGER IF NOT EXISTS notification_reads_no_update BEFORE UPDATE ON notification_reads BEGIN SELECT RAISE(ABORT,'notification_reads_append_only'); END;
+      CREATE TRIGGER IF NOT EXISTS notification_reads_no_delete BEFORE DELETE ON notification_reads BEGIN SELECT RAISE(ABORT,'notification_reads_append_only'); END;
       CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS receipts (user_id TEXT NOT NULL REFERENCES users(id), request_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
         response TEXT NOT NULL, PRIMARY KEY(user_id,request_key));
@@ -381,6 +394,59 @@ export class Store {
   // Accepting a request rewrites it into the reservation it becomes, so the booking a
   // guest asked for is taken through the same inventory, revision and audit rules as
   // one taken at the desk. The price used is the one that was quoted, never a new one.
+  // A notice is only raised for the people who can actually act on it, so nobody is
+  // woken by something they have no way to deal with. It is stored, never delivered:
+  // with no email, SMS or push connected, it is seen by signing in and not before.
+  notifyProperty(propertyId,kind,summary,{action=null}={}){
+    const at=new Date().toISOString();
+    const people=this.db.prepare('SELECT u.* FROM users u JOIN user_properties p ON p.user_id=u.id WHERE u.active=1 AND p.property_id=?').all(propertyId);
+    let raised=0;
+    for(const person of people){
+      if(action&&!this.actionsFor(this.propertyRole(person,propertyId)).includes(action))continue;
+      this.db.prepare('INSERT INTO notifications VALUES(?,?,?,?,?,?)').run(randomUUID(),propertyId,person.id,kind,at,JSON.stringify(summary));
+      raised++;
+    }
+    return raised;
+  }
+  // Only the notices addressed to this account, and only for properties it is scoped to.
+  visibleNotifications(user){
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    // Unread first, then newest first: what is still waiting on a person comes ahead of
+    // what they have already seen.
+    return this.db.prepare(`SELECT n.*,r.at read_at FROM notifications n LEFT JOIN notification_reads r
+      ON r.notification_id=n.id AND r.user_id=? WHERE n.user_id=? ORDER BY n.at DESC LIMIT 200`).all(user.id,user.id)
+      .filter(row=>scope.includes(row.property_id))
+      .sort((a,b)=>(a.read_at?1:0)-(b.read_at?1:0)||(a.at<b.at?1:a.at>b.at?-1:0))
+      .map(row=>({id:row.id,propertyId:row.property_id,kind:row.kind,at:row.at,readAt:row.read_at,...JSON.parse(row.summary)}));
+  }
+  // A small feed for the bell in the header: how much is still unread, and the newest
+  // few. Polling this is cheap next to reading the whole state, so the desk can be told
+  // something arrived without reloading the page they are working on.
+  notificationFeed(user){
+    const all=this.visibleNotifications(user);
+    return {unread:all.filter(n=>!n.readAt).length,items:all.slice(0,20)};
+  }
+  // Reading is personal and changes nothing else: no revision moves, no inventory is
+  // touched, and the notice itself is never rewritten.
+  readNotifications(actor,command,key,fingerprint){
+    const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
+    if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+    const propertyId=command.propertyId;
+    let ids;
+    if(command.all===true)ids=this.db.prepare(`SELECT n.id id FROM notifications n LEFT JOIN notification_reads r
+      ON r.notification_id=n.id AND r.user_id=? WHERE n.user_id=? AND n.property_id=? AND r.at IS NULL`).all(actor.id,actor.id,propertyId).map(r=>r.id);
+    else{
+      const single=this.db.prepare('SELECT * FROM notifications WHERE id=?').get(command.notificationId);
+      // A notice addressed to somebody else is not readable, and is treated as absent.
+      if(!single||single.user_id!==actor.id||single.property_id!==propertyId)error(404,'not_found');
+      ids=[single.id];
+    }
+    const at=new Date().toISOString();
+    for(const id of ids)this.db.prepare('INSERT OR IGNORE INTO notification_reads VALUES(?,?,?)').run(id,actor.id,at);
+    const response={read:ids.length,propertyId};
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    return response;
+  }
   bookingRequestCommand(row){
     const property=this.db.prepare('SELECT * FROM properties WHERE id=?').get(row.property_id);
     const body=upgradeCatalog(JSON.parse(property.body));
@@ -516,6 +582,10 @@ export class Store {
         quote?.total??null,quote?.nightly?JSON.stringify(quote.nightly):null,at,null,null,null,null,null);
     this.db.prepare('INSERT INTO booking_request_events VALUES(?,?,?,?,?,?)').run(randomUUID(),id,'public','submit',at,
       JSON.stringify({slug,roomTypeId,from,to,guests:count,nights,quotedTotal:quote?.total??null,language:lang}));
+    // The desk has no other way to learn a request arrived, so the people who can decide
+    // on one are told here. Without this the request simply waits, unseen.
+    this.notifyProperty(site.propertyId,'booking_request',{requestId:id,slug,guest:guestName,from,to,nights,guests:count,
+      roomTypeId,quotedTotal:quote?.total??null},{action:'booking_request_decision'});
     return {id,reference:id.slice(0,8).toUpperCase(),status:'pending',nights,quotedTotal:quote?.total??null,
       quotedNightly:quote?.nightly??null};
   }
@@ -535,7 +605,7 @@ export class Store {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
     const ids=this.publicUser(fresh).propertyIds;
-    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[]};
+    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[],notifications:[]};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
@@ -555,6 +625,7 @@ export class Store {
     result.siteAudit=this.visibleSiteAudit(fresh);
     result.bookingRequests=this.visibleBookingRequests(fresh);
     result.bookingRequestEvents=this.visibleBookingRequestEvents(fresh);
+    result.notifications=this.visibleNotifications(fresh);
     return result;
   }
   command(user,{key,expectedRevision,command},{beforeApply}={}) {
@@ -578,6 +649,9 @@ export class Store {
       if(command.type==='member_save')return this.saveMember(rowUser,command,key,fingerprint);
       // Publishing a property site writes public content, not property state.
       if(command.type==='site_save')return this.saveSite(rowUser,command,key,fingerprint);
+      // Marking a notice read is personal housekeeping, not a property business command:
+      // it is answered here so it never advances a revision someone else is working to.
+      if(command.type==='notification_read')return this.readNotifications(rowUser,command,key,fingerprint);
       // Deciding a booking request. Declining only records why, so it is answered here;
       // accepting is rewritten into the reservation it becomes, so the guest's stay is
       // taken through the same inventory, revision and audit rules as any other.

@@ -313,6 +313,9 @@ export function makeServer(store, { publicOrigin, recovery = null } = {}) {
         if(path==='/api/checkin-admin/commands'&&req.method==='POST')return json(res,200,store.checkin.command(session.user,await body(req)));
         if(path==='/api/support'&&req.method==='GET')return json(res,200,store.support.read(session.user,url.searchParams.get('propertyId'),{ticketId:url.searchParams.get('ticketId')||undefined,search:url.searchParams.get('search')||'',status:url.searchParams.get('status')||'all',offset:Number(url.searchParams.get('offset')||0)}));
         if(path==='/api/support/commands'&&req.method==='POST')return json(res,200,store.support.command(session.user,await body(req)));
+        // The header bell polls this instead of the whole state, so it can notice
+        // something arrived without disturbing the page the desk is working on.
+        if(path==='/api/notifications'&&req.method==='GET')return json(res,200,store.notificationFeed(session.user));
         if(path==='/api/state'&&req.method==='GET')return json(res,200,store.read(session.user));
         if(path==='/api/commands'&&req.method==='POST')return json(res,200,store.command(session.user,await body(req)));
         if(path==='/api/logout'&&req.method==='POST'){

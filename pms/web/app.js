@@ -6,7 +6,7 @@ import {countryOptions,languageOptions} from './guest-locales.js';
 import {financialPage,financialWords,renderFolioHistory,comparisonPage,managerReportPage,guestLedgerPage,roomChargePage,roomBusinessPage,roomMovementPage,extraChargePage,cancellationPenaltyPage,roomOccupantPage,registrationRecordPage,commissionPage} from './financial-ui.js';
 import {filterOrders,orderTabs} from '../src/order-filters.js';
 import {settlementStatus,columns,columnsWords,defaultColumns,loadColumns,saveColumns,columnLabel,renderOrderTable} from './order-columns.js';
-import {icon,shellWords,navigation,customersPage,channelsPage,nightAuditWords,nightAuditPage,handoverWindow,teamAccessPage,teamWords,propertySitePage,siteWords,bookingRequestsPage,requestWords,dataMaintenancePage,cleanupWords} from './workspace-ui.js';
+import {icon,shellWords,navigation,customersPage,channelsPage,nightAuditWords,nightAuditPage,handoverWindow,teamAccessPage,teamWords,propertySitePage,siteWords,bookingRequestsPage,requestWords,notificationsPage,noticeWords,dataMaintenancePage,cleanupWords} from './workspace-ui.js';
 import {checkinWords,createCheckinAdmin} from './checkin-admin-ui.js';
 import {communicationWords,createCommunications} from './communication-ui.js';
 import { isBoxed, blockType, inventoryState } from '../src/inventory-actions.js';
@@ -140,7 +140,8 @@ function render() {
   else if(view==='resourcesSettings') { $('#content').innerHTML=catalogPage(state,propertyId,lang,t,can); }
   else if(view==='teamAccess') { $('#content').innerHTML=teamAccessPage({members:state.members||[],memberAudit:state.memberAudit||[],properties:state.properties,propertyId,user:backend.user,can,t,escape}); }
   else if(view==='propertySite') { $('#content').innerHTML=propertySitePage({sites:state.sites||[],siteAudit:state.siteAudit||[],roomTypes:state.roomTypes,ratePlans:state.ratePlans,propertyId,can,t,escape}); }
-   else if(view==='bookingRequests') { $('#content').innerHTML=bookingRequestsPage({requests:state.bookingRequests||[],events:state.bookingRequestEvents||[],roomTypes:state.roomTypes,propertyId,can,t,escape,currency}); }
+   else if(view==='notifications') { $('#content').innerHTML=notificationsPage({notifications:state.notifications||[],properties:state.properties,propertyId,can,t,escape}); }
+ else if(view==='bookingRequests') { $('#content').innerHTML=bookingRequestsPage({requests:state.bookingRequests||[],events:state.bookingRequestEvents||[],roomTypes:state.roomTypes,propertyId,can,t,escape,currency}); }
  else if(view==='dataCleanup') { $('#content').innerHTML=dataMaintenancePage({orders:state.orders,reservations:state.reservations||[],propertyId,can,t,escape}); }
   else if(view==='rates'){const from=ratePageDates.get(propertyId)||businessDate();$('#content').innerHTML='<section class="panel"><p>'+rateLabel('可售量按每日及房型独立计算，整套与床位不能相加；跨日连续库存以提交校验为准。','Availability is per day and type; suites and beds cannot be added together. Continuous stays are validated on submission.','Ketersediaan mengikut hari dan jenis; suite dan katil tidak boleh dijumlah. Penginapan berterusan disemak semasa hantar.')+'</p><div class="panel-head"><h2>'+t('rateInventory')+'</h2><button data-rates-open>'+rateLabel('批量更新与计划管理','Bulk updates and plans','Kemas kini pukal dan pelan')+'</button></div><label>'+rateLabel('日历开始日期','Calendar start','Tarikh mula kalendar')+'<input id="rate-page-date" type="date" value="'+escape(from)+'" required></label>'+rateCalendar(state,{propertyId,start:from,currency,t,availability:(id,day)=>rateAvailability(state,propertyId,id,day,businessDate())})+'</section>';}
   else if(view==='calendar') { $('#content').innerHTML = calendar(resources,orders,plan,calendarDate); } else if(view==='overview' || view==='tasks') {
@@ -156,6 +157,7 @@ function render() {
   } else {
     $('#content').innerHTML = `<section class="panel"><h2>${t('audit')}</h2><div class="table-wrap"><table><thead><tr><th>${t('time')}</th><th>${t('action')}</th><th>ID</th></tr></thead><tbody>${state.audit.filter(a=>a.propertyId===propertyId).map(a=>`<tr><td>${escape(new Date(a.at).toLocaleString(lang==='zh'?'zh-CN':lang==='ms'?'ms-MY':'en-GB',{timeZone:'Asia/Kuala_Lumpur'}))}</td><td>${t(a.type==='clean'?'cleanAction':a.type==='block'?'blockAction':a.type)}</td><td>${escape((a.orderId||a.resourceId||a.id).slice(0,20))}<small>${escape(a.actor||'')}</small></td></tr>`).join('')}</tbody></table></div><p class="muted">${t('footer')}</p></section>`;
   }
+  updateBell();
 }
 const extraFields = document.createElement('div');
 extraFields.innerHTML = `<div class="form-row"><label><span data-t="nightly"></span><input name="nightly" type="number" min="0" max="1000000" step="0.01" value="0" required></label><label><span data-t="source"></span><select name="source">${opts(sourceValues)}</select></label></div><div class="form-row"><label><span data-t="email"></span><input name="email" type="email" maxlength="254"></label><label><span data-t="phone"></span><input name="phone" maxlength="40"></label></div><label><span data-t="notes"></span><textarea name="notes" maxlength="2048"></textarea></label>`;
@@ -585,7 +587,7 @@ const composer=createComposer({getState:()=>state,getProperty:()=>propertyId,get
 communications=createCommunications({backend,getProperty:()=>propertyId,getState:()=>state,getLanguage:()=>lang,getContext:()=>view,can,t,openUtility,closeUtility:()=>$('#utility-dialog').close(),errorText});
 selfCheckinUI=createCheckinAdmin({backend,getProperty:()=>propertyId,getState:()=>state,can,t,openUtility,closeUtility:()=>$('#utility-dialog').close(),errorText,toMinor});
 $('#technical-support').onclick=()=>{if(!selfCheckinUI.leave())return;communications.openSupport();};$('#guest-messages').onclick=()=>{if(!selfCheckinUI.leave())return;communications.openMessages();};$('#help-center').onclick=()=>{if(!selfCheckinUI.leave())return;communications.openHelp();};$('#self-checkin').onclick=()=>{if(leaveDialogs())selfCheckinUI.open();};
-for(const language of Object.keys(words))Object.assign(words[language],shellWords[language],teamWords[language],siteWords[language],requestWords[language],cleanupWords[language]);
+for(const language of Object.keys(words))Object.assign(words[language],shellWords[language],teamWords[language],siteWords[language],requestWords[language],noticeWords[language],cleanupWords[language]);
 Object.assign(words.zh,{calendar:'日历',orders:'住宿订单',overview:'房情表',new:'新增订单',guest:'姓名',details:'详细信息',source:'渠道',guestLanguage:'偏好语言',channelOrderId:'渠道订单号',notes:'备注',propertySummary:'房情表',singleDay:'单日',businessSummary:'房费总览',memo:'备忘录',created:'今日新办',exceptions:'异常订单',pending:'待处理退款',print:'打印'});
 
 function openOrderColumns(){
@@ -655,3 +657,43 @@ Object.assign(words.zh,{"folioReopenReason":"重开原因","reopen_folio":"重�
 Object.assign(words.en,{"folioReopenReason":"Reopening reason","reopen_folio":"Reopen folio"});
 Object.assign(words.ms,{"folioReopenReason":"Sebab buka semula","reopen_folio":"Buka semula folio"});
 $('#content').addEventListener('click',event=>{const button=event.target.closest('[data-compare-drill]');if(!button||view!=='comparison')return;const kind=button.dataset.compareDrill,period=button.dataset.period;if(!['business','cashflow'].includes(kind)||!['current','month','year'].includes(period))return;const filters=financeFilters.get(propertyId+'|comparison');if(!filters)return;financeFilters.set(propertyId+'|'+kind,{from:filters[period+'From'],to:filters[period+'To'],source:filters.source,dimension:'date',transactionKind:'all',method:'all',operator:'all'});goView(kind);});
+
+// The notice bell. It only reports: the count is the number of notices still unread for
+// this account across every property it is scoped to, and nothing is ever sent to anyone.
+function updateBell(count){
+  const bell=$('#notifications');if(!bell)return;
+  const unread=count??(state.notifications||[]).filter(n=>!n.readAt).length;
+  if(unread>0){bell.dataset.count=String(unread);bell.setAttribute('aria-label',t('notifications')+' · '+unread+' · '+t('noticeUnread'));}
+  else{delete bell.dataset.count;bell.setAttribute('aria-label',t('notifications'));}
+}
+$('#notifications').onclick=()=>goView('notifications');
+$('#content').addEventListener('click',async event=>{
+  const one=event.target.closest('[data-notice-read]');
+  if(one){one.disabled=true;try{await commit({type:'notification_read',notificationId:one.dataset.noticeRead});}catch(e){$('#message').textContent=errorText(e);one.disabled=false;}return;}
+  const all=event.target.closest('[data-notice-all]');
+  if(all){all.disabled=true;try{await commit({type:'notification_read',all:true});}catch(e){$('#message').textContent=errorText(e);all.disabled=false;}return;}
+  const open=event.target.closest('[data-notice-open]');
+  if(!open)return;
+  // A notice points at the work rather than doing it, so it opens the page where the
+  // request is decided and leaves the decision to a person.
+  goView('bookingRequests');
+});
+// Something can arrive while the desk is working elsewhere. The whole state is not pulled
+// for this: the count alone is checked, and it only reloads when the count changed, so an
+// open page is not disturbed for nothing. A failed check is left silent on purpose.
+let noticeCount=null;
+const noticePoll=setInterval(async ()=>{
+  // Never reload underneath someone mid-task: a dialog that is busy keeps its page.
+  if(!backend.shared||!backend.user||writing||communications?.isBusy()||selfCheckinUI?.isBusy())return;
+  try{
+    const feed=await backend.notifications();
+    // The first pass only learns the count, so a reload happens on a real change.
+    if(noticeCount===null){noticeCount=feed.unread;return;}
+    if(feed.unread===noticeCount)return;
+    noticeCount=feed.unread;
+    await refreshShared();
+  }catch(e){}
+},60000);
+// Outside a browser this timer would keep the process alive; in a browser it is a plain
+// number and this does nothing.
+noticePoll?.unref?.();
