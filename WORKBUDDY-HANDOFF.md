@@ -242,3 +242,28 @@ The first version could only notice something happening, so everything that was 
 Tests: Node 322 (was 315). Seven cases were added to `pms/test/notifications.test.js` for the arrival that never arrived and the departure that never left, an arrival with no room that stops once a room is given, dirty rooms counted once and clearing when cleaned, a request chased after a day but not before and stopping once decided, a viewer being told none of it, reading a standing notice and a made-up id being refused, and marking a whole property read clearing standing notices too. `verification/dom-notifications.mjs` now also drives a guest due today with no room: two notices reach the bell, they say what is still wrong, the notice opens the booking without deciding anything, and reading clears the bell.
 
 Still not done: these are still only seen by somebody who is signed in, so a property with nobody watching misses all of it; the notice is only as fresh as the poll; there is no sense of priority beyond unread coming first, so a room needing cleaning sits next to a guest who never arrived; and nothing here decides anything, so a notice can be read and then ignored just as easily as before.
+
+## Notice priority, and finishing the self-check-in line (2026-11-03)
+
+A notice was ordered by whether it had been read and by the clock, and by nothing else. That put a room needing cleaning next to a guest who should have arrived hours ago, which is not the order anybody would work in. Every notice now carries how much it matters, in `pms/server/store.js` (`severityOf`, `noticeSeverity`), and the list is read by it: **what is waiting on a person comes first, then what has not been read, then the newest.**
+
+- **Urgent** - a guest who should have arrived and did not, one who should have left and has not, a booking arriving today with no room, and a registration handed in that is waiting on somebody to check it. Somebody is standing behind each of these.
+- **Attention** - a booking request arriving from the published site, and one left waiting more than a day. Somebody will have to answer it, but nobody is waiting at the door.
+- **Routine** - rooms needing cleaning.
+- A kind nobody has classified is not invented as urgent; it waits behind the people who are here.
+- The level is **written out as a word in its own column**, so a colour is never the only thing carrying the meaning. It is also on the row itself, which is what the DOM check asserts: with an overdue arrival and two dirty rooms on the list at once, the urgent row comes before the routine one.
+
+Self-registration now ends where it always ended, with a person, and that is finally raised as a notice (`checkin_review`, also in `derivedNotifications`):
+
+- **Identity handed in and waiting to be checked is work standing**, so it is raised for the accounts that can check it - operations and administrators of that property, honouring the property role override - and it stops the moment it is reviewed, exactly as every other standing fact does.
+- **Only while self-registration is switched on.** With it off the guest's own link no longer opens, so nobody is standing behind that decision and it is not presented as work.
+- **An invitation nobody has filled in is not work yet**, so it raises nothing.
+- The notice **opens the review page**, which is a dialog rather than a view, and reviews nothing by itself.
+
+A refusal used to reach the guest as a bare *review needed* with nothing to say what was wrong, so they could only guess and submit the same thing again. `sc_review` now stores the reason with the registration (`rejection_reason`, added to existing databases on startup) and it is shown on the guest's own page, escaped, and on the desk list. Registering again clears it, so an old note never keeps being shown, and an approval never carries a refusal note forward.
+
+Tests: Node 325 (was 322). Two cases added to `pms/test/notifications.test.js` - the list never putting routine work above a person, and a registration being raised, not raised before it is submitted, not raised for a viewer, not raised while registration is off, and stopping once reviewed - and one to `pms/test/self-checkin.test.js` for the refusal reason reaching the guest and clearing on resubmission. `verification/dom-notifications.mjs` now also drives dirty rooms alongside an overdue arrival and checks the order of the rows, then drives a registration handed in and checks that the notice opens the review dialog still undecided. All 16 DOM scripts and Python 5/5 still pass.
+
+**Verification limit for this batch.** `pms/server/store.js` and `pms/server/self-checkin.js` changed, and the server serves nothing under `/server/`, so the backend half cannot be confirmed from outside. On the host: `grep -c severityOf /opt/jovian-pms-test/current/server/store.js` and `grep -c rejection_reason /opt/jovian-pms-test/current/server/self-checkin.js` should both be non-zero. The served half can be checked: `web/workspace-ui.js` should carry `noticeSeverity`, `severityUrgent` and `noticeCheckinReview`, `web/workspace.css` the `sev-urgent` style, and `web/app.js` the `checkin` branch of `data-notice-view`.
+
+Still not done: nothing is delivered anywhere, so a notice is still only seen by signing in; there is no sound, tab badge or anything outside an open page; the level is fixed per kind rather than something a property can configure, so a property that treats cleaning as urgent cannot say so; and the self-check-in line still ends at a person because no photo, selfie, OCR or automatic identity check exists. The door lock is still unconnected, so no PIN is issued, and "approved" still means approved by a person, not let in.
