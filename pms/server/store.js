@@ -15,6 +15,14 @@ export class ServiceError extends Error {
 const error = (status, code) => { throw new ServiceError(status, code); };
 const hash = value => createHash('sha256').update(value).digest('hex');
 const stayTypes=['edit','assign','checkin','checkout','cancel','lock'];
+// How much a notice matters. A clock alone would put a room needing cleaning next to a
+// guest who should have arrived hours ago, so the list is read by what is waiting on a
+// person: somebody who should be here comes first, housekeeping comes last.
+const noticeSeverity={no_show:'urgent',overdue_checkout:'urgent',unassigned_arrival:'urgent',checkin_review:'urgent',
+  booking_request:'attention',request_waiting:'attention',rooms_to_clean:'routine'};
+const severityRank={urgent:0,attention:1,routine:2};
+// An unlisted kind is not invented as urgent; it waits behind the people who are here.
+export const severityOf=kind=>noticeSeverity[kind]||'attention';
 const staySnapshot=(body,id)=>{const order=(body?.orders||[]).find(o=>o.id===id);return order?{start:order.start,end:order.end,
   nightly:order.nightly,resourceId:order.resourceId,status:order.status,productId:order.productId,finalCharge:order.finalCharge??null}:null;};
 
@@ -417,10 +425,11 @@ export class Store {
     const stored=this.db.prepare('SELECT * FROM notifications WHERE user_id=? ORDER BY at DESC LIMIT 500').all(user.id)
       .filter(row=>scope.includes(row.property_id))
       .map(row=>({id:row.id,propertyId:row.property_id,kind:row.kind,at:row.at,...JSON.parse(row.summary)}));
-    const all=[...stored,...this.derivedNotifications(user)].map(n=>({...n,readAt:reads.get(n.id)??null}));
-    // Unread first, then newest first: what is still waiting on a person comes ahead of
-    // what they have already seen. Notices from the same moment keep a stable order.
-    return all.sort((a,b)=>(a.readAt?1:0)-(b.readAt?1:0)||(a.at<b.at?1:a.at>b.at?-1:0)||(a.id<b.id?-1:1));
+    const all=[...stored,...this.derivedNotifications(user)].map(n=>({...n,readAt:reads.get(n.id)??null,severity:severityOf(n.kind)}));
+    // What is waiting on a person comes first, then what they have not seen, then the
+    // newest. A guest standing outside the door outranks a room that needs cleaning, and
+    // notices from the same moment keep a stable order.
+    return all.sort((a,b)=>severityRank[a.severity]-severityRank[b.severity]||(a.readAt?1:0)-(b.readAt?1:0)||(a.at<b.at?1:a.at>b.at?-1:0)||(a.id<b.id?-1:1));
   }
   // Notices that are not events but facts still standing: a guest who should have arrived,
   // one who should have left, a room nobody has been given. They are worked out from the
@@ -461,6 +470,16 @@ export class Store {
         if(Date.now()-Date.parse(request.created_at)<24*60*60*1000)continue;
         add('request_waiting','booking_request_decision',{requestId:request.id,guest:request.guest_name,due:today,date:today});
       }
+      // Somebody has handed in their identity details and is standing behind a person's
+      // decision: until it is reviewed they cannot be let in, and nothing is sent to
+      // anybody to say so. Approved or rejected, the fact stops and so does the notice.
+      // Self-registration switched off means nobody is waiting on it any more.
+      if(this.checkin?.policy(propertyId).enabled)
+        for(const grant of this.db.prepare("SELECT * FROM sc_grants WHERE property_id=? AND status='active' AND review='pending' AND submission IS NOT NULL").all(propertyId)){
+          const order=orders.find(o=>o.id===grant.order_id);
+          if(!order)continue;
+          add('checkin_review','sc_review',{orderId:order.id,grantId:grant.id,guest:order.guest,due:today,date:today});
+        }
     }
     return out;
   }

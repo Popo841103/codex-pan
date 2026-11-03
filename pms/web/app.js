@@ -673,7 +673,9 @@ $('#content').addEventListener('click',async event=>{
   const all=event.target.closest('[data-notice-all]');
   if(all){all.disabled=true;try{await commit({type:'notification_read',all:true});}catch(e){$('#message').textContent=errorText(e);all.disabled=false;}return;}
   const board=event.target.closest('[data-notice-view]');
-  if(board){goView(board.dataset.noticeView);return;}
+  // The review page is a dialog rather than a view, so a notice about identity details
+  // waiting on a person opens it the same way the header button does.
+  if(board){if(board.dataset.noticeView==='checkin'){if(leaveDialogs())selfCheckinUI?.open();}else goView(board.dataset.noticeView);return;}
   const open=event.target.closest('[data-notice-open]');
   if(!open)return;
   // A notice points at the work rather than doing it, so it opens the page where the

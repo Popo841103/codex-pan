@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomUUID,randomBytes } from 'node:crypto';
 import { Store } from '../server/store.js';
 
 const open = () => { const store = new Store(':memory:'); store.seedTestProperties(); return store; };
@@ -279,5 +279,61 @@ test('marking a whole property read clears standing notices too',()=>{
   send(store,boss,{type:'notification_read',all:true});
   assert.equal(store.notificationFeed(store.db.prepare('SELECT * FROM users WHERE id=?').get(boss.id)).unread,0,
     'everything waiting in this property is now read');
+  store.close();
+});
+
+// How much a notice matters decides the order, not the clock: somebody who should be
+// standing at the desk is read before a room that needs cleaning.
+test('what is waiting on a person outranks housekeeping',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  book(store,boss,{guest:'No Show',start:'2027-06-01',end:'2027-06-03'});
+  publish(store,boss);
+  ask(store,{name:'Site Guest'});
+  setBody(store,value=>{value.resources.filter(r=>r.productId==='room').slice(0,2).forEach(r=>{r.cleaning='dirty';});});
+  const list=store.read({id:boss.id}).notifications;
+  const level=kind=>list.find(n=>n.kind===kind)?.severity;
+  assert.equal(level('no_show'),'urgent','a guest who should have arrived is urgent');
+  assert.equal(level('booking_request'),'attention','a request is waiting, but nobody is standing outside');
+  assert.equal(level('rooms_to_clean'),'routine','cleaning is routine work');
+  const rank={urgent:0,attention:1,routine:2};
+  assert.deepEqual(list.map(n=>rank[n.severity]),[...list.map(n=>rank[n.severity])].sort((a,b)=>a-b),
+    'the list never puts routine work above a person');
+  assert.ok(list.findIndex(n=>n.kind==='no_show')<list.findIndex(n=>n.kind==='rooms_to_clean'),
+    'the guest comes before the cleaning');
+  store.close();
+});
+
+// Self-registration ends with a person: somebody hands in their identity details and then
+// stands behind that decision. That is work waiting, so it is raised like any other.
+const checkinStore = () => { const store=new Store(':memory:',{selfCheckin:{key:randomBytes(32)}}); store.seedTestProperties(); return store; };
+
+test('a registration waiting on a person is raised, and stops when that person decides',()=>{
+  const store=checkinStore(),boss=user(store),keeper=user(store,'operations'),watcher=user(store,'viewer');
+  const checkin=(u,command,revision=0)=>store.checkin.command({id:u.id},{key:randomUUID(),expectedRevision:revision,
+    command:{propertyId:'TEST-KL',...command}});
+  checkin(boss,{type:'sc_policy_save',enabled:true,requirePayment:false,requiredDeposit:0,registrationMode:'all',instructions:''});
+  book(store,boss,{guest:'Registration Guest',start:'2027-06-01',end:'2027-06-03'});
+  const order=store.read({id:boss.id}).orders.find(o=>o.guest==='Registration Guest');
+  const invite=checkin(keeper,{type:'sc_invite',orderId:order.id});
+  assert.equal(kinds(store,boss).includes('checkin_review'),false,'an invitation nobody has filled in is not work yet');
+  store.checkin.register(invite.token,{revision:1,consent:true,people:[{name:'Registration Guest',documentType:'passport',documentNumber:'TEST12345'}]});
+  const notice=store.read({id:boss.id}).notifications.find(n=>n.kind==='checkin_review');
+  assert.ok(notice,'identity handed in and waiting on somebody is raised');
+  assert.equal(notice.severity,'urgent','a guest waiting on a review comes before routine work');
+  assert.equal(notice.guest,'Registration Guest');
+  assert.ok(notice.grantId,'it points at the registration to review');
+  assert.equal(kinds(store,watcher).includes('checkin_review'),false,'a viewer cannot review identity, so is not told');
+  // Reviewing it is what makes it stop: the fact is no longer standing.
+  // Registration switched off closes the guest's link too, so nobody is standing behind
+  // that decision any more and it is not presented as work waiting.
+  checkin(boss,{type:'sc_policy_save',enabled:false,requirePayment:false,requiredDeposit:0,registrationMode:'all',instructions:''},1);
+  assert.equal(kinds(store,boss).includes('checkin_review'),false,'switched off, so nothing is waiting on it');
+  checkin(boss,{type:'sc_policy_save',enabled:true,requirePayment:false,requiredDeposit:0,registrationMode:'all',instructions:''},2);
+  assert.ok(kinds(store,boss).includes('checkin_review'),'switched back on, and the guest is still waiting');
+  // Reviewing it is what makes it stop: the fact is no longer standing.
+  const grant=store.checkin.read({id:boss.id},'TEST-KL').grants.find(g=>g.id===notice.grantId);
+  checkin(boss,{type:'sc_review',grantId:grant.id,review:'approved',reason:'TEST checked identity at the desk'},grant.revision);
+  assert.equal(kinds(store,boss).includes('checkin_review'),false,'reviewed, so no longer standing');
   store.close();
 });

@@ -7,12 +7,12 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {resolve} from 'node:path';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,randomBytes} from 'node:crypto';
 import {Store} from '../server/store.js';
 import {makeServer} from '../server/http.js';
 if(!process.argv[2])throw Error('Supply the jsdom module path for this optional verification.');
 const {JSDOM,VirtualConsole}=await import(pathToFileURL(resolve(process.argv[2])).href);
-const store=new Store(':memory:');store.seedTestProperties();
+const store=new Store(':memory:',{selfCheckin:{key:randomBytes(32)}});store.seedTestProperties();
 const adminName='test-dom-'+randomUUID().slice(0,8),adminPassword=randomUUID();
 const admin=store.createUser({username:adminName,password:adminPassword,role:'admin',propertyIds:['TEST-KL']});
 const server=makeServer(store);await new Promise(done=>server.listen(0,'127.0.0.1',done));
@@ -128,6 +128,48 @@ try {
   const orders=JSON.parse(store.db.prepare('SELECT body FROM properties WHERE id=?').get('TEST-KL').body).orders;
   assert.equal(orders.length,1,'reading created no extra booking');
   assert.equal(orders[0].status,'confirmed','and left the booking as it was');
+
+  // How much a notice matters is what the list is read by: a guest who should be here is
+  // shown before a room that needs cleaning, and the level is written out as a word.
+  const dirty=body();
+  dirty.resources.filter(r=>r.productId==='room').slice(0,2).forEach(r=>{r.cleaning='dirty';});
+  store.db.prepare('UPDATE properties SET body=? WHERE id=?').run(JSON.stringify(dirty),'TEST-KL');
+  $('#refresh').click();
+  await until(()=>$('#notifications').dataset.count==='1','rooms left dirty are one thing waiting');
+  $('#nav [data-view="notifications"]').click();
+  await until(()=>document.body.dataset.view==='notifications','the notices view with routine work in it');
+  await until(()=>text().includes('Rooms needing cleaning')||text().includes('待清洁房'),'the cleaning notice is listed');
+  const list=$('#content').innerHTML;
+  assert.ok(list.includes('sev-urgent')&&list.includes('sev-routine'),'every notice carries how much it matters');
+  assert.ok(list.indexOf('sev-urgent')<list.indexOf('sev-routine'),'the guest who should be here is read before the cleaning');
+  assert.match(text(),/Priority|级别/,'the level is written as a word, not only as a colour');
+
+  // Self-registration ends with a person: identity handed in is work waiting on them, and
+  // the notice opens the review page rather than deciding anything.
+  store.checkin.command({id:admin.id},{key:randomUUID(),expectedRevision:0,command:{propertyId:'TEST-KL',type:'sc_policy_save',
+    enabled:true,requirePayment:false,requiredDeposit:0,registrationMode:'all',instructions:'TEST instructions'}});
+  const stayDay='2027-07-01';
+  const made=adminCommand({type:'create_reservation',mode:'reserve',bookingKind:'individual',companyName:'',source:'direct',
+    autoAssign:false,guest:'Registration Guest',date:stayDay,
+    stays:[{productId:'room',roomTypeId:room.id,gender:'any',start:stayDay,end:'2027-07-03',adults:1,children:0,infants:0,
+      occupants:[{name:'',gender:'any'}],nightly:10000,nightlyRates:[stayDay,'2027-07-02'].map(date=>({date,amount:10000}))}]});
+  const stay=store.read({id:admin.id}).orders.find(o=>o.reservationId===made.id);
+  const invite=store.checkin.command({id:admin.id},{key:randomUUID(),expectedRevision:0,
+    command:{propertyId:'TEST-KL',type:'sc_invite',orderId:stay.id}});
+  $('#refresh').click();
+  await until(()=>$('#notifications').dataset.count==='1','an invitation nobody has filled in is not work yet');
+  store.checkin.register(invite.token,{revision:1,consent:true,
+    people:[{name:'Registration Guest',documentType:'passport',documentNumber:'TEST12345'}]});
+  $('#refresh').click();
+  await until(()=>$('#notifications').dataset.count==='2','identity handed in and waiting is raised');
+  $('#nav [data-view="notifications"]').click();
+  await until(()=>document.body.dataset.view==='notifications','the notices view with a registration waiting');
+  await until(()=>text().includes('Registration waiting for review')||text().includes('自助登记待核验'),'the notice names the registration');
+  $('#content [data-notice-view="checkin"]').click();
+  await until(()=>document.querySelector('dialog[open]'),'the notice opens the review page');
+  assert.match(document.body.textContent,/Self check-in|自助入住/,'what opens is the self check-in review');
+  assert.equal(store.db.prepare('SELECT review FROM sc_grants WHERE id=?').get(invite.grantId).review,'pending',
+    'opening the notice reviewed nothing');
 
   console.log('passed: notices tell the desk, and reading one only ever reads it');
 } catch(error){

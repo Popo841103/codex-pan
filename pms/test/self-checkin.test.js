@@ -125,3 +125,28 @@ test('legacy single-stay orders without a stored type can complete check-in thro
   register(f);approve(f);pay(f);const result=await f.store.checkin.requestAccess(f.invite.token);assert.equal(result.accessStatus,'active');assert.equal(f.store.read(f.ops).orders[0].roomTypeId,'TEST-KL-legacy-room-any');assert.equal(f.store.read(f.ops).orders[0].status,'checked_in');
  }finally{f.store.close();}
 });
+
+test('a refused registration carries the reason to the guest, and registering again clears it',()=>{
+ const f=fixture();try{
+  register(f);
+  const grant=f.store.checkin.read(f.admin,pid).grants.find(g=>g.id===f.invite.grantId);
+  const refusal='TEST document photo unreadable, please submit again clearly';
+  f.store.checkin.command(f.admin,req('sc_review',{grantId:grant.id,review:'rejected',reason:refusal},grant.revision));
+  const refused=f.store.checkin.session(f.invite.token);
+  assert.equal(refused.review,'rejected');
+  assert.equal(refused.rejectionReason,refusal,'the guest is told what to put right, not only that they were refused');
+  assert.equal(f.store.checkin.read(f.admin,pid).grants.find(g=>g.id===f.invite.grantId).rejectionReason,refusal,'the desk sees it too');
+  // Approving is not a refusal, so no reason is carried forward from before.
+  const again=f.store.checkin.read(f.admin,pid).grants.find(g=>g.id===f.invite.grantId);
+  f.store.checkin.command(f.admin,req('sc_review',{grantId:again.id,review:'approved',reason:'TEST verified identity in fixture'},again.revision));
+  assert.equal(f.store.checkin.session(f.invite.token).rejectionReason,null,'an approval shows no refusal note');
+  // Registering again is the answer to a refusal, and the old note must not linger.
+  const fresh=f.store.checkin.read(f.admin,pid).grants.find(g=>g.id===f.invite.grantId);
+  f.store.checkin.command(f.admin,req('sc_review',{grantId:fresh.id,review:'rejected',reason:refusal},fresh.revision));
+  const pending=f.store.checkin.session(f.invite.token);
+  f.store.checkin.register(f.invite.token,{revision:pending.revision,consent:true,people:[{name:'TEST occupant 0',documentType:'passport',documentNumber:'TESTP987654'}]});
+  const resubmitted=f.store.checkin.session(f.invite.token);
+  assert.equal(resubmitted.review,'pending');
+  assert.equal(resubmitted.rejectionReason,null,'a fresh submission starts over, without the old note still showing');
+ }finally{f.store.close();}
+});

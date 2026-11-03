@@ -26,7 +26,7 @@ export class SelfCheckin {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS sc_policies(property_id TEXT PRIMARY KEY REFERENCES properties(id),revision INTEGER NOT NULL,body TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS sc_grants(id TEXT PRIMARY KEY,property_id TEXT NOT NULL REFERENCES properties(id),order_id TEXT NOT NULL,creator_id TEXT NOT NULL REFERENCES users(id),token_hash TEXT UNIQUE NOT NULL,code_hash TEXT NOT NULL,
-        expires_at INTEGER NOT NULL,status TEXT NOT NULL,revision INTEGER NOT NULL,submission TEXT,document_hashes TEXT,review TEXT NOT NULL,reviewer_id TEXT,approved_sig TEXT,created_at TEXT NOT NULL);
+        expires_at INTEGER NOT NULL,status TEXT NOT NULL,revision INTEGER NOT NULL,submission TEXT,document_hashes TEXT,review TEXT NOT NULL,reviewer_id TEXT,approved_sig TEXT,created_at TEXT NOT NULL,rejection_reason TEXT);
       CREATE TABLE IF NOT EXISTS sc_sessions(token_hash TEXT PRIMARY KEY,grant_id TEXT NOT NULL REFERENCES sc_grants(id),expires_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS sc_receipts(user_id TEXT NOT NULL REFERENCES users(id),request_key TEXT NOT NULL,fingerprint TEXT NOT NULL,response TEXT NOT NULL,PRIMARY KEY(user_id,request_key));
       CREATE TABLE IF NOT EXISTS sc_access(id TEXT PRIMARY KEY,grant_id TEXT NOT NULL REFERENCES sc_grants(id),order_sig TEXT NOT NULL,status TEXT NOT NULL,pin TEXT,external_id TEXT,reason TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,UNIQUE(grant_id,order_sig));
@@ -34,6 +34,11 @@ export class SelfCheckin {
       CREATE TRIGGER IF NOT EXISTS sc_audit_no_update BEFORE UPDATE ON sc_audit BEGIN SELECT RAISE(ABORT,'checkin_append_only'); END;
       CREATE TRIGGER IF NOT EXISTS sc_audit_no_delete BEFORE DELETE ON sc_audit BEGIN SELECT RAISE(ABORT,'checkin_append_only'); END;
     `);
+    // Why a registration was sent back is kept with it, so the guest is told what to
+    // correct instead of being left staring at a refusal. Older databases predate the
+    // column and are widened here rather than being recreated.
+    if(!this.db.prepare('PRAGMA table_info(sc_grants)').all().some(c=>c.name==='rejection_reason'))
+      this.db.exec('ALTER TABLE sc_grants ADD COLUMN rejection_reason TEXT');
   }
   now(){return this.clock();}
   actor(user,pid,action){const actor=this.db.prepare('SELECT id,role,username FROM users WHERE id=? AND active=1').get(user.id);if(!actor)fail(401,'login_required');this.store.authorize(actor,pid);if(!checkinPermissions(actor.role).includes(action))fail(403,'forbidden');return actor;}
@@ -73,6 +78,7 @@ export class SelfCheckin {
   read(user,pid){this.actor(user,pid,'sc_read');const grants=this.db.prepare('SELECT * FROM sc_grants WHERE property_id=? ORDER BY rowid DESC').all(pid).map(grant=>{
     const {order,reasons}=this.conditions(grant);const people=grant.submission?this.decrypt(grant.submission,grant.id+':people'):[];
     return {id:grant.id,orderId:order.id,guest:order.guest,revision:grant.revision,status:grant.status,review:grant.review,expiresAt:grant.expires_at,registered:people.length,required:this.policy(pid).registrationMode==='all'?count(order):1,
+      rejectionReason:grant.review==='rejected'?grant.rejection_reason||null:null,
       people:people.map(person=>({name:person.name,documentType:person.documentType,documentLast4:person.documentNumber.slice(-4)})),reasons,access:this.db.prepare('SELECT id,status,reason FROM sc_access WHERE grant_id=? ORDER BY rowid DESC').all(grant.id)};
   });return {propertyId:pid,policy:this.policy(pid),lock:this.access.status(pid),encryptionReady:!!this.key,grants};}
   command(user,{key,expectedRevision,command}){
@@ -94,7 +100,7 @@ export class SelfCheckin {
         const id=randomUUID(),token=randomBytes(32).toString('base64url'),accessCode=randomBytes(12).toString('hex'),expiry=Math.min(end,this.now()+30*86400000);
         const old=this.db.prepare("SELECT id FROM sc_grants WHERE property_id=? AND order_id=? AND status='active'").all(pid,order.id);
         for(const previous of old){this.db.prepare("UPDATE sc_grants SET status='revoked',revision=revision+1 WHERE id=?").run(previous.id);this.db.prepare("UPDATE sc_access SET status='revoke_pending',pin=NULL,reason='invite_replaced' WHERE grant_id=? AND status IN ('active','provisioning','unknown')").run(previous.id);}
-        this.db.prepare('INSERT INTO sc_grants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,pid,order.id,actor.id,sha(token),sha(accessCode),expiry,'active',1,null,null,'unsubmitted',null,null,new Date(this.now()).toISOString());
+        this.db.prepare('INSERT INTO sc_grants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,pid,order.id,actor.id,sha(token),sha(accessCode),expiry,'active',1,null,null,'unsubmitted',null,null,new Date(this.now()).toISOString(),null);
         this.audit(pid,id,actor,type,{orderId:order.id});
         // Retry credentials are sealed; neither receipts nor audit contain plaintext tokens.
         response={grantId:id,revision:1,token,accessCode,expiresAt:expiry};
@@ -108,9 +114,11 @@ export class SelfCheckin {
           this.db.prepare("UPDATE sc_access SET status='revoke_pending',pin=NULL,reason='invite_revoked' WHERE grant_id=? AND status IN ('active','provisioning','unknown')").run(grant.id);
         }else if(type==='sc_review'){
           if(grant.status!=='active'||!grant.submission||!['approved','rejected'].includes(command.review))fail(400,'checkin_input');
-          text(command.reason,500,true);const order=this.order(grant);const people=this.decrypt(grant.submission,grant.id+':people'),required=this.policy(pid).registrationMode==='all'?count(order):1;
+          const reason=text(command.reason,500,true),order=this.order(grant),people=this.decrypt(grant.submission,grant.id+':people'),required=this.policy(pid).registrationMode==='all'?count(order):1;
           if(command.review==='approved'&&people.length<required)fail(400,'checkin_people');
-          this.db.prepare('UPDATE sc_grants SET review=?,reviewer_id=?,approved_sig=?,revision=revision+1 WHERE id=?').run(command.review,actor.id,command.review==='approved'?signature(order):null,grant.id);
+          // A refusal is only useful to the guest if it says what to put right, so the
+          // reason is stored with the registration and shown on their own page.
+          this.db.prepare('UPDATE sc_grants SET review=?,reviewer_id=?,approved_sig=?,rejection_reason=?,revision=revision+1 WHERE id=?').run(command.review,actor.id,command.review==='approved'?signature(order):null,command.review==='rejected'?reason:null,grant.id);
         }else fail(400,'checkin_input');
         this.audit(pid,grant.id,actor,type,{review:command.review||null,reason:command.reason});response={grantId:grant.id,revision:grant.revision+1};
       }
@@ -125,7 +133,10 @@ export class SelfCheckin {
   }
   session(token){const grant=this.auth(token),{order,resource,reasons,policy,times}=this.conditions(grant),lock=this.access.status(grant.property_id),job=this.db.prepare('SELECT * FROM sc_access WHERE grant_id=? AND order_sig=?').get(grant.id,signature(order));
     const active=job?.status==='active'&&!reasons.length;return {grantId:grant.id,revision:grant.revision,propertyName:this.body(grant.property_id).properties.find(p=>p.id===grant.property_id)?.name,guest:order.guest,start:order.start,end:order.end,review:grant.review,registrationMode:policy.registrationMode,requiredPeople:policy.registrationMode==='all'?count(order):1,
-      registeredPeople:grant.submission?this.decrypt(grant.submission,grant.id+':people').length:0,reasons,room:!reasons.length?resource?.label:null,instructions:!reasons.length?policy.instructions:'',lock:{connected:lock.connected,tested:lock.tested},accessStatus:job?.status||(!lock.connected?'not_connected':'not_requested'),canRequestAccess:!reasons.length&&lock.connected&&lock.tested,
+      registeredPeople:grant.submission?this.decrypt(grant.submission,grant.id+':people').length:0,reasons,
+      // A refusal the guest can read: why they were sent back, not just that they were.
+      rejectionReason:grant.review==='rejected'?grant.rejection_reason||null:null,
+      room:!reasons.length?resource?.label:null,instructions:!reasons.length?policy.instructions:'',lock:{connected:lock.connected,tested:lock.tested},accessStatus:job?.status||(!lock.connected?'not_connected':'not_requested'),canRequestAccess:!reasons.length&&lock.connected&&lock.tested,
       ...(active?{pin:this.decrypt(job.pin,job.id+':pin'),validFrom:times.start,validUntil:times.end}:{})};}
   register(token,{revision,people,consent}){
     const grant=this.auth(token);if(!this.key)fail(503,'checkin_key_missing');if(consent!==true||!Number.isSafeInteger(revision)||!Array.isArray(people)||!people.length||people.length>20)fail(400,'checkin_input');
@@ -135,7 +146,7 @@ export class SelfCheckin {
     return this.store.transaction(()=>{
       const fresh=this.auth(token);if(fresh.revision!==revision)fail(409,'checkin_stale');
       if(this.db.prepare("SELECT 1 FROM sc_access WHERE grant_id=? AND status IN ('active','provisioning','unknown')").get(fresh.id))fail(400,'checkin_access_pending');
-      this.db.prepare("UPDATE sc_grants SET submission=?,document_hashes=?,review='pending',reviewer_id=NULL,approved_sig=NULL,revision=revision+1 WHERE id=?").run(this.crypt(normalized,fresh.id+':people'),JSON.stringify(normalized.map(p=>this.documentHash(p.documentNumber))),fresh.id);
+      this.db.prepare("UPDATE sc_grants SET submission=?,document_hashes=?,review='pending',reviewer_id=NULL,approved_sig=NULL,rejection_reason=NULL,revision=revision+1 WHERE id=?").run(this.crypt(normalized,fresh.id+':people'),JSON.stringify(normalized.map(p=>this.documentHash(p.documentNumber))),fresh.id);
       this.audit(fresh.property_id,fresh.id,null,'guest_registration',{people:normalized.length});return this.session(token);
     });
   }
@@ -145,7 +156,7 @@ export class SelfCheckin {
       if(signature(order)===signature(updated)&&order.status===updated.status&&isBoxed(order)===isBoxed(updated))continue;
       const grants=this.db.prepare("SELECT id FROM sc_grants WHERE order_id=? AND property_id=? AND status='active'").all(order.id,order.propertyId);
       for(const grant of grants){
-        if(signature(order)!==signature(updated))this.db.prepare("UPDATE sc_grants SET review=CASE WHEN submission IS NULL THEN 'unsubmitted' ELSE 'pending' END,approved_sig=NULL,revision=revision+1 WHERE id=?").run(grant.id);
+        if(signature(order)!==signature(updated))this.db.prepare("UPDATE sc_grants SET review=CASE WHEN submission IS NULL THEN 'unsubmitted' ELSE 'pending' END,approved_sig=NULL,rejection_reason=NULL,revision=revision+1 WHERE id=?").run(grant.id);
         if(signature(order)!==signature(updated)||['cancelled','checked_out'].includes(updated.status)||isBoxed(updated))this.db.prepare("UPDATE sc_access SET status='revoke_pending',pin=NULL,reason='order_changed' WHERE grant_id=? AND status IN ('active','provisioning','unknown')").run(grant.id);
       }
     }
