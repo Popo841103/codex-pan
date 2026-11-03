@@ -6,7 +6,7 @@ import {countryOptions,languageOptions} from './guest-locales.js';
 import {financialPage,financialWords,renderFolioHistory,comparisonPage,managerReportPage,guestLedgerPage,roomChargePage,roomBusinessPage,roomMovementPage,extraChargePage,cancellationPenaltyPage,roomOccupantPage,registrationRecordPage,commissionPage} from './financial-ui.js';
 import {filterOrders,orderTabs} from '../src/order-filters.js';
 import {settlementStatus,columns,columnsWords,defaultColumns,loadColumns,saveColumns,columnLabel,renderOrderTable} from './order-columns.js';
-import {icon,shellWords,navigation,customersPage,channelsPage,nightAuditWords,nightAuditPage,handoverWindow,teamAccessPage,teamWords,propertySitePage,siteWords,dataMaintenancePage,cleanupWords} from './workspace-ui.js';
+import {icon,shellWords,navigation,customersPage,channelsPage,nightAuditWords,nightAuditPage,handoverWindow,teamAccessPage,teamWords,propertySitePage,siteWords,bookingRequestsPage,requestWords,dataMaintenancePage,cleanupWords} from './workspace-ui.js';
 import {checkinWords,createCheckinAdmin} from './checkin-admin-ui.js';
 import {communicationWords,createCommunications} from './communication-ui.js';
 import { isBoxed, blockType, inventoryState } from '../src/inventory-actions.js';
@@ -140,7 +140,8 @@ function render() {
   else if(view==='resourcesSettings') { $('#content').innerHTML=catalogPage(state,propertyId,lang,t,can); }
   else if(view==='teamAccess') { $('#content').innerHTML=teamAccessPage({members:state.members||[],memberAudit:state.memberAudit||[],properties:state.properties,propertyId,user:backend.user,can,t,escape}); }
   else if(view==='propertySite') { $('#content').innerHTML=propertySitePage({sites:state.sites||[],siteAudit:state.siteAudit||[],roomTypes:state.roomTypes,ratePlans:state.ratePlans,propertyId,can,t,escape}); }
-  else if(view==='dataCleanup') { $('#content').innerHTML=dataMaintenancePage({orders:state.orders,reservations:state.reservations||[],propertyId,can,t,escape}); }
+   else if(view==='bookingRequests') { $('#content').innerHTML=bookingRequestsPage({requests:state.bookingRequests||[],events:state.bookingRequestEvents||[],roomTypes:state.roomTypes,propertyId,can,t,escape,currency}); }
+ else if(view==='dataCleanup') { $('#content').innerHTML=dataMaintenancePage({orders:state.orders,reservations:state.reservations||[],propertyId,can,t,escape}); }
   else if(view==='rates'){const from=ratePageDates.get(propertyId)||businessDate();$('#content').innerHTML='<section class="panel"><p>'+rateLabel('可售量按每日及房型独立计算，整套与床位不能相加；跨日连续库存以提交校验为准。','Availability is per day and type; suites and beds cannot be added together. Continuous stays are validated on submission.','Ketersediaan mengikut hari dan jenis; suite dan katil tidak boleh dijumlah. Penginapan berterusan disemak semasa hantar.')+'</p><div class="panel-head"><h2>'+t('rateInventory')+'</h2><button data-rates-open>'+rateLabel('批量更新与计划管理','Bulk updates and plans','Kemas kini pukal dan pelan')+'</button></div><label>'+rateLabel('日历开始日期','Calendar start','Tarikh mula kalendar')+'<input id="rate-page-date" type="date" value="'+escape(from)+'" required></label>'+rateCalendar(state,{propertyId,start:from,currency,t,availability:(id,day)=>rateAvailability(state,propertyId,id,day,businessDate())})+'</section>';}
   else if(view==='calendar') { $('#content').innerHTML = calendar(resources,orders,plan,calendarDate); } else if(view==='overview' || view==='tasks') {
     $('#content').innerHTML = (view==='overview'?stats:'') + ['room','bed','suite'].map(product=>`<section class="panel"><div class="panel-head"><h2>${t(product==='room'?'rooms':product==='bed'?'beds':'suite')}</h2><span class="muted">${resources.filter(r=>r.productId===product).length} ${t(product)}</span></div><div class="grid">${resources.filter(r=>r.productId===product).map(r=>{
@@ -533,6 +534,27 @@ $('#content').addEventListener('click',async event=>{
   }catch(error){$('#message').textContent=errorText(error);}
   finally{button.disabled=false;}
 });
+// Booking requests raised from the published site. Accepting one is what creates the
+// booking, so it is confirmed first and then taken through the ordinary command path;
+// declining only records why and never touches inventory.
+$('#content').addEventListener('click',async event=>{
+  const accept=event.target.closest('[data-request-accept]');
+  if(accept){
+    event.preventDefault();
+    if(!confirm(t('requestConfirm')))return;
+    accept.disabled=true;
+    try{ await commit({type:'booking_request_decision',requestId:accept.dataset.requestAccept,decision:'accept'});render(); }
+    catch(error){$('#message').textContent=errorText(error);accept.disabled=false;}
+    return;
+  }
+  const decline=event.target.closest('[data-request-decline]');
+  if(!decline)return;
+  event.preventDefault();
+  const reason=document.querySelector(`#content [data-request-reason="${decline.dataset.requestDecline}"]`);
+  decline.disabled=true;
+  try{ await commit({type:'booking_request_decision',requestId:decline.dataset.requestDecline,decision:'decline',reason:(reason?.value||'').trim()});render(); }
+  catch(error){$('#message').textContent=errorText(error);decline.disabled=false;}
+});
 
 function showQueue(queue){
   const orders=queueOrders(state,propertyId,businessDate(),queue),n=new Set(orders.map(o=>o.reservationId||o.id)).size;
@@ -563,7 +585,7 @@ const composer=createComposer({getState:()=>state,getProperty:()=>propertyId,get
 communications=createCommunications({backend,getProperty:()=>propertyId,getState:()=>state,getLanguage:()=>lang,getContext:()=>view,can,t,openUtility,closeUtility:()=>$('#utility-dialog').close(),errorText});
 selfCheckinUI=createCheckinAdmin({backend,getProperty:()=>propertyId,getState:()=>state,can,t,openUtility,closeUtility:()=>$('#utility-dialog').close(),errorText,toMinor});
 $('#technical-support').onclick=()=>{if(!selfCheckinUI.leave())return;communications.openSupport();};$('#guest-messages').onclick=()=>{if(!selfCheckinUI.leave())return;communications.openMessages();};$('#help-center').onclick=()=>{if(!selfCheckinUI.leave())return;communications.openHelp();};$('#self-checkin').onclick=()=>{if(leaveDialogs())selfCheckinUI.open();};
-for(const language of Object.keys(words))Object.assign(words[language],shellWords[language],teamWords[language],siteWords[language],cleanupWords[language]);
+for(const language of Object.keys(words))Object.assign(words[language],shellWords[language],teamWords[language],siteWords[language],requestWords[language],cleanupWords[language]);
 Object.assign(words.zh,{calendar:'日历',orders:'住宿订单',overview:'房情表',new:'新增订单',guest:'姓名',details:'详细信息',source:'渠道',guestLanguage:'偏好语言',channelOrderId:'渠道订单号',notes:'备注',propertySummary:'房情表',singleDay:'单日',businessSummary:'房费总览',memo:'备忘录',created:'今日新办',exceptions:'异常订单',pending:'待处理退款',print:'打印'});
 
 function openOrderColumns(){

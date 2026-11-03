@@ -5,10 +5,10 @@ const paths={home:'M3 11 12 3l9 8v10h-6v-7H9v7H3Z',calendar:'M4 5h16v16H4ZM7 2v6
 export const icon=name=>`<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.summary}"/></svg>`;
 export const shellWords={zh:{channels:'渠道',customers:'客户',mainOrders:'订单',navCalendar:'日历',navSummary:'房情表',navOverview:'房态表',collapseNavigation:'收起导航',expandNavigation:'展开导航',batchCleaning:'批量置脏/净',batchRoomState:'批量开/关房',today:'今天',todayShort:'今',customerDirectory:'住客资料',customerDirectoryNote:'来自本店现有订单的联系人记录；尚无独立CRM合并和去重审核。',relatedOrders:'关联订单',notConnected:'未连接',readConnection:'刷新连接状态',connectionUnknown:'连接状态尚未读取',channelScope:'渠道连接与消息',channelScopeNote:'NOBEDS作为付费渠道服务；本页从当前门店安全配置读取连接状态，不代表已经完成供应商联调。',messageCapability:'消息能力',manualSource:'手工订单来源',manualSourceNote:'订单来源标签不表示已连接OTA；其他平台消息能力需供应商确认。',notVerified:'尚未完成真实账号验收',openMessages:'打开OTA客人聊天',filterCustomers:'搜索姓名、邮箱、手机号、订单号',noCustomers:'本店暂无住客联系人',customerCount:'联系人记录',closeGroups:'收起',openGroups:'展开',viewInstructions:'查看说明',nightAuditLabel:'夜审',nightAuditUnavailable:'未启用',collapseGroupNote:'点击展开可恢复房型下的全部房号。'},en:{channels:'Channels',customers:'Guests',mainOrders:'Orders',navCalendar:'Calendar',navSummary:'Room summary',navOverview:'Room status',collapseNavigation:'Collapse navigation',expandNavigation:'Expand navigation',batchCleaning:'Bulk dirty / clean',batchRoomState:'Bulk open / close',today:'Today',todayShort:'Now',customerDirectory:'Guest contacts',customerDirectoryNote:'Contacts from existing property bookings; independent CRM merge and deduplication review are not implemented.',relatedOrders:'Related bookings',notConnected:'Not connected',readConnection:'Refresh connection',connectionUnknown:'Connection not read yet',channelScope:'Channel connection and messages',channelScopeNote:'NOBEDS is the paid channel service. Status comes from this property’s private configuration and does not establish a tested integration.',messageCapability:'Messaging capability',manualSource:'Manual booking source',manualSourceNote:'A source label does not connect an OTA. Other platform messaging needs supplier confirmation.',notVerified:'Live account verification incomplete',openMessages:'Open OTA guest inbox',filterCustomers:'Search name, email, phone or booking',noCustomers:'No guest contacts in this property',customerCount:'Contact records',closeGroups:'Collapse',openGroups:'Expand',viewInstructions:'View notes',nightAuditLabel:'Night audit',nightAuditUnavailable:'Not enabled',collapseGroupNote:'Expand to restore all unit rows.'},ms:{channels:'Saluran',customers:'Tetamu',mainOrders:'Pesanan',navCalendar:'Kalendar',navSummary:'Ringkasan bilik',navOverview:'Status bilik',collapseNavigation:'Tutup navigasi',expandNavigation:'Buka navigasi',batchCleaning:'Kotor / bersih pukal',batchRoomState:'Buka / tutup pukal',today:'Hari ini',todayShort:'Kini',customerDirectory:'Kenalan tetamu',customerDirectoryNote:'Kenalan daripada tempahan hartanah. Penggabungan CRM dan semakan pendua belum tersedia.',relatedOrders:'Tempahan berkaitan',notConnected:'Belum disambung',readConnection:'Muat semula sambungan',connectionUnknown:'Status belum dibaca',channelScope:'Sambungan dan mesej saluran',channelScopeNote:'NOBEDS ialah perkhidmatan saluran berbayar. Status konfigurasi bukan bukti integrasi sebenar telah diuji.',messageCapability:'Keupayaan mesej',manualSource:'Sumber manual',manualSourceNote:'Label sumber bukan sambungan OTA. Mesej platform lain perlu pengesahan pembekal.',notVerified:'Akaun sebenar belum disahkan',openMessages:'Buka peti masuk OTA',filterCustomers:'Cari nama, e-mel, telefon atau tempahan',noCustomers:'Tiada kenalan tetamu',customerCount:'Rekod kenalan',closeGroups:'Tutup',openGroups:'Buka',viewInstructions:'Lihat nota',nightAuditLabel:'Audit malam',nightAuditUnavailable:'Belum aktif',collapseGroupNote:'Buka untuk lihat semua unit.'}};
 export function navigation(view,t){
- const group=['calendar','overview','tasks','rates'].includes(view)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(view)?'stats':['resourcesSettings','teamAccess','propertySite','dataCleanup'].includes(view)?'settings':view;
+ const group=['calendar','overview','tasks','rates'].includes(view)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(view)?'stats':['resourcesSettings','teamAccess','propertySite','bookingRequests','dataCleanup'].includes(view)?'settings':view;
  const mains=[['home','home','home'],['calendar','roomState','home'],['channels','channels','channels'],['orders','mainOrders','orders'],['customers','customers','customers'],['business','operationalReports','stats'],['resourcesSettings','settings','settings']];
- const section=v=>['calendar','overview','tasks','rates'].includes(v)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(v)?'stats':['resourcesSettings','teamAccess','propertySite','dataCleanup'].includes(v)?'settings':v;
- const side={rooms:[['calendar','navCalendar','home'],['rates','rateInventory','cash'],['overview','navSummary','summary'],['tasks','tasks','clean']],orders:[['orders','orders','orders'],['audit','audit','audit']],stats:[['managerDaily','managerDailyReport','stats'],['guestLedger','guestLedger','cash'],['roomCharge','roomChargeDetail','stats'],['roomBusiness','roomBusinessSummary','stats'],['roomMovement','roomMovementLog','audit'],['extraCharge','otherChargeDetail','cash'],['cancellation','cancellationPenaltyDetail','pig'],['occupants','roomOccupantDetail','single'],['registration','registrationRecord','audit'],['commission','commissionDetail','cash'],['comparison','comparison','summary'],['business','businessSummary','stats'],['cashflow','cashflowSummary','cash'],['nightAudit','nightAudit','audit']],settings:[['resourcesSettings','resourcesSettings','settings'],['teamAccess','teamAccess','lock'],['propertySite','propertySite','globe'],['dataCleanup','dataMaintenance','refresh']],channels:[['channels','channels','channels']],customers:[['customers','customerDirectory','customers']]}[group]||[];
+ const section=v=>['calendar','overview','tasks','rates'].includes(v)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission'].includes(v)?'stats':['resourcesSettings','teamAccess','propertySite','bookingRequests','dataCleanup'].includes(v)?'settings':v;
+ const side={rooms:[['calendar','navCalendar','home'],['rates','rateInventory','cash'],['overview','navSummary','summary'],['tasks','tasks','clean']],orders:[['orders','orders','orders'],['audit','audit','audit']],stats:[['managerDaily','managerDailyReport','stats'],['guestLedger','guestLedger','cash'],['roomCharge','roomChargeDetail','stats'],['roomBusiness','roomBusinessSummary','stats'],['roomMovement','roomMovementLog','audit'],['extraCharge','otherChargeDetail','cash'],['cancellation','cancellationPenaltyDetail','pig'],['occupants','roomOccupantDetail','single'],['registration','registrationRecord','audit'],['commission','commissionDetail','cash'],['comparison','comparison','summary'],['business','businessSummary','stats'],['cashflow','cashflowSummary','cash'],['nightAudit','nightAudit','audit']],settings:[['resourcesSettings','resourcesSettings','settings'],['teamAccess','teamAccess','lock'],['propertySite','propertySite','globe'],['bookingRequests','bookingRequests','message'],['dataCleanup','dataMaintenance','refresh']],channels:[['channels','channels','channels']],customers:[['customers','customerDirectory','customers']]}[group]||[];
  const buttons=items=>items.map(([id,key,name])=>`<button data-view="${id}" class="${section(id)===group&&items===mains||id===view?'active':''}" ${id===view?'aria-current="page"':''}>${items===mains?'':icon(name)}<span>${t(key)}</span></button>`).join('');
  return {main:buttons(mains),side:buttons(side)};
 }
@@ -333,4 +333,76 @@ export const cleanupWords={
   cleanupRun:'Padam tempahan ini',cleanupReadOnly:'Hanya pentadbir hartanah ini boleh mengosongkan tempahan ujian.',
   cleanupIrreversible:'Pemadaman tidak boleh dibuat asal. Setiap tempahan yang dipadam disenaraikan dalam audit bersama nama tetamu, tarikh dan status.',
   nothing_to_purge:'Tiada yang sepadan dengan awalan itu, jadi tiada apa diubah.',cleanupConfirm:'Padam tempahan ini? Ini tidak boleh dibuat asal.'}
+};
+
+// Booking requests raised from a published site. Accepting one is what turns it into a
+// stay, so until someone does, nothing is booked, charged or held, and the quoted
+// figure is only what the site showed the guest at the moment they asked.
+export function bookingRequestsPage({requests=[],events=[],roomTypes=[],propertyId,can,t,escape,currency}) {
+ const esc=escape||(v=>String(v??''));
+ const money=currency||(v=>String(v??''));
+ const editable=can('booking_request_decision');
+ const mine=requests.filter(r=>r.propertyId===propertyId);
+ const pending=mine.filter(r=>r.status==='pending').length;
+ const typeName=id=>{const type=roomTypes.find(r=>r.id===id);return type?(type.names&&Object.values(type.names).find(Boolean))||type.id:id;};
+ const statusKey=status=>({pending:'requestPending',accepted:'requestAccepted',declined:'requestDeclined'}[status]||status);
+ const actionKey=action=>({submit:'requestSubmitted',accept:'requestAccepted',decline:'requestDeclined'}[action]||action);
+ const quote=r=>r.quotedTotal===null||r.quotedTotal===undefined
+   ?`<span class="muted">${esc(t('requestNoQuote'))}</span>`:esc(money(r.quotedTotal));
+ const cell=(r,key)=>esc({time:String(r.createdAt||'').slice(0,16).replace('T',' '),guest:r.guest,contact:r.contact,
+   start:r.start,end:r.end,roomType:typeName(r.roomTypeId),guests:r.guests}[key]??'');
+ const rows=mine.map(r=>{
+   const action=r.status!=='pending'?'':editable?`<button type="button" data-request-accept="${esc(r.id)}">${esc(t('requestAccept'))}</button>
+     <input data-request-reason="${esc(r.id)}" maxlength="500" placeholder="${esc(t('requestReason'))}" aria-label="${esc(t('requestReason'))}">
+     <button type="button" data-request-decline="${esc(r.id)}">${esc(t('requestDecline'))}</button>`
+     :`<span class="muted">${esc(t('requestReadOnly'))}</span>`;
+   const outcome=r.status==='accepted'?(r.orderId?`<button type="button" data-open-stay="${esc(r.orderId)}">${esc(t('requestOrder'))}</button>`
+     :esc(t('requestAccepted'))):r.status==='declined'?esc(r.decisionNote||''):'';
+   return `<tr><td>${cell(r,'time')}</td><td><strong>${cell(r,'guest')}</strong></td><td>${cell(r,'contact')}</td>
+    <td>${cell(r,'start')}</td><td>${cell(r,'end')}</td><td>${cell(r,'roomType')}</td><td>${cell(r,'guests')}</td>
+    <td>${quote(r)}</td><td>${esc(t(statusKey(r.status)))}</td><td>${action}${outcome?` ${outcome}`:''}</td></tr>`;
+  }).join('');
+ const history=events.length?`<h3>${esc(t('requestEvents'))}</h3><div class="table-wrap"><table><thead><tr>${['time','createdBy','requestStatus','requestReason'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${
+   events.slice(0,50).map(e=>`<tr><td>${esc(String(e.at||'').slice(0,16).replace('T',' '))}</td><td>${esc(e.actor)}</td><td>${
+     esc(t(actionKey(e.action)))}</td><td>${esc(e.reason||'')}</td></tr>`).join('')}</tbody></table></div>`:'';
+ return `<section class="panel"><div class="panel-head"><h2>${esc(t('bookingRequests'))}</h2><span>${esc(t('requestAwaiting'))}: ${pending}</span></div>
+  <p class="muted">${esc(t('requestsNote'))}</p>
+  <p class="muted">${esc(t('requestsPriceNote'))}</p>
+  ${mine.length?`<div class="table-wrap"><table><thead><tr>${['requestTime','requestGuest','requestContact','requestStart','requestEnd','requestRoomType','requestGuests','requestQuote','requestStatus','requestActions'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`
+    :`<p class="empty">${esc(t('requestsNone'))}</p>`}
+  ${editable?'':`<p class="muted">${esc(t('requestReadOnly'))}</p>`}
+  ${history}</section>`;
+}
+
+export const requestWords={
+ zh:{bookingRequests:'预订请求',requestAwaiting:'待确认',
+  requestsNote:'来自已发布门店网站的请求。接受后才会生成订单并占用库存；系统未接入在线支付，接受不等于收款，款项仍在前台按实际收取。',
+  requestsPriceNote:'显示的价格是客人提交时按公布房价算出的参考值。若当时没有公布价格，订单会以零房价建立，需要前台补充房价。',
+  requestTime:'提交时间',requestGuest:'客人',requestContact:'联系方式',requestStart:'入住',requestEnd:'退房',requestRoomType:'房型',
+  requestGuests:'人数',requestQuote:'提交时报价',requestStatus:'状态',requestActions:'处理',
+  requestPending:'待确认',requestAccepted:'已接受',requestDeclined:'已拒绝',requestSubmitted:'已提交',
+  requestNoQuote:'无公布价格',requestAccept:'接受并生成订单',requestDecline:'拒绝',requestReason:'拒绝原因',requestOrder:'查看订单',
+  requestReadOnly:'只有本门店的操作员及以上可以处理预订请求。',requestsNone:'本门店暂无来自网站的预订请求。',requestEvents:'最近处理记录',
+  requestConfirm:'接受后会立即生成订单并占用库存，确定继续吗？',
+  request_state:'这条请求已经处理过了，请刷新后查看结果。',request_input:'请指定接受或拒绝。',request_reason:'拒绝必须填写原因。'},
+ en:{bookingRequests:'Booking requests',requestAwaiting:'Awaiting a decision',
+  requestsNote:'Requests raised from the published property site. Only accepting one creates a booking and takes inventory. No online payment is connected, so accepting is not taking money: payment is still taken at the desk as usual.',
+  requestsPriceNote:'The price shown is what the site quoted when the guest asked. Where no price was published then, the booking is created at zero and the rate has to be filled in at the desk.',
+  requestTime:'Asked at',requestGuest:'Guest',requestContact:'Contact',requestStart:'Arrival',requestEnd:'Departure',requestRoomType:'Room type',
+  requestGuests:'Guests',requestQuote:'Quoted when asked',requestStatus:'Status',requestActions:'Decision',
+  requestPending:'Awaiting a decision',requestAccepted:'Accepted',requestDeclined:'Declined',requestSubmitted:'Submitted',
+  requestNoQuote:'No published price',requestAccept:'Accept and create the booking',requestDecline:'Decline',requestReason:'Reason',requestOrder:'Open booking',
+  requestReadOnly:'Only an operator or an administrator of this property can decide on booking requests.',requestsNone:'No booking request has reached this property yet.',requestEvents:'Recent decisions',
+  requestConfirm:'Accepting creates the booking at once and takes the inventory. Continue?',
+  request_state:'That request has already been decided, so refresh and check the result.',request_input:'Say whether the request is accepted or declined.',request_reason:'Declining needs a reason.'},
+ ms:{bookingRequests:'Permintaan tempahan',requestAwaiting:'Menunggu keputusan',
+  requestsNote:'Permintaan daripada laman hartanah yang diterbitkan. Hanya menerima mencipta tempahan dan mengambil inventori. Tiada pembayaran dalam talian disambungkan, jadi menerima bukan mengambil wang: bayaran masih diambil di kaunter seperti biasa.',
+  requestsPriceNote:'Harga yang ditunjukkan ialah apa yang laman sebut harga semasa tetamu meminta. Jika tiada harga diterbitkan ketika itu, tempahan dicipta pada sifar dan kadar perlu diisi di kaunter.',
+  requestTime:'Diminta pada',requestGuest:'Tetamu',requestContact:'Hubungan',requestStart:'Daftar masuk',requestEnd:'Daftar keluar',requestRoomType:'Jenis bilik',
+  requestGuests:'Bilangan tetamu',requestQuote:'Sebut harga semasa diminta',requestStatus:'Status',requestActions:'Keputusan',
+  requestPending:'Menunggu keputusan',requestAccepted:'Diterima',requestDeclined:'Ditolak',requestSubmitted:'Dihantar',
+  requestNoQuote:'Tiada harga diterbitkan',requestAccept:'Terima dan cipta tempahan',requestDecline:'Tolak',requestReason:'Sebab',requestOrder:'Buka tempahan',
+  requestReadOnly:'Hanya operator atau pentadbir hartanah ini boleh membuat keputusan tentang permintaan tempahan.',requestsNone:'Belum ada permintaan tempahan untuk hartanah ini.',requestEvents:'Keputusan terkini',
+  requestConfirm:'Menerima akan mencipta tempahan serta-merta dan mengambil inventori. Teruskan?',
+  request_state:'Permintaan itu sudah diputuskan, sila muat semula dan semak hasilnya.',request_input:'Nyatakan sama ada permintaan diterima atau ditolak.',request_reason:'Menolak memerlukan sebab.'}
 };

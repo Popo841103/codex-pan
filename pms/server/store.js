@@ -22,8 +22,8 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save','purge_test_orders'],
-  operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover'],
+  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save','purge_test_orders','booking_request_decision'],
+  operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover','booking_request_decision'],
   finance: ['settle','payment'], viewer: []
 };
 export class Store {
@@ -63,6 +63,19 @@ export class Store {
         action TEXT NOT NULL, at TEXT NOT NULL, summary TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS site_audit_no_update BEFORE UPDATE ON site_audit BEGIN SELECT RAISE(ABORT,'site_audit_append_only'); END;
       CREATE TRIGGER IF NOT EXISTS site_audit_no_delete BEFORE DELETE ON site_audit BEGIN SELECT RAISE(ABORT,'site_audit_append_only'); END;
+      -- A published site collects a request, never a booking: it is stored for the front
+      -- desk to decide on, and nothing is charged, confirmed or held until then.
+      CREATE TABLE IF NOT EXISTS booking_requests (id TEXT PRIMARY KEY, property_id TEXT NOT NULL REFERENCES properties(id),
+        slug TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','accepted','declined')),
+        guest_name TEXT NOT NULL, contact TEXT NOT NULL, stay_from TEXT NOT NULL, stay_to TEXT NOT NULL,
+        guests INTEGER NOT NULL, room_type_id TEXT NOT NULL, note TEXT NOT NULL, language TEXT NOT NULL,
+        quoted_total INTEGER, quoted_nightly TEXT, created_at TEXT NOT NULL,
+        decided_at TEXT, decided_by TEXT REFERENCES users(id), decision_note TEXT, reservation_id TEXT, order_id TEXT);
+      CREATE INDEX IF NOT EXISTS booking_requests_property ON booking_requests(property_id,status,created_at);
+      CREATE TABLE IF NOT EXISTS booking_request_events (id TEXT PRIMARY KEY, request_id TEXT NOT NULL, actor TEXT NOT NULL,
+        action TEXT NOT NULL, at TEXT NOT NULL, summary TEXT NOT NULL);
+      CREATE TRIGGER IF NOT EXISTS booking_request_events_no_update BEFORE UPDATE ON booking_request_events BEGIN SELECT RAISE(ABORT,'booking_request_events_append_only'); END;
+      CREATE TRIGGER IF NOT EXISTS booking_request_events_no_delete BEFORE DELETE ON booking_request_events BEGIN SELECT RAISE(ABORT,'booking_request_events_append_only'); END;
       CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS receipts (user_id TEXT NOT NULL REFERENCES users(id), request_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
         response TEXT NOT NULL, PRIMARY KEY(user_id,request_key));
@@ -339,6 +352,79 @@ export class Store {
       .map(row=>{const summary=JSON.parse(row.summary);return {id:row.id,at:row.at,actor:row.actor,propertyId:row.property_id,
         slug:summary.slug,enabled:!!summary.enabled,previous:summary.previous,next:summary.next};});
   }
+  // Requests raised from a published site. They are read like any other operational
+  // list: only the properties this account is scoped to, never another property's mail.
+  visibleBookingRequests(user){
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    // Undecided requests are the ones someone has to act on, so they come first.
+    const rank=status=>({pending:0,accepted:1,declined:2}[status]??3);
+    return this.db.prepare('SELECT * FROM booking_requests').all()
+      .filter(row=>scope.includes(row.property_id))
+      .sort((a,b)=>rank(a.status)-rank(b.status)||(a.created_at<b.created_at?1:a.created_at>b.created_at?-1:0))
+      .map(row=>({id:row.id,propertyId:row.property_id,slug:row.slug,status:row.status,guest:row.guest_name,contact:row.contact,
+        start:row.stay_from,end:row.stay_to,guests:row.guests,roomTypeId:row.room_type_id,note:row.note,language:row.language,
+        quotedTotal:row.quoted_total??null,quotedNightly:row.quoted_nightly?JSON.parse(row.quoted_nightly):null,
+        createdAt:row.created_at,decidedAt:row.decided_at,decidedBy:row.decided_by,decisionNote:row.decision_note,
+        reservationId:row.reservation_id,orderId:row.order_id}));
+  }
+  visibleBookingRequestEvents(user){
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    // Same-millisecond entries still come back in the order they happened, and a
+    // request submitted by the public has no account to name.
+    return this.db.prepare(`SELECT e.*,r.property_id property_id,u.username username FROM booking_request_events e
+      JOIN booking_requests r ON r.id=e.request_id LEFT JOIN users u ON u.id=e.actor
+      ORDER BY e.at DESC, e.rowid DESC LIMIT 200`).all()
+      .filter(row=>scope.includes(row.property_id))
+      .map(row=>({id:row.id,requestId:row.request_id,actor:row.actor==='public'?'public':(row.username||row.actor),
+        action:row.action,at:row.at,...JSON.parse(row.summary)}));
+  }
+  // Accepting a request rewrites it into the reservation it becomes, so the booking a
+  // guest asked for is taken through the same inventory, revision and audit rules as
+  // one taken at the desk. The price used is the one that was quoted, never a new one.
+  bookingRequestCommand(row){
+    const property=this.db.prepare('SELECT * FROM properties WHERE id=?').get(row.property_id);
+    const body=upgradeCatalog(JSON.parse(property.body));
+    const type=body.roomTypes.find(t=>t.id===row.room_type_id);
+    if(!type||type.archived)error(409,'site_input');
+    const days=[];for(let day=row.stay_from;day<row.stay_to;day=new Date(Date.parse(day+'T00:00:00Z')+86400000).toISOString().slice(0,10))days.push(day);
+    const quoted=row.quoted_nightly?JSON.parse(row.quoted_nightly):null;
+    const rates=quoted&&quoted.length===days.length?days.map((date,i)=>({date,amount:quoted[i]})):null;
+    const email=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.contact);
+    const longContact=!email&&row.contact.length>40?`Contact: ${row.contact}`:'';
+    return {type:'create_reservation',propertyId:row.property_id,bookingRequestId:row.id,
+      mode:'reserve',bookingKind:'individual',autoAssign:false,source:'bookingengine',
+      guest:row.guest_name,notes:[row.note,longContact].filter(Boolean).join(' — ').slice(0,2048),
+      date:body.businessDate||localDay(new Date()),
+      ...(email?{email:row.contact}:row.contact.length<=40?{phone:row.contact}:{}),
+      stays:[{productId:type.productId,roomTypeId:type.id,gender:'any',start:row.stay_from,end:row.stay_to,group:'',
+        nightly:rates?rates[0].amount:0,...(rates?{nightlyRates:rates}:{}),
+        adults:row.guests,children:0,infants:0,
+        occupants:Array.from({length:row.guests},()=>({name:'',gender:type.gender==='any'?'any':type.gender}))}]};
+  }
+  // Declining keeps the request and the reason together: no inventory is touched, no
+  // revision moves, and what the guest asked for stays on the record.
+  decideBookingRequest(actor,command,key,fingerprint){
+    const propertyId=command.propertyId;
+    const row=this.db.prepare('SELECT * FROM booking_requests WHERE id=?').get(command.requestId);
+    if(!row||row.property_id!==propertyId)error(404,'not_found');
+    // Replaying the same key answers from the receipt first, so a retry never looks
+    // like a refusal just because the first attempt already decided the request.
+    const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
+    if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+    if(row.status!=='pending')error(409,'request_state');
+    if(command.decision!=='decline')error(400,'request_input');
+    const reason=String(command.reason??'').trim();
+    if(!reason||reason.length>500)error(400,'request_reason');
+    const at=new Date().toISOString(),id=randomUUID();
+    const changed=this.db.prepare(`UPDATE booking_requests SET status=?,decided_at=?,decided_by=?,decision_note=? WHERE id=? AND status='pending'`)
+      .run('declined',at,actor.id,reason,row.id);
+    if(!changed.changes)error(409,'request_state');
+    this.db.prepare('INSERT INTO booking_request_events VALUES(?,?,?,?,?,?)').run(id,row.id,actor.id,'decline',at,
+      JSON.stringify({reason,actor:actor.username,guest:row.guest_name,from:row.stay_from,to:row.stay_to}));
+    const response={id,requestId:row.id,propertyId,status:'declined'};
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    return response;
+  }
   // Everything below is public: it answers without a session, and only for a site
   // that has actually been published.
   publicSite(slug){
@@ -394,12 +480,44 @@ export class Store {
         fitsGuests:type.maxGuests>=count,
         nightlyFrom:(priced&&prices.length)?Math.min(...prices):null,
         total:(priced&&prices.length)?prices.reduce((n,p)=>n+p,0):null,
+        nightly:priced?prices:null,
         nights:nights.length};
     });
     return {...site,nights:nights.length,from,to,guests:count,businessDate,
       // A price is only trustworthy when every night of the stay actually has one.
       priceKnown:roomTypes.some(t=>t.total!==null),
       roomTypes};
+  }
+  // What a published site collects instead of a booking. It answers without a session,
+  // stores the request as undecided, and quotes without charging, holding or
+  // confirming anything: only the front desk can turn it into a stay.
+  submitBookingRequest({slug,roomTypeId,from,to,guests,name,contact,note,language}={}){
+    const site=this.publicSite(slug);
+    const type=site.roomTypes.find(t=>t.id===roomTypeId);
+    if(!type)error(400,'site_input');
+    const valid=day=>typeof day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isFinite(Date.parse(day+'T00:00:00Z'))&&
+      new Date(day+'T00:00:00Z').toISOString().slice(0,10)===day;
+    if(!valid(from)||!valid(to)||to<=from||(Date.parse(to)-Date.parse(from))/86400000>31)error(400,'date_range');
+    const count=Number(guests);if(!Number.isSafeInteger(count)||count<1||count>20)error(400,'guest_count');
+    // Capacity is checked now instead of at the desk, so a request that could never be
+    // accepted is not queued for someone to reject by hand.
+    if(count>type.maxGuests||type.productId==='bed'&&count!==1)error(400,'guest_count');
+    const guestName=String(name??'').replace(/\s+/g,' ').trim();
+    if(!guestName||guestName.length>100)error(400,'guest_name');
+    const contactText=String(contact??'').replace(/\s+/g,' ').trim();
+    if(!contactText||contactText.length>254)error(400,'contact');
+    const noteText=String(note??'').trim().slice(0,2000);
+    const lang=['zh','en','ms'].includes(language)?language:'en';
+    const quote=this.publicAvailability({slug,from,to,guests:count}).roomTypes.find(t=>t.id===roomTypeId);
+    const nights=Math.round((Date.parse(to)-Date.parse(from))/86400000);
+    const id=randomUUID(),at=new Date().toISOString();
+    this.db.prepare('INSERT INTO booking_requests VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(id,site.propertyId,slug,'pending',guestName,contactText,from,to,count,roomTypeId,noteText,lang,
+        quote?.total??null,quote?.nightly?JSON.stringify(quote.nightly):null,at,null,null,null,null,null);
+    this.db.prepare('INSERT INTO booking_request_events VALUES(?,?,?,?,?,?)').run(randomUUID(),id,'public','submit',at,
+      JSON.stringify({slug,roomTypeId,from,to,guests:count,nights,quotedTotal:quote?.total??null,language:lang}));
+    return {id,reference:id.slice(0,8).toUpperCase(),status:'pending',nights,quotedTotal:quote?.total??null,
+      quotedNightly:quote?.nightly??null};
   }
   session(token) {
     if(typeof token!=='string'||!/^[a-f0-9]{64}$/.test(token))error(401,'login_required');
@@ -417,7 +535,7 @@ export class Store {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
     const ids=this.publicUser(fresh).propertyIds;
-    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[]};
+    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[]};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
@@ -435,6 +553,8 @@ export class Store {
     result.memberAudit=this.visibleMemberAudit(fresh);
     result.sites=this.visibleSites(fresh);
     result.siteAudit=this.visibleSiteAudit(fresh);
+    result.bookingRequests=this.visibleBookingRequests(fresh);
+    result.bookingRequestEvents=this.visibleBookingRequestEvents(fresh);
     return result;
   }
   command(user,{key,expectedRevision,command},{beforeApply}={}) {
@@ -452,11 +572,22 @@ export class Store {
       const propertyId=command.propertyId;
       if(typeof propertyId!=='string')error(400,'input');
       this.authorize(user,propertyId);
+      let requestRow=null;
       // Team access is not a property business command: it writes the user tables and
       // is answered here instead of being folded into a property revision.
       if(command.type==='member_save')return this.saveMember(rowUser,command,key,fingerprint);
       // Publishing a property site writes public content, not property state.
       if(command.type==='site_save')return this.saveSite(rowUser,command,key,fingerprint);
+      // Deciding a booking request. Declining only records why, so it is answered here;
+      // accepting is rewritten into the reservation it becomes, so the guest's stay is
+      // taken through the same inventory, revision and audit rules as any other.
+      if(command.type==='booking_request_decision'){
+        requestRow=this.db.prepare('SELECT * FROM booking_requests WHERE id=?').get(command.requestId);
+        if(!requestRow||requestRow.property_id!==propertyId)error(404,'not_found');
+        if(command.decision==='decline')return this.decideBookingRequest(rowUser,command,key,fingerprint);
+        if(command.decision!=='accept')error(400,'request_input');
+        command=this.bookingRequestCommand(requestRow);
+      }
       // A property override decides what this account may do here, not its account role.
       const effectiveRole=this.propertyRole(rowUser,propertyId);
       if(command.type==='create_reservation'&&command.mode==='checkin'&&!roleTypes[effectiveRole].includes('checkin'))error(403,'forbidden');
@@ -465,6 +596,9 @@ export class Store {
       if(!roleTypes[effectiveRole].includes(command.type))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+      // A request is decided once. Replaying the same key answers from the receipt above;
+      // a fresh attempt on one that is already answered is refused.
+      if(requestRow&&requestRow.status!=='pending')error(409,'request_state');
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(propertyId);
       if(row.revision!==expectedRevision)error(409,'stale_revision');
       // Never accept browser-created timestamps, command IDs or an actor identity.
@@ -495,7 +629,9 @@ export class Store {
       const catalogEntity = body => cmd.type==='room_type_save' ? body.roomTypes.find(t=>t.id===(cmd.roomTypeId||cmd.id)) :
         cmd.type==='physical_room_save' ? body.physicalRooms.find(r=>r.id===(cmd.physicalRoomId||`${cmd.id}-space`)) :
         body.resources.find(r=>r.id===(cmd.resourceId||cmd.id));
-      const summary={...(cmd.type==='create_reservation'?{reservationId:cmd.id,stayIds:next.reservations.find(r=>r.id===cmd.id).stayIds}:{}),
+      const created=cmd.type==='create_reservation'?next.reservations.find(r=>r.id===cmd.id):null;
+      const summary={...(created?{reservationId:cmd.id,stayIds:created.stayIds}:{}),
+        ...(cmd.bookingRequestId?{bookingRequestId:cmd.bookingRequestId}:{}),
         // A purge is destructive, so the audit keeps what was removed: which stays, whose
         // names, which nights and what state they were in. The orders themselves are gone.
         ...(cmd.type==='purge_test_orders'?{purged:before.orders.filter(o=>!next.orders.some(n=>n.id===o.id))
@@ -513,7 +649,15 @@ export class Store {
         fields:Object.keys(command).filter(k=>!['type','propertyId'].includes(k)),
         ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{})};
       this.db.prepare('INSERT INTO audit VALUES(?,?,?,?,?,?,?)').run(cmd.id,propertyId,user.id,cmd.type,cmd.at,revision,JSON.stringify(summary));
-      const response={id:cmd.id,propertyId,revision};
+      if(requestRow){
+        const stayIds=created?.stayIds||[];
+        this.db.prepare(`UPDATE booking_requests SET status='accepted',decided_at=?,decided_by=?,reservation_id=?,order_id=? WHERE id=? AND status='pending'`)
+          .run(cmd.at,user.id,cmd.id,stayIds[0]||null,requestRow.id);
+        this.db.prepare('INSERT INTO booking_request_events VALUES(?,?,?,?,?,?)').run(randomUUID(),requestRow.id,user.id,'accept',cmd.at,
+          JSON.stringify({actor:rowUser.username,reservationId:cmd.id,orderId:stayIds[0]||null,guest:requestRow.guest_name,
+            from:requestRow.stay_from,to:requestRow.stay_to}));
+      }
+      const response={id:cmd.id,propertyId,revision,...(requestRow?{bookingRequestId:requestRow.id,requestStatus:'accepted'}:{})};
       this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(user.id,key,fingerprint,JSON.stringify(response));
       return response;
     });
