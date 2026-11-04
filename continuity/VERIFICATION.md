@@ -13,7 +13,7 @@ bash -n deploy/ci/setup-server.sh
 bash -n deploy/ci/receive-release.sh
 ```
 
-当前基线（2026-11-04）：Node **374/374**，Python **5/5**，16 个 DOM 脚本，38 个运行时 JS 语法检查，部署 shell `bash -n`。改 `deploy/update-vultr-test.sh` 后必须同步 `deploy/ci/BOOTSTRAP.txt` 内嵌的 base64+gzip 副本与 SHA-256（`test_release_archive.py` 会拦截不同步，否则新服务器会装回旧脚本）；重生成用确定性 gzip：`gzip.compress(data, compresslevel=9, mtime=0)`。
+当前基线（2026-11-04，`b4754fc`）：Node **397/397**，Python **5/5**，**17** 个 DOM 脚本，37 个运行时 JS 语法检查，部署 shell `bash -n`。改 `deploy/update-vultr-test.sh` 后必须同步 `deploy/ci/BOOTSTRAP.txt` 内嵌的 base64+gzip 副本与 SHA-256（`test_release_archive.py` 会拦截不同步，否则新服务器会装回旧脚本）；重生成用确定性 gzip：`gzip.compress(data, compresslevel=9, mtime=0)`。
 
 ## 可选的 DOM 流程验证
 
@@ -23,14 +23,14 @@ jsdom 需已安装；每个脚本把 `node_modules/jsdom/lib/api.js` 作为第�
 node verification/dom-notifications.mjs node_modules/jsdom/lib/api.js
 ```
 
-全部 16 个脚本：
+全部 17 个脚本：
 
 ```
 dom-workflows.mjs  dom-financial.mjs  dom-comparison.mjs  dom-settlement.mjs
 dom-rates.mjs  dom-night-audit.mjs  dom-manager-report.mjs  dom-accommodation.mjs
 dom-extra-penalty.mjs  dom-occupancy.mjs  dom-team-access.mjs  dom-property-site.mjs
 dom-data-cleanup.mjs  dom-booking-requests.mjs  dom-notifications.mjs
-communications-dom.mjs
+dom-empty-property.mjs  communications-dom.mjs
 ```
 
 DOM 脚本是**进程内 jsdom + 合成 provider / 合成设备**，不等于真机 Edge、手机扫码、真实门锁或与供应商的联调验收。
@@ -121,3 +121,28 @@ grep -c cashExpectedTotal /opt/jovian-pms-test/current/src/demo-store.js
 | `roleTypes.admin` 的 `cash_variance_approve` 权限、`handoverCash` 审计字段 | 只能靠发布重启推断 | 推断 |
 
 后端推断的主机佐证命令已加入上面的 grep 清单：`cash_variance_approve`、`handoverCash`（`server/store.js`）与 `cashExpectedTotal`（`src/demo-store.js`）。页面行为由 `verification/dom-night-audit.mjs` 在进程内 HTTP 驱动，不是公网浏览器验收。
+
+## P7/P8 外部核验清单（2026-11-04，`b4754fc`）
+
+推送后轮询 `web/catalog-ui.js` 出现 `newPropertySave` 即视为部署完成，以下为实见结果：
+
+| 检查 | 结果 | 等级 |
+|---|---|---|
+| `GET /healthz` | 200 `{"ok":true,"service":"jovian-pms","data":"test-only"}` | 外部实见 |
+| `web/catalog-ui.js` | `newPropertySave` / `newPropertyNote` / `catalogEmptyNote` / 改写后的 `catalogNote` 命中 | 外部实见 |
+| `web/app.js` | `property_create` / `new-property-save` / `const noScope` 命中 | 外部实见 |
+| `web/financial-ui.js` | `commissionHistory` / `commissionHistoryNote` 命中 | 外部实见 |
+| `/web/*` 全部 14 个模块 | 全部 200 | 外部实见 |
+| `GET /sites/no-such-property` | 404，CSP 仍 `default-src 'none'; ... form-action 'self'` | 外部实见 |
+| `GET /server/store.js` | 404（后端文件不对外提供） | 外部实见 |
+| `property_create` 权限、`noPropertyYet`、`starterInventory` 审计字段 | 只能靠发布重启推断 | 推断 |
+
+主机佐证命令：
+
+```bash
+grep -c property_create /opt/jovian-pms-test/current/server/store.js
+grep -c starterInventory /opt/jovian-pms-test/current/server/store.js
+grep -c noPropertyYet /opt/jovian-pms-test/current/server/store.js
+```
+
+页面行为由 `verification/dom-empty-property.mjs` 在进程内 jsdom + 真实 in-process HTTP 驱动：全新安装 → 打开设置 → 页上创建 `COHUB-KL` → 切换门店 → 手填两个房型、一间大床房与一间三床宿舍 → 断言 4 个销售单位与待清洁状态。**不是公网浏览器验收**，也没有在线上新建过真实门店。

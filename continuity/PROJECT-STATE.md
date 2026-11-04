@@ -1,6 +1,6 @@
 # JOVIAN PMS · 项目状态与续写地图
 
-截至 2026-11-04，代码 `0ad964c`（管理员显式清除到期身份资料、访客数据密钥随发布备份），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **374/374**、Python **5/5**、DOM 流程 **16/16**、38 个运行时 JS 语法检查与部署 shell `bash -n` 通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。**自主推进队列 P1–P5 已收敛**，详见 `continuity/AUTONOMOUS-RUN.md`。
+截至 2026-11-04，代码 `b4754fc`（佣金更正保留前后金额、新建门店从零开始、三处空门店 UI 缺陷修复），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **397/397**、Python **5/5**、DOM 流程 **17/17**、37 个运行时 JS 语法检查与部署 shell `bash -n` 通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。**自主推进队列 P1–P9 已收敛**，详见 `continuity/AUTONOMOUS-RUN.md`。
 
 ## 系统是什么
 
@@ -45,6 +45,8 @@
 | 16 | `a7e3b5f` | **审核通过后前台一键办理入住**：走真实业务 check-in 命令，不开门、不发 PIN |
 | 17 | `0aae239` | **渠道佣金人工录入 / 结算状态**：按渠道账单录入实际金额、账单号、备注与结算状态；不推算费率、不接 OTA |
 | 18 | `0ad964c` | **身份资料保存期限与显式清除**：门店保留天数、服务端 cut-off、仅管理员二次确认后清除、append-only 审计；`self-checkin.key` 纳入发布备份 |
+| 19 | `546e331` | **交班现金盘点与差异审批**：期望现金（收款减退款、押金单列）、可选实点、差异仅管理员带原因审批且原数不改 |
+| 20 | `b4754fc` | **佣金更正历史**（页面可见前后金额）+ **新建门店零库存**（`property_create`，仅 admin，全新门店无房型/房间/床位）+ 三处空门店 UI 缺陷修复 |
 
 每个批次通常伴随一条 `Record ... in the handoff` 文档提交，细节见 `WORKBUDDY-HANDOFF.md`。
 
@@ -69,7 +71,7 @@
 
 1. 提醒：外部投递通道、按班次/账号的自定义规则、通知可查询与撤回。（门店可配置级别已于 ba64db0 完成；条件式升级规则已于 019cbe8 完成：可数事实达阈值时自动升级、阈值可配、只升不降、按门店隔离、管理员专属、append-only 审计。仍缺按班次/账号作用域与外部投递。）
 2. 自助入住收尾之后：真实设备发码 / 撤销 / 过期 / 断网联调；（审核通过后前台一键办理入住已于 a7e3b5f 完成，仍不开门、不生成 PIN，设备确认后的自动入住分支仍未与真机联调。）身份资料保存期限与显式清除、密钥纳入发布备份（已于 `0ad964c` 完成：门店保留天数默认 90、服务端算 cut-off、管理员二次确认后清除、只清加密证件与 PIN、旧策略读默认、密钥复制进 0700 备份目录）。**仍缺**：备份目录加密、密钥轮换、「数据库 + 原密钥」恢复演练；系统刻意不自动删除任何资料。
-3. 业务：房间分组（已有基础实现）、价计划绑定订单（已有基础实现）、佣金自动费率与渠道结算导入、账期关闭、完整现金盘点差异审批与银行对账。（渠道账单上的**单笔实际佣金已可人工录入**于 `0aae239`，含账单号、备注、结算状态与 append-only 审计；仍未接 OTA 结算、没有费率、没有银行对账、没有整期关闭。）
+3. 业务：房间分组（已有基础实现）、价计划绑定订单（已有基础实现）、佣金自动费率与渠道结算导入、账期关闭、银行对账、**平台房源链接批量导入**（用户已提出，未实现：只在公开可读时抓取，抓不到如实说，导入前先给用户确认清单）。（渠道账单上的**单笔实际佣金已可人工录入**于 `0aae239`，含账单号、备注、结算状态与 append-only 审计；仍未接 OTA 结算、没有费率、没有银行对账、没有整期关闭。）
 4. 站点：照片与逐房描述、支付与押金、自动确认、真正的验证码 / 账号体系。（多房请求、客人凭编号+联系方式查询/撤回、蜜罐与链接反垃圾已于 d879ec1 完成；目前一份请求仍只对应一个房型，不自动确认、不收支付。）
 5. 工程：PostgreSQL 迁移与真实并发验证、真机 Edge / 手机视觉验收、Windows 两项私有文件权限用例的本机复核。
 
@@ -122,6 +124,21 @@
 改动 4 个既有运行时文件（`pms/server/store.js`、`pms/src/demo-store.js`、`pms/web/workspace-ui.js`、`pms/web/app.js`），新增 `pms/test/cash-count.test.js`（11 例），扩展 `pms/verification/dom-night-audit.mjs` 走真实 in-process HTTP 全流程。无新增运行时模块。Node 385/385、Python 5/5、16 个 DOM 脚本、38 个运行时 JS 语法、部署 shell 语法全通过。
 
 线上外部实见（2026-11-04，推送 `d9cc9df` 后约 30 秒部署）：`/healthz` 200；`web/workspace-ui.js` 18 个现金盘点新标识、`web/app.js` 6 个（`cash_variance_approve` / `countedCash` / `handover-cash` / `data-cash-approve` / `cashApproveConfirm` / `cash_count`）、`src/demo-store.js` 4 个（`cashExpectedTotal` / `cashExpectedByMethod` / `cash_variance_approve` / `cash_count`）全部命中；12 个 `app.js` 导入模块与 2 个 `src` 导入全 200；公开站点 CSP 仍 `default-src 'none'; ... form-action 'self'`；`/server/store.js` 与 `/server/self-checkin.js` 仍 404。后端权限与审计字段属**部署重启推断**，需主机 grep 佐证，详见 `continuity/VERIFICATION.md`。
+
+## 本批新增（2026-11-04，b4754fc）
+
+佣金更正历史 + 空白门店。用户明确要求删掉「10 间房 + 30 床实际布局待确认」这一项，改为**新门店默认为空、全部手填**，并以后可把平台房源链接交给助手整理导入（尚未实现，见剩余缺口）。
+
+- **`property_create`**：仅 `admin`，`revision 0` 写入空 body（`resources`/`roomTypes`/`physicalRooms`/`ratePlans`/`rateCells`/`orders`/`blocks`/`audit`/`notifications`/`noticeSettings`/`noticeRules`/`businessDate:null`/`nightAudits`/`shiftTypes`/`handovers` 全空），给创建者授权，写一条 append-only `property_create` 审计（`starterInventory:'empty'`）。因门店行尚不存在，该命令必须在 `authorize()` **之前**分派；走既有 receipt / fingerprint 幂等机制，不经过 property reducer、不推进 revision。
+- **admin 可以没有门店**：`createUser()` 不再强制非空门店列表，`read()` 在「只有管理员且无门店」时返回 `noPropertyYet:true`；非 admin 仍必须指定门店。
+- **设置页新建入口**：`catalog-ui.js` 新增名称 / 代码 / 创建按钮面板（三语），`app.js` 通过 `backend.execute()` 提交，成功后切到新门店并停在「房型与资源设置」。
+- **文案去掉预设布局**：`catalogNote` 三语改为「房型、房号与床位全部由管理员自行配置，系统不预设任何房间数量」；`seed()` 保持不动，既有门店不受影响。
+- **同批修掉三处只在空门店出现的真实缺陷**：① `render()` 在零门店时调 `preview()` 抛 `Property required`，被 boot 的 catch 吞成「服务连接失败」（全新安装看起来像服务器挂了）→ 加 `noScope` 短路；② 门店 `<select>` 每次 render 重建，`onchange` 绑定丢失 → 改 document 级委托 `change`；③ `switchProperty()` 先 `leaveDialogs()` 但选择器自身仍开着，被 `busy` 拒绝 → 先关 `#property-dialog`。
+- **佣金更正历史**：`commissionPage()` 增加最近 50 条 `commission_save` 历史表（变更前 / 变更后、账单号、结算状态），只展示不过账；`src/demo-store.js` 新增 `commissionBefore` 并在审计写 `commissionChange:{before,after}`，与共享后端一致。
+
+改动 4 个既有运行时文件（`pms/server/store.js`、`pms/web/app.js`、`pms/web/catalog-ui.js`、`pms/web/financial-ui.js`）与 `pms/src/demo-store.js`；新增 `pms/test/property-create.test.js`（10 例）与 `pms/verification/dom-empty-property.mjs`。Node 397/397、Python 5/5、17 个 DOM 脚本、37 个运行时 JS 语法、部署 shell 语法全通过。
+
+线上外部实见：`/healthz` 200；`web/catalog-ui.js` 含 `newPropertySave` / `catalogEmptyNote` / 新 `catalogNote`，`web/app.js` 含 `property_create` / `new-property-save` / `const noScope`，`web/financial-ui.js` 含 `commissionHistory` / `commissionHistoryNote`；14 个 `/web/*` 模块全 200；公开站点 CSP 不变；`/server/store.js` 仍 404。后端命令、`noPropertyYet` 与 `starterInventory` 属**部署重启推断**，需主机 `grep -c property_create /opt/jovian-pms-test/current/server/store.js` 等佐证。
 
 ## 部署与证据边界
 

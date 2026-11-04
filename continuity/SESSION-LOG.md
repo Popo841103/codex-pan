@@ -57,9 +57,12 @@
 - **交班现金盘点是「可选字段 + 独立命令」，不要动旧记录**：`shiftSummary()` 的 `byMethod` 是「所有 kind 的金额累加」，不能复用成现金期望；新增 `cashExpectedByMethod` 只累加 payment/refund（refund 取负），押金绝不进抽屉。`command.countedCash !== undefined` 才建 `cashCount`，不传时交班记录连字段都不能多一个，否则老报表和旧记录形状会变。`cash_variance_approve` 要加进 `businessDayActions`（`src/demo-store.js` 里是模块内常量，不是导出），否则 `apply()` 末尾会 `reject('input')`；服务端 `roleTypes.admin` 也要同步加白名单。`applyBusinessDay` 的 `state` 是单门店 body（`store.command()` 里 `JSON.parse(row.body)`），所以 `handovers.find()` 天然按门店隔离，不需要再过滤 `propertyId`。审批只改 `status` 与 `approval`，counted/expected/variance 一个都不能动。DOM 里 `#handover-cash` 留空要完全不带 `countedCash`，不能传 `0`。
 - **DOM 脚本别反复重新 import `app.js`**：`openNightAudit()` 每次带随机 query 重新导入会累积 `#content` 上的事件监听器，多个实例各自持有 `writing` / `pendingMutation`，点击一次会触发多次 handler，退出时残留的异步 catch 还会在 DOM 关闭后访问 `$('#message')` 抛未捕获异常。`commit()` 成功后 `refreshShared()` 会 `render()` 当前 view，所以同一页面连续操作直接复用刷新后的 DOM 即可，不必重新导航。另外后端状态落库早于 UI 刷新一帧，断言页面文案前要用 `until` 等渲染完成。
 
+- **门店可以完全没有房间**：`property_create` 必须在 `store.command()` 里排在 `this.authorize(user, propertyId)` **之前**（门店行还不存在，无法授权），并且要用 `actor.role==='admin'` 自己判权限（`roleTypes` 机制依赖已存在的门店上下文）。`read()` 走 `fresh` 用户时若发现是 admin 且 `user_properties` 为空，返回 `{...emptyState, noPropertyYet:true}`；`createUser()` 里「必须至少一个门店」的校验要放行 admin，否则全新安装没人能建第一个门店。零门店时 `render()` 调 `preview()` 会抛 `Property required`，被 `boot()` 的 catch 当成连接失败——凡是「数据为空」的分支都要显式短路，不要让异常走到 boot 的 catch。`<select>` 每次 `render()` 重建，`onchange` 必须用 document 级委托；`switchProperty()` 里 `leaveDialogs()` 之前要先把 `#property-dialog` 关掉，否则切换被 `busy` 拒绝。
+- **新建房型 / 房间的 id 规则**：`room_type_save` 新建时**不传 `id`**，`Store.command()` 里 `{...command, id: randomUUID()}` 会覆盖，前端拿返回值当 `roomTypeId`；`physical_room_save` 新建用 `id`（不是 `physicalRoomId`）。`receipts` 表只有 4 列（`user_id, request_key, fingerprint, response`）；幂等 key 必须匹配 8–100 字符，太短直接报 `input`，排查时容易误判成业务错误。
+
 ## 验证演进（回归基线）
 
-Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → 340 → 348 → 356 → 365 → 374 → **385**；Python **5/5**；DOM 脚本 **16/16**（含 `dom-booking-requests.mjs`、`dom-notifications.mjs`）；38 个运行时 JS 语法检查。每批都要跑全量，不能只跑新增用例。
+Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → 340 → 348 → 356 → 365 → 374 → 385 → **397**；Python **5/5**；DOM 脚本 **17/17**（含 `dom-booking-requests.mjs`、`dom-notifications.mjs`、`dom-empty-property.mjs`）；37 个运行时 JS 语法检查。每批都要跑全量，不能只跑新增用例。
 
 ## 外部核验能证明什么、不能证明什么
 
@@ -70,5 +73,5 @@ Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → 340 → 348 → 356
 ## 下一批从哪开始
 
 1. 先 `git log --oneline -10` 与 `WORKBUDDY-HANDOFF.md` 末尾对齐状态，再读 `continuity/PROJECT-STATE.md` 的「剩余缺口」。
-2. 自主队列见 `continuity/AUTONOMOUS-RUN.md`：P1（多房请求与客人自查/撤回）、P2（条件式升级规则）、P3（审核通过后前台一键办理入住，`a7e3b5f`）、P4（渠道佣金人工录入 / 结算状态，`0aae239`）、P5（身份资料保存期限与显式清除、`self-checkin.key` 随发布备份，`0ad964c`）已完成；随后按「继续找纯内部缺口」又追加 P6（交班现金盘点与差异审批，`546e331`）也已完成。**P1–P6 均已闭环**；剩余项均属需外部条件或用户明确禁止伪造的边界，不擅自推进。房间分组与价计划绑定订单已有基础实现，不重复造。提醒按班次/账号作用域、外部投递仍属需外部条件或需另行取舍的缺口，不擅自伪造通道。
+2. 自主队列见 `continuity/AUTONOMOUS-RUN.md`：P1（多房请求与客人自查/撤回）、P2（条件式升级规则）、P3（审核通过后前台一键办理入住，`a7e3b5f`）、P4（渠道佣金人工录入 / 结算状态，`0aae239`）、P5（身份资料保存期限与显式清除、`self-checkin.key` 随发布备份，`0ad964c`）已完成；随后按「继续找纯内部缺口」又追加 P6（交班现金盘点与差异审批，`546e331`）、P7（佣金更正历史）与 P8（新建门店零库存，均 `b4754fc`）也已完成。**P1–P8 均已闭环**；剩余项均属需外部条件或用户明确禁止伪造的边界，不擅自推进。「10 间房 + 30 床位实际布局确认」已被用户明确撤项——房间数量由管理员手填，系统不预设；**平台房源链接批量导入**转为待办（仅公开可读才抓、抓不到如实说、导入前先给确认清单）。房间分组与价计划绑定订单已有基础实现，不重复造。提醒按班次/账号作用域、外部投递仍属需外部条件或需另行取舍的缺口，不擅自伪造通道。
 3. 每批照旧：实现 → 全量 Node/Python/DOM → 提交并推送 → 核验线上 → 更新 `WORKBUDDY-HANDOFF.md` 与 `JOVIAN-CURRENT-STATUS.md`（含测试数量）。
