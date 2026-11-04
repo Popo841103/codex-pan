@@ -109,5 +109,6 @@ tr.unread td:first-child{box-shadow:inset 3px 0 0 #e0a83b}
 tr.sev-urgent td:first-child{box-shadow:inset 3px 0 0 #d0342c}
 /* The priority settings sit in their own table, not the four-column filter grid. */
 .notice-settings select{height:40px;font-size:14px;min-width:150px;max-width:100%}
+.notice-settings input[type=number]{height:40px;font-size:14px;width:110px;max-width:100%;padding:0 8px;border:1px solid #d7dce2;border-radius:6px;box-sizing:border-box}
 .notice-settings .table-wrap{margin:12px 0}
 .notice-settings button.primary{margin-top:8px}

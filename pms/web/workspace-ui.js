@@ -1,4 +1,4 @@
-import { nightAuditExceptions, nextDay, noticeKinds, noticeLevels, noticeDefaults, severityOf } from '../src/demo-store.js';
+import { nightAuditExceptions, nextDay, noticeKinds, noticeLevels, noticeDefaults, noticeRuleKinds, severityOf } from '../src/demo-store.js';
 import { isBoxed } from '../src/inventory-actions.js';
 // Visual shell shared by every workspace page. Business actions stay in app.js.
 const paths={home:'M3 11 12 3l9 8v10h-6v-7H9v7H3Z',calendar:'M4 5h16v16H4ZM7 2v6m10-6v6M4 10h16m-12 4h2m4 0h2m-8 4h2',channels:'M4 4h6v6H4Zm10 10h6v6h-6ZM7 10v7h7m3-3V7h-7',orders:'M7 4H4v18h16V4h-3M8 2h8v5H8Zm0 10h8m-8 5h8',customers:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m14-17a4 4 0 0 1 0 8m6 9v-2a4 4 0 0 0-3-4M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',stats:'M4 21V3m0 18h18M8 17v-5m5 5V6m5 11V9',settings:'m9 3-1 3-3 1 1 3-3 2 3 2-1 3 3 1 1 3h4l1-3 3-1-1-3 3-2-3-2 1-3-3-1-1-3Zm6 9a3 3 0 1 1-6 0 3 3 0 0 1 6 0',clean:'m4 20 10-10m-3-4 4-4 7 7-4 4Zm-1 8 4 4m-8-1 4 4',audit:'M12 8v5l4 2M3 11a9 9 0 1 1 3 8M3 4v7h7',cash:'M3 6h18v14H3Zm0 4h18m-7 4h7v3h-7Z',message:'M3 3h18v14H9l-5 4v-4H3Zm4 5h10m-10 4h6',headset:'M3 14v-2a9 9 0 0 1 18 0v2M3 12h4v8H3Zm14 0h4v8h-4m2 0v2h-6',help:'M9 8a3 3 0 1 1 5 2c-2 1-2 2-2 3m0 4h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',lock:'M6 10V7a6 6 0 0 1 12 0v3M4 10h16v12H4Zm8 4v4',globe:'M2 12h20M12 2a19 19 0 0 1 0 20 19 19 0 0 1 0-20m10 10a10 10 0 1 1-20 0 10 10 0 0 1 20 0',bell:'M12 3a6 6 0 0 1 6 6c0 5 2 6 2 6H4s2-1 2-6a6 6 0 0 1 6-6Zm-2 14a2 2 0 0 0 4 0',grid:'M3 3h4v4H3Zm7 0h4v4h-4Zm7 0h4v4h-4ZM3 10h4v4H3Zm7 0h4v4h-4Zm7 0h4v4h-4ZM3 17h4v4H3Zm7 0h4v4h-4Zm7 0h4v4h-4ZM17 17h4v4h-4Z',collapse:'m14 5-7 7 7 7m7-14-7 7 7 7',refresh:'M20 7a9 9 0 1 0 1 8m-1-13v6h-6',logout:'M9 3H3v18h6m6-15 6 6-6 6m-9-6h15',pig:'M19 7h3v9h-3l-2 4h-3v-3H9v3H6l-2-5H2V9l3-4h10l4 2Zm-9-5h4m2 7h.01',single:'M3 10 12 3l9 7M5 9v12h14V9m-10 5 2 2 4-5',summary:'M5 3h14v18H5Zm3 5h8m-8 4h8m-8 4h8',moon:'M15 3a8 8 0 1 0 6 14 9 9 0 0 1-6-14'};
@@ -411,7 +411,7 @@ export const requestWords={
 // What the system wants a person to notice. These are raised inside JOVIAN only: with no
 // email, SMS or push connected, nothing is delivered anywhere, so a notice is seen by
 // signing in. It points at the work and never does the work itself.
-export function notificationsPage({notifications=[],properties=[],propertyId,noticeSettings=[],noticeSettingsAudit=[],can=()=>false,t,escape}) {
+export function notificationsPage({notifications=[],properties=[],propertyId,noticeSettings=[],noticeSettingsAudit=[],noticeRules=[],noticeRulesAudit=[],can=()=>false,t,escape}) {
  const esc=escape||(v=>String(v??''));
  const propertyName=id=>properties.find(p=>p.id===id)?.name||id;
  // Only this property's notices are acted on from here. Reading one belonging to
@@ -447,7 +447,7 @@ export function notificationsPage({notifications=[],properties=[],propertyId,not
    return n.orderId?`<button type="button" data-open-stay="${esc(n.orderId)}">${esc(t('noticeOpenOrder'))}</button>`:'';
  };
  const rows=mine.map(n=>`<tr class="${n.readAt?'':'unread'} sev-${esc(rank(n))}"><td>${esc(n.due??String(n.at||'').slice(0,16).replace('T',' '))}</td>
-   <td><span class="sev sev-${esc(rank(n))}">${esc(t(level(n)))}</span></td>
+   <td><span class="sev sev-${esc(rank(n))}">${esc(t(level(n)))}</span>${n.escalated?` <small class="muted">${esc(t('noticeRuleEscalated'))}</small>`:''}</td>
    <td>${esc(t(kindKey(n.kind)))}</td><td>${detail(n)}</td><td>${esc(propertyName(n.propertyId))}</td>
    <td>${esc(t(n.readAt?'noticeRead':'noticeUnread'))}</td>
    <td>${action(n)}${n.readAt?'':`<button type="button" data-notice-read="${esc(n.id)}">${esc(t('noticeMarkRead'))}</button>`}</td></tr>`).join('');
@@ -470,6 +470,26 @@ export function notificationsPage({notifications=[],properties=[],propertyId,not
      .map(k=>`${esc(t(kindKey(k)))}: ${esc(a.previous?.[k]?t(levelKey(a.previous[k])):t('noticeLevelDefault'))} → ${esc(a.next?.[k]?t(levelKey(a.next[k])):t('noticeLevelDefault'))}`).join('; ');
    return `<tr><td>${esc(a.at)}</td><td>${esc(a.actor)}</td><td>${changed||'—'}</td></tr>`;
  }).join('');
+ // A rule is written against a fact that can be counted, never against an event. The
+ // count is left empty to disable it, and the level can only raise the fact towards the
+ // top. The system default is shown alongside so the choice is made with it in view.
+ const ruleEditable=can('notice_rule_save');
+ const ruleSetting=(noticeRules||[]).find(s=>s.propertyId===propertyId);
+ const ruleLevels=ruleSetting?.rules||{};
+ const ruleRows=noticeRuleKinds.map(kind=>{
+   const chosen=ruleLevels[kind];
+   const levelOptions=noticeLevels.map(l=>`<option value="${l}" ${chosen?.level===l?'selected':''}>${esc(t(levelKey(l)))}</option>`).join('');
+   return `<tr><td>${esc(t(kindKey(kind)))}</td><td>${esc(t(levelKey(severityOf(kind))))}</td>
+     <td><input type="number" min="1" max="99" step="1" inputmode="numeric" name="${esc(kind)}" data-notice-rule-at-least="${esc(kind)}"
+       value="${chosen?esc(chosen.atLeast):''}" placeholder="${esc(t('noticeRuleOff'))}" ${ruleEditable?'':'disabled'}></td>
+     <td><select name="${esc(kind)}-level" data-notice-rule-level="${esc(kind)}" ${ruleEditable?'':'disabled'}>${levelOptions}</select></td></tr>`;
+ }).join('');
+ const ruleLabel=r=>r?`${esc(r.atLeast)} → ${esc(t(levelKey(r.level)))}`:esc(t('noticeRuleOff'));
+ const ruleAudit=(noticeRulesAudit||[]).filter(a=>a.propertyId===propertyId).slice(0,10).map(a=>{
+   const changed=noticeRuleKinds.filter(k=>JSON.stringify(a.previous?.[k]??null)!==JSON.stringify(a.next?.[k]??null))
+     .map(k=>`${esc(t(kindKey(k)))}: ${ruleLabel(a.previous?.[k])} → ${ruleLabel(a.next?.[k])}`).join('; ');
+   return `<tr><td>${esc(a.at)}</td><td>${esc(a.actor)}</td><td>${changed||'—'}</td></tr>`;
+ }).join('');
  return `<section class="panel"><div class="panel-head"><h2>${esc(t('notifications'))}</h2><span>${esc(t('noticeUnreadCount'))}: ${unread}</span></div>
   <p class="muted">${esc(t('noticeNote'))}</p>
   <p class="muted">${esc(t('noticeStandingNote'))}</p>
@@ -485,6 +505,15 @@ export function notificationsPage({notifications=[],properties=[],propertyId,not
     ${editable?`<button class="primary">${esc(t('noticeLevelSave'))}</button>`:`<p class="muted">${esc(t('noticeLevelReadOnly'))}</p>`}
    </form>
    ${levelAudit?`<h3>${esc(t('noticeLevelAudit'))}</h3><div class="table-wrap"><table><thead><tr>${['time','createdBy','noticeLevelChange'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${levelAudit}</tbody></table></div>`:''}
+  </section>
+  <section class="panel"><div class="panel-head"><h2>${esc(t('noticeRuleTitle'))}</h2>${ruleSetting?`<span>${esc(t('noticeLevelChanged'))}: ${esc(ruleSetting.updatedBy)} · ${esc(ruleSetting.updatedAt)}</span>`:''}</div>
+   <p class="muted">${esc(t('noticeRuleNote'))}</p>
+   <p class="muted">${esc(t('noticeRuleScopeNote'))}</p>
+   <form id="notice-rule-form" class="notice-settings">
+    <div class="table-wrap"><table><thead><tr>${['noticeKind','noticeLevelBuiltIn','noticeRuleAtLeast','noticeRuleLevel'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${ruleRows}</tbody></table></div>
+    ${ruleEditable?`<button class="primary">${esc(t('noticeRuleSave'))}</button>`:`<p class="muted">${esc(t('noticeRuleReadOnly'))}</p>`}
+   </form>
+   ${ruleAudit?`<h3>${esc(t('noticeRuleAudit'))}</h3><div class="table-wrap"><table><thead><tr>${['time','createdBy','noticeLevelChange'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${ruleAudit}</tbody></table></div>`:''}
   </section>`;
 }
 
@@ -496,7 +525,11 @@ export const noticeWords={
   noticeNoShow:'应入住未入住',noticeOverdue:'应离店未退房',noticeUnassigned:'今日到店未分房',noticeCleaning:'待清洁房',
   noticeWaiting:'预订请求等待过久',noticeDue:'到期日',noticeRoomsUnit:'间待清洁',noticeWaitingNote:'已等待超过一天',
   noticeLevelTitle:'提醒级别设置',noticeLevelNote:'门店可以自己决定每类提醒排在哪里：把待清洁房设为紧急，或把某类到店提醒设为常规，只影响本店。留空（系统默认）会跟随当前系统规则，不会把旧默认值冻结在设置里。级别只改变列表顺序与标签，不改变提醒是否产生、未读数量，也不替任何人处理事情。',noticeLevelBuiltIn:'系统默认',noticeLevelProperty:'本店级别',noticeLevelDefault:'系统默认',noticeLevelSave:'保存级别',noticeLevelReadOnly:'只有本店管理员可以调整提醒级别。',noticeLevelAudit:'最近的级别调整',noticeLevelChange:'改动',noticeLevelChanged:'最近修改',noticeSeverity:'级别',severityUrgent:'紧急',severityAttention:'需处理',severityRoutine:'常规',noticeCheckinReview:'自助登记待核验',noticeCheckinReviewNote:'已提交身份资料，等待人工核验',noticeSeverityNote:'默认排序按级别：该来的客人、该走的客人、未分房的到店和等待核验的登记排在最前，待清洁房排在最后。本店可在下方调整每类的级别。',noticeOpenOrder:'打开订单',noticeStandingNote:'下面这些是当前仍未处理的事实，不是事件：一旦处理完，它们会自己消失。',
-  notice_read_failed:'标记已读失败，请稍后再试。',notifications_polling:'提醒每约一分钟自动检查一次，不刷新你正在操作的页面。'},
+  notice_read_failed:'标记已读失败，请稍后再试。',notifications_polling:'提醒每约一分钟自动检查一次，不刷新你正在操作的页面。',
+  noticeRuleTitle:'条件升级规则',noticeRuleNote:'门店可以让某类待办在积压到一定程度时自动升级：例如待清洁房达到 3 间就按紧急处理。规则只影响本店这些仍然成立的待办的排序与标签，不改变系统默认级别、不产生或清除提醒、不投递给任何人，也不推进业务版本。规则只能升级，不能把紧急的客人降级。数量留空表示不启用该规则。',
+  noticeRuleScopeNote:'数量口径：待清洁房按待清洁的房间数；等待过久的预订请求与待核验登记按当前本店同类待办条数。',
+  noticeRuleAtLeast:'当数量达到',noticeRuleLevel:'升级为',noticeRuleOff:'不启用',noticeRuleSave:'保存规则',
+  noticeRuleReadOnly:'只有本店管理员可以调整条件规则。',noticeRuleAudit:'最近的规则调整',noticeRuleEscalated:'已按规则升级'},
  en:{notifications:'Notifications',noticeUnreadCount:'Unread',noticeNote:'Notices stay inside JOVIAN: no email, SMS or push is connected, so nothing is sent to anyone and they are only seen by signing in. A notice points at the work; it never does the work.',
   noticeOtherProperty:'Unread in other properties',noticeKind:'Type',noticeDetail:'Detail',noticeProperty:'Property',noticeState:'State',noticeActions:'Actions',
   noticeUnread:'Unread',noticeRead:'Read',noticeOpen:'Go to it',noticeMarkRead:'Mark read',noticeMarkAllRead:'Mark everything in this property read',
@@ -505,7 +538,11 @@ export const noticeWords={
   noticeCleaning:'Rooms needing cleaning',noticeWaiting:'Booking request left waiting',noticeDue:'Due',noticeRoomsUnit:'to clean',
   noticeWaitingNote:'waiting for more than a day',noticeLevelTitle:'Notice priority settings',noticeLevelNote:'A property decides where each kind of notice sits: make cleaning urgent, or make an arrival routine. It only affects this property. Leaving one at the system default keeps following the current rule instead of freezing an old default into a setting. A level changes the order and the label only: it does not change whether a notice is raised, the unread count, or do any of the work.',noticeLevelBuiltIn:'System default',noticeLevelProperty:'This property',noticeLevelDefault:'System default',noticeLevelSave:'Save priorities',noticeLevelReadOnly:'Only an administrator of this property can change notice priorities.',noticeLevelAudit:'Recent priority changes',noticeLevelChange:'Change',noticeLevelChanged:'Last changed',noticeSeverity:'Priority',severityUrgent:'Urgent',severityAttention:'Attention',severityRoutine:'Routine',noticeCheckinReview:'Registration waiting for review',noticeCheckinReviewNote:'identity details submitted, waiting for a person to check them',noticeSeverityNote:'By default the list is ordered by priority: guests who should have arrived or left, arrivals with no room, and registrations waiting for review come first; rooms needing cleaning come last. This property can change each level below.',noticeOpenOrder:'Open booking',
   noticeStandingNote:'These are facts still standing rather than things that happened. Once one is dealt with it disappears by itself.',
-  notice_read_failed:'Marking as read failed, so please try again.',notifications_polling:'Notices are checked about once a minute. The page you are working on is not reloaded.'},
+  notice_read_failed:'Marking as read failed, so please try again.',notifications_polling:'Notices are checked about once a minute. The page you are working on is not reloaded.',
+  noticeRuleTitle:'Conditional priority rules',noticeRuleNote:'A property can let a kind of standing work rise in the list once it has piled up: for example, treat rooms needing cleaning as urgent once there are 3 of them. A rule only changes the order and label of these still-standing facts at this property. It does not change the system default, does not raise or dismiss a notice, sends nothing to anyone, and advances no business revision. A rule can only raise a notice; it can never push an urgent guest down. Leaving the count empty disables that rule.',
+  noticeRuleScopeNote:'What is counted: cleaning counts dirty rooms; waiting requests and registrations waiting for review count how many of that kind are outstanding at this property.',
+  noticeRuleAtLeast:'When there are at least',noticeRuleLevel:'Raise to',noticeRuleOff:'No rule',noticeRuleSave:'Save rules',
+  noticeRuleReadOnly:'Only an administrator of this property can change the conditional rules.',noticeRuleAudit:'Recent rule changes',noticeRuleEscalated:'raised by a rule'},
  ms:{notifications:'Pemberitahuan',noticeUnreadCount:'Belum dibaca',noticeNote:'Pemberitahuan kekal dalam JOVIAN: tiada e-mel, SMS atau push disambungkan, jadi tiada apa dihantar dan hanya kelihatan selepas log masuk. Ia menunjuk kepada kerja, bukan melakukannya.',
   noticeOtherProperty:'Belum dibaca di hartanah lain',noticeKind:'Jenis',noticeDetail:'Butiran',noticeProperty:'Hartanah',noticeState:'Status',noticeActions:'Tindakan',
   noticeUnread:'Belum dibaca',noticeRead:'Dibaca',noticeOpen:'Pergi ke situ',noticeMarkRead:'Tanda dibaca',noticeMarkAllRead:'Tandakan semua di hartanah ini sebagai dibaca',
@@ -514,5 +551,9 @@ export const noticeWords={
   noticeCleaning:'Bilik perlu dibersihkan',noticeWaiting:'Permintaan tempahan terbiar',noticeDue:'Tarikh akhir',noticeRoomsUnit:'perlu dibersih',
   noticeWaitingNote:'menunggu lebih daripada sehari',noticeLevelTitle:'Tetapan keutamaan pemberitahuan',noticeLevelNote:'Hartanah boleh menentukan kedudukan setiap jenis pemberitahuan: jadikan pembersihan mendesak, atau ketibaan sesuatu rutin. Ia hanya memberi kesan kepada hartanah ini. Biarkan pada lalai sistem untuk terus mengikut peraturan semasa, bukan membeku nilai lama. Keutamaan hanya mengubah susunan dan label: ia tidak mengubah sama ada pemberitahuan dijana, bilangan belum dibaca, atau melakukan sebarang kerja.',noticeLevelBuiltIn:'Lalai sistem',noticeLevelProperty:'Hartanah ini',noticeLevelDefault:'Lalai sistem',noticeLevelSave:'Simpan keutamaan',noticeLevelReadOnly:'Hanya pentadbir hartanah ini boleh mengubah keutamaan pemberitahuan.',noticeLevelAudit:'Perubahan keutamaan terkini',noticeLevelChange:'Perubahan',noticeLevelChanged:'Terakhir diubah',noticeSeverity:'Keutamaan',severityUrgent:'Mendesak',severityAttention:'Perhatian',severityRoutine:'Rutin',noticeCheckinReview:'Pendaftaran menunggu semakan',noticeCheckinReviewNote:'butiran identiti dihantar, menunggu semakan oleh kakitangan',noticeSeverityNote:'Secara lalai senarai mengikut keutamaan: tetamu yang sepatutnya tiba atau keluar, ketibaan tanpa bilik, dan pendaftaran menunggu semakan di hadapan; bilik perlu dibersihkan di akhir. Hartanah ini boleh menukar setiap tahap di bawah.',noticeOpenOrder:'Buka tempahan',
   noticeStandingNote:'Ini fakta yang masih berlaku, bukan peristiwa. Setelah selesai ia hilang dengan sendirinya.',
-  notice_read_failed:'Menanda dibaca gagal, sila cuba lagi.',notifications_polling:'Pemberitahuan diperiksa kira-kira setiap minit. Halaman yang sedang digunakan tidak dimuat semula.'}
+  notice_read_failed:'Menanda dibaca gagal, sila cuba lagi.',notifications_polling:'Pemberitahuan diperiksa kira-kira setiap minit. Halaman yang sedang digunakan tidak dimuat semula.',
+  noticeRuleTitle:'Peraturan keutamaan bersyarat',noticeRuleNote:'Hartanah boleh membiarkan kerja yang masih tertunggak naik dalam senarai apabila ia cukup banyak: contohnya, anggap bilik perlu dibersihkan sebagai mendesak apabila ada 3 bilik. Peraturan hanya mengubah susunan dan label fakta yang masih berlaku di hartanah ini. Ia tidak mengubah lalai sistem, tidak menjana atau membuang pemberitahuan, tidak menghantar apa-apa, dan tidak memajukan versi perniagaan. Peraturan hanya boleh menaikkan, tidak boleh menurunkan tetamu mendesak. Biarkan kosong untuk melumpuhkan peraturan itu.',
+  noticeRuleScopeNote:'Apa yang dikira: pembersihan mengira bilik kotor; permintaan menunggu dan pendaftaran menunggu semakan mengira berapa banyak yang masih tertunggak di hartanah ini.',
+  noticeRuleAtLeast:'Apabila sekurang-kurangnya',noticeRuleLevel:'Naik ke',noticeRuleOff:'Tiada peraturan',noticeRuleSave:'Simpan peraturan',
+  noticeRuleReadOnly:'Hanya pentadbir hartanah ini boleh mengubah peraturan bersyarat.',noticeRuleAudit:'Perubahan peraturan terkini',noticeRuleEscalated:'dinaikkan oleh peraturan'}
 };

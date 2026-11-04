@@ -215,13 +215,43 @@ export const cleanNoticeLevels=value=>{
   }
   return out;
 };
+// A conditional rule is about a fact that can be counted, not about an event. Only
+// these kinds have a standing magnitude the desk can compare with a threshold: how
+// many rooms are dirty, how many requests are being left waiting, how many identity
+// details are waiting on a person. Stored events have no size to measure, so no rule
+// can be written for them.
+export const noticeRuleKinds=['rooms_to_clean','request_waiting','checkin_review'];
+// A rule reads "when there are at least N of this fact, treat it as this level".
+// Only explicit rules are kept, so a kind left alone keeps following the system
+// default and a threshold of one is still a deliberate choice.
+export const cleanNoticeRules=value=>{
+  if(!value||typeof value!=='object'||Array.isArray(value))return null;
+  const out={};
+  for(const [kind,rule] of Object.entries(value)){
+    if(!noticeRuleKinds.includes(kind))return null;
+    if(rule===null||rule===undefined||rule===''||rule==='default')continue;
+    if(!rule||typeof rule!=='object'||Array.isArray(rule))return null;
+    if(!Number.isInteger(rule.atLeast)||rule.atLeast<1||rule.atLeast>99)return null;
+    if(!noticeLevels.includes(rule.level))return null;
+    out[kind]={atLeast:rule.atLeast,level:rule.level};
+  }
+  return out;
+};
+// A rule can only raise a notice towards the top of the list, never push a guest
+// waiting at the door down behind routine work. If the threshold is not met, or the
+// chosen level is not more urgent than the base, the base is what is read.
+export const escalateSeverity=(kind,base,magnitude,rules)=>{
+  const rule=rules&&Object.hasOwn(rules,kind)?rules[kind]:null;
+  if(!rule||typeof magnitude!=='number'||!(magnitude>=rule.atLeast))return base;
+  return severityRank[rule.level]<severityRank[base]?rule.level:base;
+};
 export function seed() {
   const properties = [{ id: 'TEST-KL', name: 'TEST · Kuala Lumpur' }, { id: 'TEST-PG', name: 'TEST · Penang' }];
   const resources = properties.flatMap(p => [
     ...Array.from({ length: p.id === 'TEST-KL' ? 10 : 2 }, (_, i) => ({ id: `${p.id}-R${i+1}`, label: `R${String(i+1).padStart(2,'0')}`, roomId: `${p.id}-R${i+1}`, propertyId: p.id, productId: 'room', gender: 'any', atoms: [`${p.id}-R${i+1}`], cleaning: 'clean' })),
     ...Array.from({ length: p.id === 'TEST-KL' ? 30 : 6 }, (_, i) => ({ id: `${p.id}-B${i+1}`, label: `D${Math.floor(i/6)+1} · B${i%6+1}`, roomId: `${p.id}-D${Math.floor(i/6)+1}`, propertyId: p.id, productId: 'bed', gender: i < 12 ? 'female' : i < 24 ? 'male' : 'any', atoms: [`${p.id}-B${i+1}`], cleaning: 'clean' }))
   ]);
-  return upgradeCatalog({ version: 1, properties, resources, orders: [], blocks: [], audit: [], notifications: [], noticeSettings: [] });
+  return upgradeCatalog({ version: 1, properties, resources, orders: [], blocks: [], audit: [], notifications: [], noticeSettings: [], noticeRules: [] });
 }
 export function preview(state, propertyId) {
   state = upgradeCatalog(state);
@@ -263,15 +293,31 @@ export function apply(state, command) {
     // A booking record exists only to hold its stays, so one left with none goes too.
     next.reservations = (next.reservations||[]).filter(r => r.propertyId !== propertyId || r.stayIds.some(id => !gone.has(id)));
   }
-  // Locally the priority setting lives in the state itself. Both modes use the same
-  // validation, so a level the shared backend would refuse is refused here too.
+  // Locally both notice settings live in the state itself. Both modes use the same
+  // validation, so a value the shared backend would refuse is refused here too. The
+  // level is always recomputed from the system default, the property's own level and
+  // any conditional rule together, so saving either setting cannot leave a stale one.
+  const noticeRecalc = (state, scope) => {
+    const levels = state.noticeSettings?.find(s => s.propertyId === scope)?.levels;
+    const rules = state.noticeRules?.find(s => s.propertyId === scope)?.rules;
+    state.notifications = (state.notifications||[]).map(n => n.propertyId === scope
+      ? {...n, severity: escalateSeverity(n.kind, severityOf(n.kind, levels), n.magnitude, rules)} : n);
+  };
   if (type === 'notice_severity_save') {
     const levels = cleanNoticeLevels(command.levels);
     if (!levels) reject('input');
     next.noticeSettings = [...(next.noticeSettings||[]).filter(s => s.propertyId !== propertyId),
       {propertyId, levels, updatedAt: command.at, updatedBy: command.actor || 'local'}];
-    next.notifications = (next.notifications||[]).map(n => n.propertyId === propertyId
-      ? {...n, severity: severityOf(n.kind, levels)} : n);
+    noticeRecalc(next, propertyId);
+  }
+  // A conditional rule is a setting of its own: it changes no business state and only
+  // raises a standing fact towards the top when the fact is big enough to warrant it.
+  if (type === 'notice_rule_save') {
+    const rules = cleanNoticeRules(command.rules);
+    if (!rules) reject('input');
+    next.noticeRules = [...(next.noticeRules||[]).filter(s => s.propertyId !== propertyId),
+      {propertyId, rules, updatedAt: command.at, updatedBy: command.actor || 'local'}];
+    noticeRecalc(next, propertyId);
   }
   // Nights already closed by a night audit cannot be rewritten without an explicit override.
   // Authorization for that override is enforced by the shared service, never by the browser.
@@ -402,7 +448,7 @@ export function apply(state, command) {
     const block = next.blocks.find(b => b.id === command.blockId && b.propertyId === propertyId);
     if (!block) reject('scope');
     next.blocks = next.blocks.filter(b => b !== block);
-  } else if (!['purge_test_orders','notice_severity_save'].includes(type)) reject('input');
+  } else if (!['purge_test_orders','notice_severity_save','notice_rule_save'].includes(type)) reject('input');
   preview(next, propertyId);
   const movedTo = next.orders.find(o => o.id === (order?.id || command.id)) || null;
   next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, orderId: order?.id || null, resourceId: resource?.id || null, resourceIds: command.resourceIds, cleaning:command.cleaning, actor: command.actor || 'local',

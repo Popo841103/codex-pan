@@ -171,6 +171,41 @@ try {
   const storedLevels=JSON.parse(store.db.prepare('SELECT body FROM notice_settings WHERE property_id=?').get('TEST-KL').body);
   assert.deepEqual(storedLevels,{no_show:'routine',rooms_to_clean:'urgent'},'only what was changed is stored');
 
+  // A conditional rule is a setting of its own: when enough of a standing fact has
+  // piled up, the list reads it as more urgent. Put the priorities back on the system
+  // default first, so what changes the order here is the rule and nothing else.
+  adminCommand({type:'notice_severity_save',levels:{}});
+  $('#refresh').click();
+  const listRows=()=>[...document.querySelector('#content table').querySelectorAll('tbody tr')].map(r=>r.textContent);
+  const rowIndex=re=>listRows().findIndex(r=>re.test(r));
+  // The refresh is asynchronous, so wait until the list really is back on the system
+  // default before judging what the rule changes.
+  await until(()=>document.querySelector('#notice-rule-form')&&
+    rowIndex(/Arrival that never arrived|应入住未入住/)>=0&&
+    rowIndex(/Arrival that never arrived|应入住未入住/)<rowIndex(/Rooms needing cleaning|待清洁房/),
+    'the system default order is back before the rule is saved');
+  assert.equal(document.querySelectorAll('#notice-rule-form [data-notice-rule-at-least]').length,3,
+    'one row per kind that can be counted');
+  assert.ok(rowIndex(/Arrival that never arrived|应入住未入住/)<rowIndex(/Rooms needing cleaning|待清洁房/),
+    'before the rule the guest is read before cleaning');
+  const revBeforeRule=revision();
+  const noticeCountBeforeRule=store.db.prepare('SELECT COUNT(*) n FROM notifications').get().n;
+  $('#notice-rule-form [data-notice-rule-at-least="rooms_to_clean"]').value='2';
+  $('#notice-rule-form [data-notice-rule-level="rooms_to_clean"]').value='urgent';
+  $('#notice-rule-form').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true}));
+  await until(()=>$('#notice-rule-form [data-notice-rule-at-least="rooms_to_clean"]').value==='2'&&
+    store.db.prepare('SELECT body FROM notice_rules WHERE property_id=?').get('TEST-KL'),
+    'the rule was saved and the page shows it');
+  await until(()=>{const rows=listRows();
+    const clean=rows.findIndex(r=>/Rooms needing cleaning|待清洁房/.test(r)),guest=rows.findIndex(r=>/Arrival that never arrived|应入住未入住/.test(r));
+    return clean>=0&&guest>=0&&clean<guest;},'a big enough backlog is now read before the guest');
+  assert.match($('#content').innerHTML,/raised by a rule|已按规则升级/,'the list says a rule decided it');
+  assert.match($('#content').innerHTML,/Recent rule changes|最近的规则调整/,'the change is recorded on the page');
+  assert.equal(revision(),revBeforeRule,'saving a rule advanced no business revision');
+  assert.equal(store.db.prepare('SELECT COUNT(*) n FROM notifications').get().n,noticeCountBeforeRule,
+    'saving a rule raised and dismissed nothing');
+  const storedRules=JSON.parse(store.db.prepare('SELECT body FROM notice_rules WHERE property_id=?').get('TEST-KL').body);
+  assert.deepEqual(storedRules,{rooms_to_clean:{atLeast:2,level:'urgent'}},'only the configured kind is stored');
 
   // Self-registration ends with a person: identity handed in is work waiting on them, and
   // the notice opens the review page rather than deciding anything.

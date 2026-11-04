@@ -3,7 +3,7 @@ import {GuestMessages,guestPermissions} from './guest-messages.js';
 import {SupportDesk,supportPermissions} from './support.js';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
-import { seed, apply, preview, nightAuditExceptions, severityOf, severityRank, cleanNoticeLevels } from '../src/demo-store.js';
+import { seed, apply, preview, nightAuditExceptions, severityOf, severityRank, cleanNoticeLevels, cleanNoticeRules, escalateSeverity } from '../src/demo-store.js';
 export { severityOf } from '../src/demo-store.js';
 import { InventoryConflict } from '../src/inventory.js';
 import { upgradeCatalog, saleResources } from '../src/catalog.js';
@@ -28,7 +28,7 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save','notice_severity_save','purge_test_orders','booking_request_decision'],
+  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision'],
   operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover','booking_request_decision'],
   finance: ['settle','payment'], viewer: []
 };
@@ -106,6 +106,16 @@ export class Store {
         property_id TEXT NOT NULL REFERENCES properties(id), at TEXT NOT NULL, summary TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS notice_settings_audit_no_update BEFORE UPDATE ON notice_settings_audit BEGIN SELECT RAISE(ABORT,'notice_settings_audit_append_only'); END;
       CREATE TRIGGER IF NOT EXISTS notice_settings_audit_no_delete BEFORE DELETE ON notice_settings_audit BEGIN SELECT RAISE(ABORT,'notice_settings_audit_append_only'); END;
+      -- A conditional rule is also a property's own choice, not business state. It says
+      -- how big a standing fact must be before the list reads it as more urgent. Like the
+      -- priority setting it is stored and audited apart from the property body, so
+      -- changing it never advances a revision somebody else is working to.
+      CREATE TABLE IF NOT EXISTS notice_rules (property_id TEXT PRIMARY KEY REFERENCES properties(id),
+        body TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL REFERENCES users(id));
+      CREATE TABLE IF NOT EXISTS notice_rules_audit (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL REFERENCES users(id),
+        property_id TEXT NOT NULL REFERENCES properties(id), at TEXT NOT NULL, summary TEXT NOT NULL);
+      CREATE TRIGGER IF NOT EXISTS notice_rules_audit_no_update BEFORE UPDATE ON notice_rules_audit BEGIN SELECT RAISE(ABORT,'notice_rules_audit_append_only'); END;
+      CREATE TRIGGER IF NOT EXISTS notice_rules_audit_no_delete BEFORE DELETE ON notice_rules_audit BEGIN SELECT RAISE(ABORT,'notice_rules_audit_append_only'); END;
       CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS receipts (user_id TEXT NOT NULL REFERENCES users(id), request_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
         response TEXT NOT NULL, PRIMARY KEY(user_id,request_key));
@@ -471,6 +481,41 @@ export class Store {
       .map(row=>{const summary=JSON.parse(row.summary);return {id:row.id,at:row.at,actor:row.actor,
         propertyId:row.property_id,previous:summary.previous,next:summary.next};});
   }
+  // The same shape as the priority setting, for the conditional rules. An administrator
+  // of this property decides them; nothing about a rule is business state, so it is
+  // answered from here and never advances a revision or raises a notice of its own.
+  saveNoticeRules(actor,command,key,fingerprint){
+    const propertyId=command.propertyId;
+    if(this.propertyRole(actor,propertyId)!=='admin')error(403,'forbidden');
+    const rules=cleanNoticeRules(command.rules);
+    if(!rules)error(400,'notice_rules');
+    const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
+    if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+    const before=this.db.prepare('SELECT * FROM notice_rules WHERE property_id=?').get(propertyId);
+    const previous=before?JSON.parse(before.body):{};
+    const at=new Date().toISOString(),id=randomUUID();
+    this.db.prepare(`INSERT INTO notice_rules VALUES(?,?,?,?) ON CONFLICT(property_id) DO UPDATE SET
+      body=excluded.body,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
+      .run(propertyId,JSON.stringify(rules),at,actor.id);
+    this.db.prepare('INSERT INTO notice_rules_audit VALUES(?,?,?,?,?)').run(id,actor.id,propertyId,at,
+      JSON.stringify({previous,next:rules}));
+    const response={id,propertyId,rules};
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    return response;
+  }
+  visibleNoticeRules(user){
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    return this.db.prepare('SELECT * FROM notice_rules').all().filter(row=>scope.includes(row.property_id))
+      .map(row=>({propertyId:row.property_id,rules:JSON.parse(row.body),updatedAt:row.updated_at,updatedBy:row.updated_by}));
+  }
+  visibleNoticeRulesAudit(user){
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    return this.db.prepare(`SELECT a.*,u.username actor FROM notice_rules_audit a JOIN users u ON u.id=a.actor_id
+      ORDER BY a.at DESC, a.rowid DESC LIMIT 200`).all()
+      .filter(row=>scope.includes(row.property_id))
+      .map(row=>{const summary=JSON.parse(row.summary);return {id:row.id,at:row.at,actor:row.actor,
+        propertyId:row.property_id,previous:summary.previous,next:summary.next};});
+  }
   // Only the notices addressed to this account, and only for properties it is scoped to.
   // Stored events and standing facts are put together here so the desk sees one list.
   visibleNotifications(user){
@@ -479,11 +524,17 @@ export class Store {
     const stored=this.db.prepare('SELECT * FROM notifications WHERE user_id=? ORDER BY at DESC LIMIT 500').all(user.id)
       .filter(row=>scope.includes(row.property_id))
       .map(row=>({id:row.id,propertyId:row.property_id,kind:row.kind,at:row.at,...JSON.parse(row.summary)}));
-    // An override belongs to the property that raised the notice, so one property's
-    // choice can never reorder another property's list.
+    // An override and a conditional rule both belong to the property that raised the
+    // notice, so one property's choice can never reorder another property's list. The
+    // rule is applied after the base level, and can only raise a standing fact towards
+    // the top when that fact has grown large enough to warrant it.
     const overrides=new Map(this.visibleNoticeSettings(user).map(s=>[s.propertyId,s.levels]));
-    const all=[...stored,...this.derivedNotifications(user)].map(n=>({...n,readAt:reads.get(n.id)??null,
-      severity:severityOf(n.kind,overrides.get(n.propertyId))}));
+    const rules=new Map(this.visibleNoticeRules(user).map(s=>[s.propertyId,s.rules]));
+    const all=[...stored,...this.derivedNotifications(user)].map(n=>{
+      const base=severityOf(n.kind,overrides.get(n.propertyId));
+      const severity=escalateSeverity(n.kind,base,n.magnitude,rules.get(n.propertyId));
+      return {...n,readAt:reads.get(n.id)??null,severity,escalated:severity!==base};
+    });
     // What is waiting on a person comes first, then what they have not seen, then the
     // newest. A guest standing outside the door outranks a room that needs cleaning, and
     // notices from the same moment keep a stable order. A property may change that order.
@@ -521,23 +572,29 @@ export class Store {
         for(const order of orders.filter(o=>o.status==='confirmed'&&!o.resourceId&&!isBoxed(o)&&o.start<=on&&o.end>on))
           add('unassigned_arrival','assign',{orderId:order.id,guest:order.guest,due:on,date:on});
         const dirty=saleResources(body,propertyId).filter(r=>r.cleaning==='dirty').length;
-        if(dirty)add('rooms_to_clean','clean',{due:on,date:on,count:dirty});
+        if(dirty)add('rooms_to_clean','clean',{due:on,date:on,count:dirty,magnitude:dirty});
       }
       // A request nobody has answered is the one thing the site itself cannot chase.
-      for(const request of this.db.prepare("SELECT * FROM booking_requests WHERE property_id=? AND status='pending'").all(propertyId)){
-        if(Date.now()-Date.parse(request.created_at)<24*60*60*1000)continue;
-        add('request_waiting','booking_request_decision',{requestId:request.id,guest:request.guest_name,due:today,date:today});
-      }
+      // The magnitude is how many are being left waiting at once, so a property can
+      // say that a growing backlog deserves to be read sooner than a single one.
+      const waiting=this.db.prepare("SELECT * FROM booking_requests WHERE property_id=? AND status='pending'").all(propertyId)
+        .filter(request=>Date.now()-Date.parse(request.created_at)>=24*60*60*1000);
+      for(const request of waiting)
+        add('request_waiting','booking_request_decision',{requestId:request.id,guest:request.guest_name,due:today,date:today,
+          magnitude:waiting.length});
       // Somebody has handed in their identity details and is standing behind a person's
       // decision: until it is reviewed they cannot be let in, and nothing is sent to
       // anybody to say so. Approved or rejected, the fact stops and so does the notice.
       // Self-registration switched off means nobody is waiting on it any more.
-      if(this.checkin?.policy(propertyId).enabled)
-        for(const grant of this.db.prepare("SELECT * FROM sc_grants WHERE property_id=? AND status='active' AND review='pending' AND submission IS NOT NULL").all(propertyId)){
+      if(this.checkin?.policy(propertyId).enabled){
+        const pending=this.db.prepare("SELECT * FROM sc_grants WHERE property_id=? AND status='active' AND review='pending' AND submission IS NOT NULL").all(propertyId)
+          .filter(grant=>orders.some(o=>o.id===grant.order_id));
+        for(const grant of pending){
           const order=orders.find(o=>o.id===grant.order_id);
-          if(!order)continue;
-          add('checkin_review','sc_review',{orderId:order.id,grantId:grant.id,guest:order.guest,due:today,date:today});
+          add('checkin_review','sc_review',{orderId:order.id,grantId:grant.id,guest:order.guest,due:today,date:today,
+            magnitude:pending.length});
         }
+      }
     }
     return out;
   }
@@ -796,7 +853,7 @@ export class Store {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
     const ids=this.publicUser(fresh).propertyIds;
-    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[]};
+    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[],noticeRules:[],noticeRulesAudit:[]};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
@@ -819,6 +876,8 @@ export class Store {
     result.notifications=this.visibleNotifications(fresh);
     result.noticeSettings=this.visibleNoticeSettings(fresh);
     result.noticeSettingsAudit=this.visibleNoticeSettingsAudit(fresh);
+    result.noticeRules=this.visibleNoticeRules(fresh);
+    result.noticeRulesAudit=this.visibleNoticeRulesAudit(fresh);
     return result;
   }
   command(user,{key,expectedRevision,command},{beforeApply}={}) {
@@ -842,9 +901,11 @@ export class Store {
       if(command.type==='member_save')return this.saveMember(rowUser,command,key,fingerprint);
       // Publishing a property site writes public content, not property state.
       if(command.type==='site_save')return this.saveSite(rowUser,command,key,fingerprint);
-      // A property's choice of notice priority is a setting, not a property business
-      // command: answered here so it never advances a revision someone else is using.
+      // A property's choice of notice priority, and of the conditional rules that raise
+      // a big enough fact, are settings rather than property business commands. They are
+      // answered here so neither ever advances a revision someone else is using.
       if(command.type==='notice_severity_save')return this.saveNoticeSettings(rowUser,command,key,fingerprint);
+      if(command.type==='notice_rule_save')return this.saveNoticeRules(rowUser,command,key,fingerprint);
       // Marking a notice read is personal housekeeping, not a property business command:
       // it is answered here so it never advances a revision someone else is working to.
       if(command.type==='notification_read')return this.readNotifications(rowUser,command,key,fingerprint);

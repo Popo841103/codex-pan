@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID,randomBytes } from 'node:crypto';
 import { Store } from '../server/store.js';
-import { apply, seed, noticeKinds, noticeLevels, severityOf, cleanNoticeLevels } from '../src/demo-store.js';
+import { apply, seed, noticeKinds, noticeLevels, noticeRuleKinds, severityOf, cleanNoticeLevels, cleanNoticeRules, escalateSeverity } from '../src/demo-store.js';
 
 const open = () => { const store = new Store(':memory:'); store.seedTestProperties(); return store; };
 const user = (store, role='admin', propertyIds=['TEST-KL']) =>
@@ -468,5 +468,197 @@ test('the shared defaults, kinds and validation live in one place with the local
     at:'2027-06-01T00:00:00.000Z',actor:'local'});
   assert.deepEqual(updated.noticeSettings.find(s=>s.propertyId==='TEST-KL').levels,{rooms_to_clean:'urgent'});
   assert.throws(()=>apply(local,{propertyId:'TEST-KL',type:'notice_severity_save',levels:{fake:'urgent'},at:'x'}),
+    'a value the server would refuse is refused locally too');
+});
+
+// Conditional rules: a property can say that a standing fact only becomes urgent once
+// enough of it has piled up. With no rule at all the list is exactly as it was, so the
+// system default is never silently changed by adding the feature.
+const ruleFor = (store,u,value,propertyId='TEST-KL',key=randomUUID()) =>
+  store.command({id:u.id},{key,expectedRevision:revision(store,propertyId),
+    command:{propertyId,type:'notice_rule_save',rules:value}});
+const dirtyCount = (store,n,propertyId='TEST-KL') => setBody(store,value=>{
+  value.resources.filter(r=>r.productId==='room').slice(0,n).forEach(r=>{r.cleaning='dirty';});},propertyId);
+
+test('a conditional rule raises cleaning only once enough rooms are dirty',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  bookAt(store,boss,'TEST-KL','Late Guest');
+  dirtyCount(store,2);
+  const before=store.read({id:boss.id}).notifications;
+  const cleanBefore=before.find(n=>n.kind==='rooms_to_clean');
+  assert.equal(cleanBefore.severity,'routine','without a rule the system default stands');
+  assert.equal(cleanBefore.magnitude,2,'the fact carries its size');
+  assert.equal(cleanBefore.escalated,false);
+  const rev=revision(store);
+  ruleFor(store,boss,{rooms_to_clean:{atLeast:3,level:'urgent'}});
+  assert.equal(revision(store),rev,'a rule is a setting and moves no business revision');
+  const atTwo=store.read({id:boss.id}).notifications.find(n=>n.kind==='rooms_to_clean');
+  assert.equal(atTwo.severity,'routine','two dirty rooms do not meet the threshold');
+  assert.equal(atTwo.escalated,false);
+  dirtyCount(store,3);
+  const atThree=store.read({id:boss.id}).notifications.find(n=>n.kind==='rooms_to_clean');
+  assert.equal(atThree.severity,'urgent','a big enough backlog is read ahead of routine work');
+  assert.equal(atThree.escalated,true,'the list says the rule, not the default, decided it');
+  assert.equal(atThree.magnitude,3);
+  // The bell uses the same list, so the escalated order reaches it too.
+  assert.equal(store.notificationFeed(boss).items.find(n=>n.kind==='rooms_to_clean').severity,'urgent');
+  // Cleaning them all up makes the fact disappear rather than leaving a stale urgent one.
+  setBody(store,value=>{value.resources.forEach(r=>{r.cleaning='clean';});});
+  assert.equal(kinds(store,boss).includes('rooms_to_clean'),false);
+  store.close();
+});
+
+test('a rule can only raise a notice; a level below the base changes nothing',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  dirtyCount(store,1);
+  // An event kind has no size to measure, so no rule can be written for it.
+  assert.throws(()=>ruleFor(store,boss,{no_show:{atLeast:1,level:'urgent'}}),e=>e.status===400);
+  // A rule to a level no more urgent than the base leaves the notice where it was.
+  ruleFor(store,boss,{rooms_to_clean:{atLeast:1,level:'routine'}});
+  const same=store.read({id:boss.id}).notifications.find(n=>n.kind==='rooms_to_clean');
+  assert.equal(same.severity,'routine');
+  assert.equal(same.escalated,false);
+  // Even when a property first makes cleaning urgent, a lower rule cannot push it down.
+  levels(store,boss,{rooms_to_clean:'urgent'});
+  const raised=store.read({id:boss.id}).notifications.find(n=>n.kind==='rooms_to_clean');
+  assert.equal(raised.severity,'urgent','the property level still holds');
+  store.close();
+});
+
+test('a backlog of waiting requests is what the rule counts',()=>{
+  const store=open(),boss=user(store);
+  withBusinessDate(store,boss);
+  publish(store,boss);
+  ask(store);ask(store,{name:'Second Guest'});
+  store.db.prepare('UPDATE booking_requests SET created_at=?').run(new Date(Date.now()-2*86400000).toISOString());
+  const one=store.read({id:boss.id}).notifications.filter(n=>n.kind==='request_waiting');
+  assert.equal(one.length,2);
+  assert.ok(one.every(n=>n.magnitude===2),'each carries the size of the backlog, not one');
+  assert.ok(one.every(n=>n.severity==='attention'));
+  ruleFor(store,boss,{request_waiting:{atLeast:2,level:'urgent'}});
+  const after=store.read({id:boss.id}).notifications.filter(n=>n.kind==='request_waiting');
+  assert.ok(after.every(n=>n.severity==='urgent'&&n.escalated));
+  // Deciding one shrinks the backlog below the threshold, so the other falls back.
+  const row=store.db.prepare("SELECT id FROM booking_requests WHERE status='pending' LIMIT 1").get();
+  send(store,boss,{type:'booking_request_decision',requestId:row.id,decision:'decline',reason:'No rooms left'});
+  const left=store.read({id:boss.id}).notifications.find(n=>n.kind==='request_waiting');
+  assert.equal(left.magnitude,1);
+  assert.equal(left.severity,'attention','one request on its own is back on the default');
+  assert.equal(left.escalated,false);
+  store.close();
+});
+
+test('a rule works together with a property level for registrations waiting on a person',()=>{
+  const store=checkinStore(),boss=user(store);
+  const checkin=(u,command)=>store.checkin.command({id:u.id},{key:randomUUID(),expectedRevision:0,
+    command:{propertyId:'TEST-KL',...command}});
+  checkin(boss,{type:'sc_policy_save',enabled:true,requirePayment:false,requiredDeposit:0,registrationMode:'all',instructions:''});
+  book(store,boss,{guest:'Registration Guest',start:'2027-06-01',end:'2027-06-03'});
+  const order=store.read({id:boss.id}).orders.find(o=>o.guest==='Registration Guest');
+  const invite=checkin(boss,{type:'sc_invite',orderId:order.id});
+  store.checkin.register(invite.token,{revision:1,consent:true,people:[{name:'Registration Guest',documentType:'passport',documentNumber:'TEST12345'}]});
+  const notice=store.read({id:boss.id}).notifications.find(n=>n.kind==='checkin_review');
+  assert.equal(notice.magnitude,1,'the fact carries how many are waiting');
+  assert.equal(notice.severity,'urgent');
+  // The property reads a single registration as routine, but asks for a rule that
+  // raises it when one is waiting: the rule is applied after the property level.
+  levels(store,boss,{checkin_review:'routine'});
+  ruleFor(store,boss,{checkin_review:{atLeast:1,level:'urgent'}});
+  const raised=store.read({id:boss.id}).notifications.find(n=>n.kind==='checkin_review');
+  assert.equal(raised.severity,'urgent','the rule raised it above the property level');
+  assert.equal(raised.escalated,true);
+  store.close();
+});
+
+test('only an administrator of that property may set its conditional rules',()=>{
+  const store=open(),boss=user(store),keeper=user(store,'operations'),money=user(store,'finance'),watcher=user(store,'viewer');
+  const elsewhere=user(store,'admin',['TEST-PG']);
+  for(const denied of [keeper,money,watcher])
+    assert.throws(()=>ruleFor(store,denied,{rooms_to_clean:{atLeast:2,level:'urgent'}}),e=>e.status===403,
+      'only an administrator decides');
+  assert.throws(()=>ruleFor(store,elsewhere,{rooms_to_clean:{atLeast:2,level:'urgent'}}),e=>e.status===403,
+    'an administrator of another property cannot rule on this one');
+  assert.equal(store.visibleNoticeRules(boss).length,0,'nothing was written by a refused attempt');
+  store.db.prepare('UPDATE user_properties SET role=? WHERE user_id=? AND property_id=?').run('admin',watcher.id,'TEST-KL');
+  assert.deepEqual(ruleFor(store,watcher,{rooms_to_clean:{atLeast:2,level:'urgent'}}).rules,
+    {rooms_to_clean:{atLeast:2,level:'urgent'}},'a property-level admin override counts here too');
+  store.close();
+});
+
+test('rule input is validated, defaults are not frozen, and the audit is append-only',()=>{
+  const store=open(),boss=user(store);
+  for(const bad of [
+    {made_up_kind:{atLeast:1,level:'urgent'}},
+    {rooms_to_clean:{atLeast:0,level:'urgent'}},
+    {rooms_to_clean:{atLeast:100,level:'urgent'}},
+    {rooms_to_clean:{atLeast:1.5,level:'urgent'}},
+    {rooms_to_clean:{atLeast:'3',level:'urgent'}},
+    {rooms_to_clean:{atLeast:2,level:'critical'}},
+    {rooms_to_clean:{level:'urgent'}},
+    {rooms_to_clean:'urgent'},
+    ['urgent'],'urgent',null,42])
+    assert.throws(()=>ruleFor(store,boss,bad),e=>e.status===400,'a rule needs a known kind, a whole threshold and a real level');
+  assert.equal(store.visibleNoticeRules(boss).length,0,'nothing was stored by a refused value');
+  const saved=ruleFor(store,boss,{request_waiting:'default',checkin_review:'',rooms_to_clean:{atLeast:3,level:'urgent'}});
+  assert.deepEqual(saved.rules,{rooms_to_clean:{atLeast:3,level:'urgent'}},'only explicit rules are stored');
+  const setting=store.visibleNoticeRules(boss)[0];
+  assert.equal(setting.propertyId,'TEST-KL');
+  assert.equal(setting.updatedBy,boss.id);
+  const audit=store.visibleNoticeRulesAudit(boss);
+  assert.equal(audit.length,1,'the change is recorded');
+  assert.deepEqual(audit[0].previous,{},'what it replaced is kept');
+  assert.deepEqual(audit[0].next,{rooms_to_clean:{atLeast:3,level:'urgent'}});
+  assert.throws(()=>store.db.prepare("UPDATE notice_rules_audit SET summary='{}' WHERE id=?").run(audit[0].id),
+    /notice_rules_audit_append_only/,'the audit cannot be rewritten');
+  assert.throws(()=>store.db.prepare('DELETE FROM notice_rules_audit WHERE id=?').run(audit[0].id),
+    /notice_rules_audit_append_only/,'nor deleted');
+  // Clearing the rule puts that kind back on the system rule.
+  ruleFor(store,boss,{rooms_to_clean:'default'});
+  assert.deepEqual(store.visibleNoticeRules(boss)[0].rules,{},'nothing is configured any more');
+  assert.equal(store.visibleNoticeRulesAudit(boss).length,2,'the reset is recorded too');
+  store.close();
+});
+
+test('saving rules is idempotent, scoped, changes no business state and reaches the desk',()=>{
+  const store=open(),boss=user(store),elsewhere=user(store,'admin',['TEST-PG']);
+  publish(store,boss);
+  const key=randomUUID();
+  const first=ruleFor(store,boss,{rooms_to_clean:{atLeast:2,level:'urgent'}},'TEST-KL',key);
+  const replay=ruleFor(store,boss,{rooms_to_clean:{atLeast:2,level:'urgent'}},'TEST-KL',key);
+  assert.equal(replay.replayed,true,'the same request key answers from its receipt');
+  assert.deepEqual(replay.rules,first.rules);
+  assert.throws(()=>ruleFor(store,boss,{rooms_to_clean:{atLeast:3,level:'urgent'}},'TEST-KL',key),e=>e.status===409,
+    'a reused key carrying a different body is refused');
+  assert.deepEqual(store.visibleNoticeRules(elsewhere),[],'another property cannot read this rule');
+  assert.deepEqual(store.visibleNoticeRulesAudit(elsewhere),[],'nor its audit');
+  const state=store.read({id:boss.id});
+  assert.equal(state.noticeRules.length,1,'the desk page is given the rule to show');
+  assert.equal(state.noticeRulesAudit.length,1);
+  assert.equal(state.orders.length,0,'no booking was created');
+  assert.equal(state.notifications.length,0,'no notice was raised or dismissed');
+  store.close();
+});
+
+test('the rule kinds, validation and escalation live in one place with the local reducer',()=>{
+  assert.deepEqual(noticeRuleKinds,['rooms_to_clean','request_waiting','checkin_review']);
+  assert.deepEqual(cleanNoticeRules({rooms_to_clean:{atLeast:3,level:'urgent'},request_waiting:'default'}),
+    {rooms_to_clean:{atLeast:3,level:'urgent'}});
+  assert.equal(cleanNoticeRules({no_show:{atLeast:1,level:'urgent'}}),null);
+  assert.equal(cleanNoticeRules({rooms_to_clean:{atLeast:0,level:'urgent'}}),null);
+  assert.equal(cleanNoticeRules({rooms_to_clean:{atLeast:2,level:'critical'}}),null);
+  assert.equal(escalateSeverity('rooms_to_clean','routine',3,{rooms_to_clean:{atLeast:3,level:'urgent'}}),'urgent');
+  assert.equal(escalateSeverity('rooms_to_clean','routine',2,{rooms_to_clean:{atLeast:3,level:'urgent'}}),'routine');
+  assert.equal(escalateSeverity('rooms_to_clean','urgent',3,{rooms_to_clean:{atLeast:3,level:'routine'}}),'urgent',
+    'a rule never pushes an urgent notice down');
+  assert.equal(escalateSeverity('booking_request','attention',9,{rooms_to_clean:{atLeast:1,level:'urgent'}}),'attention',
+    'an event with no matching rule is untouched');
+  const local=seed();
+  assert.deepEqual(local.noticeRules,[]);
+  const updated=apply(local,{propertyId:'TEST-KL',type:'notice_rule_save',
+    rules:{rooms_to_clean:{atLeast:3,level:'urgent'}},at:'2027-06-01T00:00:00.000Z',actor:'local'});
+  assert.deepEqual(updated.noticeRules.find(s=>s.propertyId==='TEST-KL').rules,{rooms_to_clean:{atLeast:3,level:'urgent'}});
+  assert.throws(()=>apply(local,{propertyId:'TEST-KL',type:'notice_rule_save',rules:{fake:{atLeast:1,level:'urgent'}},at:'x'}),
     'a value the server would refuse is refused locally too');
 });
