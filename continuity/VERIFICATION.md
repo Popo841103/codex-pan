@@ -103,3 +103,21 @@ grep -c cashExpectedTotal /opt/jovian-pms-test/current/src/demo-store.js
 ## 证据等级写法
 
 结论按「实见 / 文档 / 推断 / 未验证」标注：本地测试通过写「本地验证」，公网文件命中写「外部实见」，主机 grep 写「主机佐证」，供应商 / 门锁行为写「未联调」。合成 provider 的成功只能写成「合成测试通过」。
+
+## P6 外部核验清单（2026-11-04，`546e331` / `d9cc9df`）
+
+推送后约 30 秒部署上线（轮询 `web/workspace-ui.js` 出现 `cash_variance_approve`），以下为实见结果：
+
+| 检查 | 结果 | 等级 |
+|---|---|---|
+| `GET /healthz` | 200 `{"ok":true,"service":"jovian-pms","data":"test-only"}` | 外部实见 |
+| `web/workspace-ui.js` | `cashStatus` / `cashCount` / `cashCountNote` / `cashExpected` / `cashVariance` / `cashNotCounted` / `cashBalanced` / `cashPending` / `cashApproved` / `cashApprove` / `cashApproveReason` / `cashApproveConfirm` / `cashApprovedBy` / `cash_count` / `cash_variance_decided` / `handover-cash` / `data-cash-approve` / `cash_variance_approve` 全部命中 | 外部实见 |
+| `web/app.js` | `cash_variance_approve` / `countedCash` / `handover-cash` / `data-cash-approve` / `cashApproveConfirm` / `cash_count` 命中 | 外部实见 |
+| `src/demo-store.js` | `cashExpectedTotal` / `cashExpectedByMethod` / `cash_variance_approve` / `cash_count` 命中 | 外部实见 |
+| `app.js` 的 12 个导入模块 | 全部 200 | 外部实见 |
+| `workspace-ui.js` 的 2 个 `src/` 导入 | 全部 200 | 外部实见 |
+| `GET /sites/no-such-property` | 404，CSP 仍 `default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'` | 外部实见 |
+| `GET /server/store.js`、`/server/self-checkin.js` | 404（后端文件不对外提供） | 外部实见 |
+| `roleTypes.admin` 的 `cash_variance_approve` 权限、`handoverCash` 审计字段 | 只能靠发布重启推断 | 推断 |
+
+后端推断的主机佐证命令已加入上面的 grep 清单：`cash_variance_approve`、`handoverCash`（`server/store.js`）与 `cashExpectedTotal`（`src/demo-store.js`）。页面行为由 `verification/dom-night-audit.mjs` 在进程内 HTTP 驱动，不是公网浏览器验收。

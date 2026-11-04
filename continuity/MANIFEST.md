@@ -87,7 +87,7 @@
 - [ ] `npm test` 与 Python 测试能跑通（Node 24）
 - [ ] 线上 `/healthz` 仍返回 200
 
-## 六、最新镜像（2026-11-04，代码 `0ad964c`）
+## 六、上一批镜像（2026-11-04，代码 `0ad964c`，已被第七节取代）
 
 父文件夹「JOVIAN PMS 续写档案」：https://www.workbuddy.cn/space/d/gNlfjv1toVvAtB2qSIvW7k
 
@@ -109,3 +109,27 @@
 | 完整源码快照 zip（最新 0ad964c） | https://www.workbuddy.cn/space/d/jHXinzS1OC4akj6KfokOpO |
 
 导航说明 `continuity/LIBRARY-MIRROR.md` 也放在该子文件夹内，说明权威来源、当前基线、剩余边界与换工具接手提示词。
+
+## 七、当前最新镜像（2026-11-04，代码 `546e331`）
+
+父文件夹「JOVIAN PMS 续写档案」：https://www.workbuddy.cn/space/d/gNlfjv1toVvAtB2qSIvW7k
+
+**本批最新镜像子文件夹「最新状态 · 代码 546e331（2026-11-04）」：https://www.workbuddy.cn/space/d/w1TNESL6MOHTBlX5eqC8vb**
+
+第六节与更早的同名文档是历史快照，不要用来判断当前进度；以本节的镜像或 GitHub `git log -1` 为准。该子文件夹共 11 个节点（9 份文档 + 1 份源码快照 zip + 1 份导航）：
+
+| 文档 | 链接 |
+|---|---|
+| 资料库最新镜像导航（最新 546e331） | https://www.workbuddy.cn/space/d/vWkfdb22h15fItJhr7w9WB |
+| 续写入口（最新 546e331） | https://www.workbuddy.cn/space/d/HqepwhMoMgxexn2PCzEYQU |
+| 项目状态与续写地图（最新 546e331） | https://www.workbuddy.cn/space/d/Xexhj7kmGRjyraZCWYyJ5G |
+| 自主连续推进记录（最新 546e331） | https://www.workbuddy.cn/space/d/tQAO74VNieNy0FBFvIej55 |
+| 会话上下文重建（最新 546e331） | https://www.workbuddy.cn/space/d/9seHMSehQGiDWoBGhDHu4j |
+| 验证与发布核验清单（最新 546e331） | https://www.workbuddy.cn/space/d/L3opxVFVr0wX2eZQcP5ch0 |
+| 归档内容清单（最新 546e331） | https://www.workbuddy.cn/space/d/cGddE4uurSbYQ1TIKoAIRc |
+| 资料库镜像导航说明（最新 546e331） | https://www.workbuddy.cn/space/d/XlgPDHSLgktvFwWG470P75 |
+| WORKBUDDY-HANDOFF 逐批交接（最新 546e331） | https://www.workbuddy.cn/space/d/f5zAEPl1rqdAAIt0m50XJM |
+| 当前状态索引（最新 546e331） | https://www.workbuddy.cn/space/d/nsUUSbYLo5pec34ZOqZ6eg |
+| 完整源码快照 zip（最新 546e331，932 KB / 202 文件） | https://www.workbuddy.cn/space/d/ujuGpf5gL5XhnV2cAOd347 |
+
+GitHub 对应提交：代码 `546e331`、交接文档 `d9cc9df`，分支 `jovian-pms-test`；已部署并线上核验。`/workspace/JOVIAN-PMS-archive-2026-11-04-P6.zip` 是同一份快照的本地副本（排除 `.git`、依赖目录、数据库导出与凭据）。

@@ -119,7 +119,9 @@
 - **审计只留事实**：`shift_handover` 带盘点时写 `handoverCash:{counted,expected}`，审批写 `{handoverId,variance,reason}`，均不含客人姓名、证件或解密文本；不带盘点时完全不写 `handoverCash`。
 - **前台三语**：交班表单加 `#handover-cash` 与说明（只核对收款减退款、押金单列、留空=不盘点），交班历史表 7→9 列新增现金状态与操作，逐行显示期望/实点/差异/状态/审批人与原因；仅 `pending` 且 `can('cash_variance_approve')` 才给原因输入与审批按钮（二次确认）。`app.js` 用 `/^\d+(\.\d{1,2})?$/` 校验、复用 `toMinor()`，留空则完全不带 `countedCash`。
 
-改动 4 个既有运行时文件（`pms/server/store.js`、`pms/src/demo-store.js`、`pms/web/workspace-ui.js`、`pms/web/app.js`），新增 `pms/test/cash-count.test.js`（11 例），扩展 `pms/verification/dom-night-audit.mjs` 走真实 in-process HTTP 全流程。无新增运行时模块。Node 385/385、Python 5/5、16 个 DOM 脚本、38 个运行时 JS 语法、部署 shell 语法全通过。线上证据待部署后补入 `continuity/VERIFICATION.md` 与本文件。
+改动 4 个既有运行时文件（`pms/server/store.js`、`pms/src/demo-store.js`、`pms/web/workspace-ui.js`、`pms/web/app.js`），新增 `pms/test/cash-count.test.js`（11 例），扩展 `pms/verification/dom-night-audit.mjs` 走真实 in-process HTTP 全流程。无新增运行时模块。Node 385/385、Python 5/5、16 个 DOM 脚本、38 个运行时 JS 语法、部署 shell 语法全通过。
+
+线上外部实见（2026-11-04，推送 `d9cc9df` 后约 30 秒部署）：`/healthz` 200；`web/workspace-ui.js` 18 个现金盘点新标识、`web/app.js` 6 个（`cash_variance_approve` / `countedCash` / `handover-cash` / `data-cash-approve` / `cashApproveConfirm` / `cash_count`）、`src/demo-store.js` 4 个（`cashExpectedTotal` / `cashExpectedByMethod` / `cash_variance_approve` / `cash_count`）全部命中；12 个 `app.js` 导入模块与 2 个 `src` 导入全 200；公开站点 CSP 仍 `default-src 'none'; ... form-action 'self'`；`/server/store.js` 与 `/server/self-checkin.js` 仍 404。后端权限与审计字段属**部署重启推断**，需主机 grep 佐证，详见 `continuity/VERIFICATION.md`。
 
 ## 部署与证据边界
 
