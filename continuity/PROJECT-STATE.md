@@ -109,6 +109,18 @@
 
 门店可配置提醒级别：默认级别不变，门店可把某类提醒上调/下调或留空跟随系统默认，只影响本店；列表、文字标签与铃铛 feed 同步。改动文件：`pms/server/store.js`（`notice_settings` / `notice_settings_audit` 两张新表、旁路命令 `notice_severity_save`、`visibleNoticeSettings` / `visibleNoticeSettingsAudit` 与 read 暴露）、`pms/src/demo-store.js`（级别常量单一来源 `noticeKinds`/`noticeLevels`/`noticeDefaults`/`severityOf`/`cleanNoticeLevels`，本地归约同步）、`pms/web/workspace-ui.js`（`notificationsPage` 配置表单与三语词条）、`pms/web/app.js`（表单提交与传参）、`pms/web/workspace.css`。Node 330/330、Python 5/5、16 个 DOM 脚本全通过。级别是设置不是业务状态：不推进 revision、不碰订单账务、不产生/清除提醒；管理员专属（遵循门店角色覆盖）；只存显式覆盖，留空会跟随当前系统规则。
 
+## 本批新增（2026-11-04，546e331）
+
+交班现金盘点与差异审批。既有 `shiftSummary()` 只按 kind/method 汇总收款、退款与押金，`shift_handover` 存一份窗口快照，没有「实点现金」字段，也没有差异处理路径；状态索引的剩余缺口里明确列着 `cash-up variance approval`，属不依赖外部接口的纯内部缺口。
+
+- **期望净现金只算真正进抽屉的钱**：`shiftSummary()` 新增 `cashExpectedByMethod` / `cashExpectedTotal`，等于窗口内 `payment − refund`，按 method 分列；`deposit_in` / `deposit_out` 是负债，仍只在 `byMethod` / `depositNet` 列示，绝不计入。窗口外交易照旧排除，既有 `net` / `byMethod` 数值完全不变。
+- **盘点是可选的，绝不替人猜 0**：`shift_handover` 接受可选 `countedCash`（整数分、0–100000000），校验同时写在 `server/store.js` 与 `src/demo-store.js` 的 `apply()`。不传时交班记录字段集合与旧版完全一致、不写 `cashCount`；传时存 `{counted, expected, variance, status, approval}`，零差异 `balanced`，否则 `pending`。
+- **短款/长款不静默核销**：`cash_variance_approve` 是独立业务命令，`roleTypes.admin` 专属（`operations` 可交班但不能审批，`finance` / `viewer` 也不能；含门店角色覆盖），要求非空 ≤500 的原因，拒绝不存在、未盘点、已平、已决定的目标，只把 `status` 改成 `approved` 并写 `{at, actor, reason}`，**counted / expected / variance 永不改写**，原差异永久可读；按请求 key 幂等、按门店隔离（KL 命令够不到 PG 的交班记录，因为 `before` 是单门店 body）。
+- **审计只留事实**：`shift_handover` 带盘点时写 `handoverCash:{counted,expected}`，审批写 `{handoverId,variance,reason}`，均不含客人姓名、证件或解密文本；不带盘点时完全不写 `handoverCash`。
+- **前台三语**：交班表单加 `#handover-cash` 与说明（只核对收款减退款、押金单列、留空=不盘点），交班历史表 7→9 列新增现金状态与操作，逐行显示期望/实点/差异/状态/审批人与原因；仅 `pending` 且 `can('cash_variance_approve')` 才给原因输入与审批按钮（二次确认）。`app.js` 用 `/^\d+(\.\d{1,2})?$/` 校验、复用 `toMinor()`，留空则完全不带 `countedCash`。
+
+改动 4 个既有运行时文件（`pms/server/store.js`、`pms/src/demo-store.js`、`pms/web/workspace-ui.js`、`pms/web/app.js`），新增 `pms/test/cash-count.test.js`（11 例），扩展 `pms/verification/dom-night-audit.mjs` 走真实 in-process HTTP 全流程。无新增运行时模块。Node 385/385、Python 5/5、16 个 DOM 脚本、38 个运行时 JS 语法、部署 shell 语法全通过。线上证据待部署后补入 `continuity/VERIFICATION.md` 与本文件。
+
 ## 部署与证据边界
 
 - 线上：`https://pms.jovianhome.com`，`/healthz` 返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`。

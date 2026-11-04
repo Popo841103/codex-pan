@@ -86,6 +86,9 @@ grep -c checkinFromGrant /opt/jovian-pms-test/current/server/self-checkin.js
 grep -c sc_checkin /opt/jovian-pms-test/current/server/self-checkin.js
 grep -c commission_save /opt/jovian-pms-test/current/server/store.js
 grep -c commissionChange /opt/jovian-pms-test/current/server/store.js
+grep -c cash_variance_approve /opt/jovian-pms-test/current/server/store.js
+grep -c handoverCash /opt/jovian-pms-test/current/server/store.js
+grep -c cashExpectedTotal /opt/jovian-pms-test/current/src/demo-store.js
 ```
 
 **不要**把「`/api/xxx` 无会话返回 401」当成新后端的证据——所有 `/api/` 路径都这样。`/healthz` 200 至少说明新后端已加载且启动成功（含建表与加列迁移），但不能证明某个函数在运行。

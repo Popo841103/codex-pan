@@ -54,9 +54,12 @@
 - **条件式升级规则**：`noticeRuleKinds` 只含可计数的派生事实（`rooms_to_clean` 按脏房数、`request_waiting` / `checkin_review` 按条数），派生时给每条带 `magnitude`；`cleanNoticeRules` 校验、`escalateSeverity` 在 `severityOf()` 之后应用且**只升不降**（避免紧急客人被降级）；`notice_rule_save` 是旁路命令，`notice_rules` / `notice_rules_audit` 用 `CREATE TABLE IF NOT EXISTS` 建表（新表不需 ALTER 加列），审计 append-only。本地归约 `apply()` 要把 `notice_rule_save` 加进末尾白名单，否则会 `reject('input')`；保存任一提醒设置后都要用同一组常量重算 severity，避免留下旧级别。
 - **渠道佣金是「录入」不是「计算」**：`commission_save` 是业务命令（推进 `revision`、写 append-only 审计 `commissionChange` 的 before/after），只有 `admin` / `finance` 可执行；`roleTypes` 加白名单后 `apply()` 的 `needsOrder` 也要加 `commission_save`，否则不存在的订单不会被 `scope` 拒绝。校验（整数分、账单号、备注、结算布尔）必须同时写在共享后端与 `src/demo-store.js` 的 `apply()`。报表侧 `commissionDetail()` 对未录入订单保持 `commission:null` / `settlement:'unrecorded'`，totals 用 `recorded ? sum : null` 而不是 `0`；UI 用 `can(type)` 控制表单显隐，别在页面里自己判断角色。修改既有报表的 totals 时注意哪些行是计数、哪些是金额，别把计数传给 `currency()`。
 
+- **交班现金盘点是「可选字段 + 独立命令」，不要动旧记录**：`shiftSummary()` 的 `byMethod` 是「所有 kind 的金额累加」，不能复用成现金期望；新增 `cashExpectedByMethod` 只累加 payment/refund（refund 取负），押金绝不进抽屉。`command.countedCash !== undefined` 才建 `cashCount`，不传时交班记录连字段都不能多一个，否则老报表和旧记录形状会变。`cash_variance_approve` 要加进 `businessDayActions`（`src/demo-store.js` 里是模块内常量，不是导出），否则 `apply()` 末尾会 `reject('input')`；服务端 `roleTypes.admin` 也要同步加白名单。`applyBusinessDay` 的 `state` 是单门店 body（`store.command()` 里 `JSON.parse(row.body)`），所以 `handovers.find()` 天然按门店隔离，不需要再过滤 `propertyId`。审批只改 `status` 与 `approval`，counted/expected/variance 一个都不能动。DOM 里 `#handover-cash` 留空要完全不带 `countedCash`，不能传 `0`。
+- **DOM 脚本别反复重新 import `app.js`**：`openNightAudit()` 每次带随机 query 重新导入会累积 `#content` 上的事件监听器，多个实例各自持有 `writing` / `pendingMutation`，点击一次会触发多次 handler，退出时残留的异步 catch 还会在 DOM 关闭后访问 `$('#message')` 抛未捕获异常。`commit()` 成功后 `refreshShared()` 会 `render()` 当前 view，所以同一页面连续操作直接复用刷新后的 DOM 即可，不必重新导航。另外后端状态落库早于 UI 刷新一帧，断言页面文案前要用 `until` 等渲染完成。
+
 ## 验证演进（回归基线）
 
-Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → 340 → 348 → 356 → 365 → **374**；Python **5/5**；DOM 脚本 **16/16**（含 `dom-booking-requests.mjs`、`dom-notifications.mjs`）；38 个运行时 JS 语法检查。每批都要跑全量，不能只跑新增用例。
+Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → 340 → 348 → 356 → 365 → 374 → **385**；Python **5/5**；DOM 脚本 **16/16**（含 `dom-booking-requests.mjs`、`dom-notifications.mjs`）；38 个运行时 JS 语法检查。每批都要跑全量，不能只跑新增用例。
 
 ## 外部核验能证明什么、不能证明什么
 
@@ -67,5 +70,5 @@ Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → 340 → 348 → 356
 ## 下一批从哪开始
 
 1. 先 `git log --oneline -10` 与 `WORKBUDDY-HANDOFF.md` 末尾对齐状态，再读 `continuity/PROJECT-STATE.md` 的「剩余缺口」。
-2. 自主队列见 `continuity/AUTONOMOUS-RUN.md`：P1（多房请求与客人自查/撤回）、P2（条件式升级规则）、P3（审核通过后前台一键办理入住，`a7e3b5f`）、P4（渠道佣金人工录入 / 结算状态，`0aae239`）、P5（身份资料保存期限与显式清除、`self-checkin.key` 随发布备份，`0ad964c`）已完成，**自主队列 P1–P5 收敛**；剩余项均属需外部条件或用户明确禁止伪造的边界，不擅自推进。房间分组与价计划绑定订单已有基础实现，不重复造。提醒按班次/账号作用域、外部投递仍属需外部条件或需另行取舍的缺口，不擅自伪造通道。
+2. 自主队列见 `continuity/AUTONOMOUS-RUN.md`：P1（多房请求与客人自查/撤回）、P2（条件式升级规则）、P3（审核通过后前台一键办理入住，`a7e3b5f`）、P4（渠道佣金人工录入 / 结算状态，`0aae239`）、P5（身份资料保存期限与显式清除、`self-checkin.key` 随发布备份，`0ad964c`）已完成；随后按「继续找纯内部缺口」又追加 P6（交班现金盘点与差异审批，`546e331`）也已完成。**P1–P6 均已闭环**；剩余项均属需外部条件或用户明确禁止伪造的边界，不擅自推进。房间分组与价计划绑定订单已有基础实现，不重复造。提醒按班次/账号作用域、外部投递仍属需外部条件或需另行取舍的缺口，不擅自伪造通道。
 3. 每批照旧：实现 → 全量 Node/Python/DOM → 提交并推送 → 核验线上 → 更新 `WORKBUDDY-HANDOFF.md` 与 `JOVIAN-CURRENT-STATUS.md`（含测试数量）。
