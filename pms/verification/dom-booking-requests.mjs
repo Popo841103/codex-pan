@@ -48,7 +48,7 @@ const publicGet=async path=>{const response=await realFetch(new URL(path,base),{
 const publicPost=async (path,fields)=>{
   const response=await realFetch(new URL(path,base),{method:'POST',redirect:'manual',
     headers:{'Content-Type':'application/x-www-form-urlencoded',Origin:base},body:new URLSearchParams(fields)});
-  return {status:response.status,location:response.headers.get('location')};
+  return {status:response.status,location:response.headers.get('location'),body:await response.text()};
 };
 try {
   const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:adminName,password:adminPassword})});
@@ -79,6 +79,9 @@ try {
   assert.equal(search.status,200);
   assert.match(search.body,/name="roomType"/,'a bookable room type carries a request form');
   assert.match(search.body,/MYR 440\.00/,'the published price for two nights is shown');
+  assert.match(search.body,/name="rooms"/,'the request form carries a room count');
+  assert.match(search.body,/name="company"/,'a hidden honeypot is on the request form');
+  assert.match(search.body,/\/manage"/,'and the guest can come back to check the request later');
   assert.doesNotMatch(search.body,/<script/i,'the page still carries no script at all');
 
   // A guest asks. The answer is a reference, never a confirmation.
@@ -102,6 +105,7 @@ try {
   $('#refresh').click();
   await until(()=>text().includes('Nurul Aina'),'the request is listed on the page');
   assert.match(text(),/MYR\s+440\.00/,'the quoted price is shown to the desk');
+  assert.match(text(),/Rooms|房间数/,'the desk sees how many rooms were asked for');
   const accept=$('#content [data-request-accept]');
   accept.click();
   await until(()=>/已接受|Accepted/.test(text()),'the request is reported as accepted');
@@ -132,6 +136,29 @@ try {
   // Declining took no room: the only booking is the one that was accepted.
   const after=JSON.parse(store.db.prepare('SELECT body FROM properties WHERE id=?').get('TEST-KL').body).orders;
   assert.equal(after.length,1,'a declined request never becomes a booking');
+
+  // A request can cover more than one room, and the guest who made it can find it again
+  // and withdraw it on the public site using the reference and the contact they left.
+  // The desk then sees a withdrawal for what it is, not another refusal.
+  const multi=await publicPost(`/sites/${slug}/request`,{lang:'en',from:'2027-10-07',to:'2027-10-08',guests:'1',
+    rooms:'2',roomType,name:'Two Rooms',contact:'two@example.com',note:''});
+  assert.equal(multi.status,303);
+  const multiRef=/sent=([0-9A-F]{8})/.exec(multi.location)[1];
+  assert.equal(store.db.prepare("SELECT rooms FROM booking_requests WHERE guest_name='Two Rooms'").get().rooms,2,
+    'two rooms were asked for in one request');
+  const checked=await publicPost(`/sites/${slug}/manage`,{lang:'en',reference:multiRef,contact:'two@example.com',action:'lookup'});
+  assert.equal(checked.status,200,'checking a request is answered with the page itself, not a redirect');
+  assert.match(checked.body,/Waiting for the property/,'the status comes from the stored request');
+  assert.match(checked.body,/Rooms\s*2/,'the guest is told how many rooms they asked for');
+  assert.doesNotMatch(checked.body,/<script/i,'the answer still carries no script');
+  const stranger=await publicPost(`/sites/${slug}/manage`,{lang:'en',reference:multiRef,contact:'other@example.com',action:'lookup'});
+  assert.match(stranger.body,/No matching request was found/,'a stranger cannot read it');
+  const withdrawn=await publicPost(`/sites/${slug}/manage`,{lang:'en',reference:multiRef,contact:'two@example.com',action:'withdraw'});
+  assert.match(withdrawn.body,/You withdrew this request/);
+  $('#refresh').click();
+  await until(()=>text().includes('Two Rooms'),'the withdrawn request is listed after a refresh');
+  assert.match(text(),/Withdrawn by the guest|客人自行撤回/,'the desk can tell a guest withdrew it, not a refusal');
+  assert.equal(store.db.prepare("SELECT COUNT(*) n FROM booking_requests WHERE withdrawn_at IS NOT NULL").get().n,1);
 
   console.log('Booking requests DOM passed: a guest asks on the published site and gets a reference rather than a confirmation, the desk sees the request with the price that was quoted, accepting creates the booking at that price and takes the room, and declining leaves only a reason behind.');
   await new Promise(done=>setTimeout(done,100));

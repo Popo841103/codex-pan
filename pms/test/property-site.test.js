@@ -183,3 +183,59 @@ test('a rejected range is explained on the page instead of being silently ignore
   assert.doesNotMatch(html,/<script/i);
   store.close();
 });
+
+
+test('the public page offers several rooms, a honeypot and a way to check a request later',()=>{
+  const store=open(),u=admin(store);
+  publish(store,u);
+  const availability=store.publicAvailability({slug:'kl-site',from:'2027-05-01',to:'2027-05-03',guests:1});
+  const html=renderPropertySite({site:store.publicSite('kl-site'),availability,language:'en',
+    requested:{from:'2027-05-01',to:'2027-05-03',guests:'1'},error:null});
+  assert.match(html,/name="rooms"/,'the request form carries a room count');
+  assert.match(html,/class="hp"[^>]*aria-hidden/,'a hidden honeypot is present and hidden from people');
+  assert.match(html,/action="\/sites\/kl-site\/manage"/,'a guest can look a request up later');
+  assert.match(html,/value="withdraw"/,'withdrawing is an ordinary form button, not a script');
+  assert.match(html,/Check my booking request/);
+  assert.doesNotMatch(html,/<script/i,'still no script anywhere on the page');
+  store.close();
+});
+
+test('a looked-up request is rendered from stored facts, with every field escaped',()=>{
+  const store=open(),u=admin(store);
+  publish(store,u);
+  const site=store.publicSite('kl-site');
+  const managed={reference:'ABCDEF12',status:'declined',withdrawn:false,start:'2027-05-01',end:'2027-05-03',
+    guests:2,rooms:3,roomType:{en:'<script>evil()</script>'},roomTypeId:'x',quotedTotal:12345,
+    createdAt:'2027-01-01T00:00:00.000Z',decidedAt:'2027-01-02T00:00:00.000Z',
+    decisionNote:'<img src=x onerror=evil()>',canWithdraw:false};
+  const html=renderPropertySite({site,availability:null,language:'en',requested:{},error:null,managed});
+  assert.match(html,/ABCDEF12/);
+  assert.match(html,/The property could not accept this request/,'the status is read from the record');
+  assert.match(html,/MYR 123\.45/,'the total quote is shown, not invented');
+  assert.match(html,/Rooms\s*3/,'how many rooms were asked for is shown');
+  assert.match(html,/&lt;script&gt;evil\(\)&lt;\/script&gt;/,'the room type name is escaped');
+  assert.match(html,/Note from the property/,'the refusal reason is labelled for the guest');
+  assert.match(html,/&lt;img src=x onerror=evil\(\)&gt;/,'and the refusal reason is escaped too');
+  assert.doesNotMatch(html,/<script|<img src=x onerror=/);
+  store.close();
+});
+
+test('the page says when a request was withdrawn or a lookup found nothing',()=>{
+  const store=open(),u=admin(store);
+  publish(store,u);
+  const site=store.publicSite('kl-site');
+  const withdrawn=renderPropertySite({site,availability:null,language:'en',requested:{},error:null,
+    managed:{reference:'ABCDEF12',status:'declined',withdrawn:true,start:'2027-05-01',end:'2027-05-03',
+      guests:1,rooms:1,roomType:{},roomTypeId:'x',quotedTotal:null,createdAt:'',decidedAt:'',
+      decisionNote:null,canWithdraw:false}});
+  assert.match(withdrawn,/You withdrew this request/);
+  assert.doesNotMatch(withdrawn,/withdrawn_by_guest/,'the internal marker never reaches the guest');
+  for(const [code,word] of [['not_found','No matching request was found'],['request_state','cannot be withdrawn'],['rate_limited','Too many lookups']]){
+    const html=renderPropertySite({site,availability:null,language:'en',requested:{},error:null,manageError:code});
+    assert.match(html,new RegExp(word),'the failure is explained: '+code);
+  }
+  // A forged reference in the address bar is never echoed back as a confirmation.
+  const forged=renderPropertySite({site,availability:null,language:'en',requested:{},error:null,sent:'<script>bad</script>'});
+  assert.doesNotMatch(forged,/<script|Your request has been received/);
+  store.close();
+});

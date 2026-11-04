@@ -22,12 +22,12 @@ const siteCopy = {
     badGuests:'\u4eba\u6570\u9700\u4e3a1\u81f320\u4e4b\u95f4\u7684\u6574\u6570\u3002',
     disclaimer:'\u672c\u9875\u9762\u4ec5\u5c55\u793a\u623f\u578b\u4e0e\u53ef\u8ba2\u60c5\u51b5\uff0c\u4e0d\u63d0\u4f9b\u5728\u7ebf\u652f\u4ed8\u6216\u5373\u65f6\u786e\u8ba4\uff1b\u9884\u8ba2\u9700\u8054\u7cfb\u95e8\u5e97\u786e\u8ba4\u540e\u751f\u6548\u3002',
     updated:'\u6700\u8fd1\u66f4\u65b0',
-    requestForm:'\u9884\u8ba2\u8bf7\u6c42',requestFormNote:'\u6bcf\u4efd\u8bf7\u6c42\u5bf9\u5e94\u4e00\u95f4\u623f\uff1b\u63d0\u4ea4\u540e\u7531\u95e8\u5e97\u4eba\u5de5\u786e\u8ba4\uff0c\u4e0d\u4f1a\u5373\u65f6\u786e\u8ba4\u6216\u6263\u6b3e\u3002',
+    requestForm:'\u9884\u8ba2\u8bf7\u6c42',requestFormNote:'\u6bcf\u4efd\u8bf7\u6c42\u53ef\u8ba2 1 \u81f3 8 \u95f4\u540c\u578b\u623f\uff1b\u4eba\u6570\u6309\u6bcf\u95f4\u8ba1\u3002\u63d0\u4ea4\u540e\u7531\u95e8\u5e97\u4eba\u5de5\u786e\u8ba4\uff0c\u4e0d\u4f1a\u5373\u65f6\u786e\u8ba4\u6216\u6263\u6b3e\u3002',
     yourName:'\u60a8\u7684\u59d3\u540d',yourContact:'\u8054\u7cfb\u65b9\u5f0f\uff08\u90ae\u7bb1\u6216\u7535\u8bdd\uff09',requestNotes:'\u5907\u6ce8\uff08\u9009\u586b\uff09',
     requestButton:'\u63d0\u4ea4\u9884\u8ba2\u8bf7\u6c42',requestReceived:'\u5df2\u6536\u5230\u60a8\u7684\u8bf7\u6c42',
     requestReference:'\u8bf7\u6c42\u7f16\u53f7',requestReceivedNote:'\u8fd9\u4e0d\u662f\u786e\u8ba4\uff0c\u4e5f\u672a\u6263\u6b3e\uff1b\u95e8\u5e97\u786e\u8ba4\u540e\u4f1a\u901a\u8fc7\u60a8\u7559\u4e0b\u7684\u65b9\u5f0f\u8054\u7cfb\u60a8\u3002',
     requestFailed:'\u8bf7\u6c42\u672a\u80fd\u63d0\u4ea4',requestMissing:'\u8bf7\u586b\u5199\u59d3\u540d\u4e0e\u8054\u7cfb\u65b9\u5f0f\u3002',
-    requestUnknown:'\u6240\u9009\u623f\u578b\u5df2\u4e0d\u53ef\u8ba2\uff0c\u8bf7\u91cd\u65b0\u67e5\u8be2\u3002',requestBusy:'\u8bf7\u6c42\u8fc7\u4e8e\u9891\u7e41\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002'},
+    requestUnknown:'\u6240\u9009\u623f\u578b\u5df2\u4e0d\u53ef\u8ba2\uff0c\u8bf7\u91cd\u65b0\u67e5\u8be2\u3002',requestBusy:'\u8bf7\u6c42\u8fc7\u4e8e\u9891\u7e41\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002',rooms:'\u623f\u95f4\u6570',badRooms:'\u623f\u95f4\u6570\u9700\u4e3a 1 \u81f3 8\uff0c\u4e14\u4e0d\u80fd\u8d85\u8fc7\u53ef\u8ba2\u6570\u91cf\u3002',manageTitle:'\u67e5\u8be2\u6211\u7684\u9884\u8ba2\u8bf7\u6c42',manageNote:'\u8f93\u5165\u63d0\u4ea4\u540e\u5f97\u5230\u7684\u8bf7\u6c42\u7f16\u53f7\uff0c\u4ee5\u53ca\u5f53\u65f6\u586b\u5199\u7684\u8054\u7cfb\u65b9\u5f0f\uff0c\u53ef\u67e5\u770b\u5904\u7406\u72b6\u6001\uff1b\u5f85\u5904\u7406\u65f6\u53ef\u4ee5\u64a4\u56de\u3002\u7f16\u53f7\u4e0d\u662f\u5bc6\u7801\uff0c\u8bf7\u52ff\u516c\u5f00\u3002',manageRef:'\u8bf7\u6c42\u7f16\u53f7',manageContact:'\u63d0\u4ea4\u65f6\u586b\u5199\u7684\u8054\u7cfb\u65b9\u5f0f',manageLookup:'\u67e5\u8be2\u72b6\u6001',manageWithdraw:'\u64a4\u56de\u8bf7\u6c42',manageNotFound:'\u6ca1\u6709\u627e\u5230\u5339\u914d\u7684\u8bf7\u6c42\u3002\u8bf7\u6838\u5bf9\u7f16\u53f7\u4e0e\u8054\u7cfb\u65b9\u5f0f\u662f\u5426\u5b8c\u5168\u4e00\u81f4\u3002',manageBusy:'\u67e5\u8be2\u8fc7\u4e8e\u9891\u7e41\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002',managePending:'\u5f85\u95e8\u5e97\u786e\u8ba4',manageAccepted:'\u95e8\u5e97\u5df2\u63a5\u53d7\u5e76\u751f\u6210\u8ba2\u5355',manageDeclined:'\u95e8\u5e97\u672a\u80fd\u63a5\u53d7\u8be5\u8bf7\u6c42',manageWithdrawn:'\u4f60\u5df2\u64a4\u56de\u8be5\u8bf7\u6c42\uff0c\u95e8\u5e97\u4e0d\u4f1a\u518d\u6309\u5b83\u5b89\u6392\u623f\u95f4\u3002',manageCannot:'\u8be5\u8bf7\u6c42\u5df2\u5904\u7406\uff0c\u65e0\u6cd5\u64a4\u56de\u3002',manageCanWithdraw:'\u5982\u9700\u64a4\u56de\uff0c\u8bf7\u5728\u4e0a\u65b9\u8868\u5355\u70b9\u201c\u64a4\u56de\u8bf7\u6c42\u201d\u3002',manageDates:'\u5165\u4f4f / \u9000\u623f',manageDecisionNote:'\u95e8\u5e97\u8bf4\u660e'},
   en:{checkIn:'Check-in',checkOut:'Check-out',guests:'Guests',search:'Check availability',availability:'Available room types',
     available:'available',soldOut:'Sold out',fromPerNight:'from',stayTotal:'Stay total',nights:'nights',
     noPrice:'No published price',noPriceNote:'This room type has no publicly published price for the dates chosen. Please contact the property.',
@@ -36,12 +36,12 @@ const siteCopy = {
     badGuests:'Guests must be a whole number between 1 and 20.',
     disclaimer:'This page only shows room types and availability. It takes no online payment and gives no instant confirmation; a booking takes effect once the property confirms it.',
     updated:'Last updated',
-    requestForm:'Booking request',requestFormNote:'One request is for one room. The property confirms it by hand, so nothing is confirmed or charged straight away.',
+    requestForm:'Booking request',requestFormNote:'One request can cover up to eight rooms of the same type; the guest count is per room. The property confirms it by hand, so nothing is confirmed or charged straight away.',
     yourName:'Your name',yourContact:'How to reach you (email or phone)',requestNotes:'Notes (optional)',
     requestButton:'Send booking request',requestReceived:'Your request has been received',
     requestReference:'Reference',requestReceivedNote:'This is not a confirmation and nothing has been charged. The property will reach you on the details you left once it confirms the request.',
     requestFailed:'The request could not be sent',requestMissing:'Please give your name and a way to contact you.',
-    requestUnknown:'That room type can no longer be requested, so please search again.',requestBusy:'Too many requests were sent, so please try again shortly.'},
+    requestUnknown:'That room type can no longer be requested, so please search again.',requestBusy:'Too many requests were sent, so please try again shortly.',rooms:'Rooms',badRooms:'Rooms must be between 1 and 8 and no more than the number available.',manageTitle:'Check my booking request',manageNote:'Enter the reference you were given and the exact contact details you left with it to see what happened to your request. While it is still waiting you can withdraw it. A reference is not a password, so keep it to yourself.',manageRef:'Reference',manageContact:'Contact used when requesting',manageLookup:'Check status',manageWithdraw:'Withdraw request',manageNotFound:'No matching request was found. Check that the reference and contact details match exactly.',manageBusy:'Too many lookups were made, so please try again shortly.',managePending:'Waiting for the property',manageAccepted:'The property accepted it and created a booking',manageDeclined:'The property could not accept this request',manageWithdrawn:'You withdrew this request, so the property will not arrange a room for it.',manageCannot:'This request has already been dealt with and cannot be withdrawn.',manageCanWithdraw:'To withdraw it, use the Withdraw request button in the form above.',manageDates:'Check-in / check-out',manageDecisionNote:'Note from the property'},
   ms:{checkIn:'Daftar masuk',checkOut:'Daftar keluar',guests:'Bilangan tetamu',search:'Semak ketersediaan',availability:'Jenis bilik tersedia',
     available:'tersedia',soldOut:'Habiskan dijual',fromPerNight:'dari',stayTotal:'Jumlah',nights:'malam',
     noPrice:'Tiada harga diterbitkan',noPriceNote:'Jenis bilik ini tiada harga yang diterbitkan untuk tarikh dipilih. Sila hubungi hartanah.',
@@ -50,12 +50,12 @@ const siteCopy = {
     badGuests:'Bilangan tetamu mesti nombor bulat antara 1 dan 20.',
     disclaimer:'Halaman ini hanya memaparkan jenis bilik dan ketersediaan. Tiada pembayaran dalam talian dan tiada pengesahan segera; tempahan berkuat kuasa selepas hartanah mengesahkannya.',
     updated:'Dikemas kini',
-    requestForm:'Permintaan tempahan',requestFormNote:'Satu permintaan adalah untuk satu bilik. Hartanah mengesahkannya secara manual, jadi tiada apa disahkan atau dikenakan bayaran serta-merta.',
+    requestForm:'Permintaan tempahan',requestFormNote:'Satu permintaan boleh meliputi sehingga lapan bilik jenis sama; bilangan tetamu adalah bagi setiap bilik. Hartanah mengesahkannya secara manual, jadi tiada apa disahkan atau dikenakan bayaran serta-merta.',
     yourName:'Nama anda',yourContact:'Cara hubungi anda (e-mel atau telefon)',requestNotes:'Nota (pilihan)',
     requestButton:'Hantar permintaan tempahan',requestReceived:'Permintaan anda telah diterima',
     requestReference:'Rujukan',requestReceivedNote:'Ini bukan pengesahan dan tiada bayaran dikenakan. Hartanah akan menghubungi anda melalui butiran yang anda tinggalkan setelah permintaan disahkan.',
     requestFailed:'Permintaan tidak dapat dihantar',requestMissing:'Sila berikan nama anda dan cara untuk menghubungi anda.',
-    requestUnknown:'Jenis bilik itu tidak boleh diminta lagi, sila cari semula.',requestBusy:'Terlalu banyak permintaan dihantar, sila cuba sebentar lagi.'}
+    requestUnknown:'Jenis bilik itu tidak boleh diminta lagi, sila cari semula.',requestBusy:'Terlalu banyak permintaan dihantar, sila cuba sebentar lagi.',rooms:'Bilik',badRooms:'Bilangan bilik mesti antara 1 dan 8 dan tidak melebihi bilangan tersedia.',manageTitle:'Semak permintaan tempahan saya',manageNote:'Masukkan rujukan yang diberikan dan butiran hubungan tepat yang anda tinggalkan untuk melihat status permintaan. Selagi masih menunggu, anda boleh menarik balik. Rujukan bukan kata laluan, jadi simpan untuk diri sendiri.',manageRef:'Rujukan',manageContact:'Butiran hubungan semasa memohon',manageLookup:'Semak status',manageWithdraw:'Tarik balik permintaan',manageNotFound:'Tiada permintaan sepadan ditemui. Semak sama ada rujukan dan butiran hubungan betul-betul sama.',manageBusy:'Terlalu banyak semakan dibuat, sila cuba sebentar lagi.',managePending:'Menunggu hartanah',manageAccepted:'Hartanah menerimanya dan mencipta tempahan',manageDeclined:'Hartanah tidak dapat menerima permintaan ini',manageWithdrawn:'Anda telah menarik balik permintaan ini, jadi hartanah tidak akan menyediakan bilik untuknya.',manageCannot:'Permintaan ini telah diproses dan tidak boleh ditarik balik.',manageCanWithdraw:'Untuk menarik balik, gunakan butang Tarik balik permintaan pada borang di atas.',manageDates:'Daftar masuk / daftar keluar',manageDecisionNote:'Nota daripada hartanah'}
 };
 export function pickSiteLanguage(requested, header) {
   if(siteLanguages.includes(requested))return requested;
@@ -70,26 +70,35 @@ const siteText = (value, language) => {
 };
 // Availability is only ever shown as what the front desk itself can sell tonight;
 // where no published price exists the page says so rather than estimating one.
-export function renderPropertySite({ site, availability, language, requested, error, sent, requestError }) {
+export function renderPropertySite({ site, availability, language, requested, error, sent, requestError, managed, manageError, managedReference }) {
   const c = siteCopy[language] || siteCopy.en;
   const title = siteText(site.title,language) || site.propertyName;
   const description = siteText(site.description,language);
   const contact = siteText(site.contact,language);
   const note = siteText(site.bookingNote,language);
   const q = requested||{};
+  // A hidden field a person never sees and a bot tends to fill. It is checked on the
+  // server, so filling it writes nothing; the page still needs no script at all.
+  const honey=`<div class="hp" aria-hidden="true"><label>Company <input name="company" tabindex="-1" autocomplete="off"></label></div>`;
   // A request is all this page can honestly take: the guest asks, the property decides,
   // and nothing here charges, holds or confirms a stay.
   const requestForm=type=>{
     if(!availability||type.unknown||type.available===0||!type.fitsGuests)return '';
+    const maxRooms=Math.min(8,Number(type.available)||0);
+    const roomsField=maxRooms>1
+      ?`<label>${escapeHtml(c.rooms)} <select name="rooms">${Array.from({length:maxRooms},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select></label>`
+      :'<input type="hidden" name="rooms" value="1">';
     return `<form class="request" method="post" action="/sites/${escapeHtml(site.slug)}/request">
      <input type="hidden" name="lang" value="${escapeHtml(language)}">
      <input type="hidden" name="from" value="${escapeHtml(q.from||'')}">
      <input type="hidden" name="to" value="${escapeHtml(q.to||'')}">
      <input type="hidden" name="guests" value="${escapeHtml(q.guests||'1')}">
      <input type="hidden" name="roomType" value="${escapeHtml(type.id)}">
+     ${roomsField}
      <label>${escapeHtml(c.yourName)} <input name="name" maxlength="100" required></label>
      <label>${escapeHtml(c.yourContact)} <input name="contact" maxlength="254" required></label>
      <label>${escapeHtml(c.requestNotes)} <textarea name="note" maxlength="2000" rows="2"></textarea></label>
+     ${honey}
      <button type="submit">${escapeHtml(c.requestButton)}</button>
     </form>`;
   };
@@ -98,9 +107,36 @@ export function renderPropertySite({ site, availability, language, requested, er
   const reference=/^[0-9A-F]{8}$/.test(String(sent||''))?String(sent):null;
   const failed=requestError==='date_range'?c.badDates:requestError==='guest_count'?c.badGuests:
     ['guest_name','contact'].includes(requestError)?c.requestMissing:requestError==='site_input'?c.requestUnknown:
-    requestError==='rate_limited'?c.requestBusy:null;
+    requestError==='room_count'?c.badRooms:requestError==='rate_limited'?c.requestBusy:null;
   const notice=reference?`<p class="notice ok">${escapeHtml(c.requestReceived)} · ${escapeHtml(c.requestReference)} <strong>${escapeHtml(reference)}</strong><br>${escapeHtml(c.requestReceivedNote)}</p>`
     :requestError?`<p class="notice bad">${escapeHtml(c.requestFailed)}${failed?' · '+escapeHtml(failed):''}</p>`:'';
+  const statusWord=m=>m.withdrawn?c.manageWithdrawn:m.status==='pending'?c.managePending:
+    m.status==='accepted'?c.manageAccepted:c.manageDeclined;
+  const managedResult=managed?`<div class="managed notice ok">
+    <p><strong>${escapeHtml(managed.reference)}</strong> · ${escapeHtml(statusWord(managed))}</p>
+    <p>${escapeHtml(c.manageDates)}: ${escapeHtml(managed.start)} → ${escapeHtml(managed.end)}</p>
+    <p>${escapeHtml(siteText(managed.roomType||{},language)||'')} · ${escapeHtml(c.rooms)} ${escapeHtml(managed.rooms)}
+      · ${escapeHtml(c.guests)} ${escapeHtml(managed.guests)}</p>
+    ${Number.isFinite(managed.quotedTotal)?`<p>${escapeHtml(c.stayTotal)}: ${escapeHtml(money(managed.quotedTotal))}</p>`:''}
+    ${managed.decisionNote?`<p>${escapeHtml(c.manageDecisionNote)}: ${escapeHtml(managed.decisionNote)}</p>`:''}
+    ${managed.canWithdraw?`<p class="muted">${escapeHtml(c.manageCanWithdraw)}</p>`:''}
+   </div>`:manageError?`<p class="notice bad">${escapeHtml(
+     manageError==='not_found'?c.manageNotFound:manageError==='request_state'?c.manageCannot:c.manageBusy)}</p>`:'';
+  const manageForm=`<section class="manage">
+    <h2>${escapeHtml(c.manageTitle)}</h2>
+    <p class="muted">${escapeHtml(c.manageNote)}</p>
+    <form class="manage-form" method="post" action="/sites/${escapeHtml(site.slug)}/manage">
+     <input type="hidden" name="lang" value="${escapeHtml(language)}">
+     <label>${escapeHtml(c.manageRef)} <input name="reference" maxlength="12" value="${escapeHtml(managedReference||'')}" required></label>
+     <label>${escapeHtml(c.manageContact)} <input name="contact" maxlength="254" required></label>
+     ${honey}
+     <div class="manage-buttons">
+      <button type="submit" name="action" value="lookup">${escapeHtml(c.manageLookup)}</button>
+      <button type="submit" name="action" value="withdraw">${escapeHtml(c.manageWithdraw)}</button>
+     </div>
+    </form>
+    ${managedResult}
+   </section>`;
   const switcher = siteLanguages.map(lang=>`<a class="lang${lang===language?' on':''}" href="?lang=${lang}${q.from?`&amp;from=${escapeHtml(q.from)}&amp;to=${escapeHtml(q.to)}&amp;guests=${escapeHtml(q.guests||'1')}`:''}">${lang.toUpperCase()}</a>`).join(' ');
   const form=`<form class="search" method="get" action="">
    <input type="hidden" name="lang" value="${escapeHtml(language)}">
@@ -157,12 +193,23 @@ export function renderPropertySite({ site, availability, language, requested, er
   form.request{display:grid;gap:8px;margin-top:8px;border-top:1px solid #e6e9ee;padding-top:10px}
   form.request label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#556}
   form.request input,form.request textarea{padding:7px;border:1px solid #c9d0da;border-radius:6px;font:inherit}
-  form.request button{justify-self:start;padding:8px 14px;background:#123a5e;color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}</style>
+  form.request button{justify-self:start;padding:8px 14px;background:#123a5e;color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
+  form.request select{padding:7px;border:1px solid #c9d0da;border-radius:6px;font:inherit}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .manage{background:#fff;border-radius:10px;padding:16px 20px;margin:24px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .manage h2{margin:0 0 6px;font-size:18px}
+  form.manage-form{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:12px 0}
+  form.manage-form label{display:flex;flex-direction:column;font-size:13px;color:#556}
+  form.manage-form input{padding:8px;border:1px solid #c9d0da;border-radius:6px;font:inherit}
+  form.manage-form button{padding:9px 16px;background:#123a5e;color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
+  form.manage-form button[value="withdraw"]{background:#7a4a12}
+  .manage-buttons{display:flex;gap:8px}.managed p{margin:4px 0}</style>
   </head><body>
   <header><h1>${escapeHtml(title)}</h1><p class="lang">${switcher}</p></header>
   <main>
    ${description?`<p>${escapeHtml(description)}</p>`:''}
    ${notice}${form}${results}
+   ${manageForm}
    ${note?`<h2>${escapeHtml(c.contact)}</h2><p class="contact">${escapeHtml(note)}</p>`:''}
    ${contact?`<h2>${escapeHtml(c.contact)}</h2><p class="contact">${escapeHtml(contact)}</p>`:''}
    <footer><p>${escapeHtml(c.disclaimer)}</p><p class="muted">${escapeHtml(c.updated)} ${escapeHtml(String(site.updatedAt||'').slice(0,10))}</p></footer>
@@ -258,18 +305,55 @@ export function makeServer(store, { publicOrigin, recovery = null } = {}) {
             `&from=${encodeURIComponent(String(data.from||''))}&to=${encodeURIComponent(String(data.to||''))}`+
             `&guests=${encodeURIComponent(String(data.guests||'1'))}${extra}`;
           let reference=null,code=null;
-          try{
+          // A filled honeypot is dropped without writing a request. It answers like the
+          // rate limit so the page never reveals which check decided it.
+          if(String(data.company||'').trim())code='rate_limited';
+          else try{
             reference=store.submitBookingRequest({slug,roomTypeId:String(data.roomType||''),from:String(data.from||''),
-              to:String(data.to||''),guests:String(data.guests||'1'),name:String(data.name||''),contact:String(data.contact||''),
+              to:String(data.to||''),guests:String(data.guests||'1'),rooms:String(data.rooms||'1'),
+              name:String(data.name||''),contact:String(data.contact||''),
               note:String(data.note||''),language:data.lang}).reference;
           }catch(e){
             if(!(e instanceof ServiceError))throw e;
-            code=['date_range','guest_count','guest_name','contact','site_input'].includes(e.message)?e.message:'request_failed';
+            code=['date_range','guest_count','room_count','guest_name','contact','site_input'].includes(e.message)?e.message:'request_failed';
           }
           // Post/redirect/get: reloading the result never sends the request twice.
           res.writeHead(303,{'Location':back(reference?`&sent=${encodeURIComponent(reference)}`:`&requestError=${encodeURIComponent(code)}`),
             'Cache-Control':'no-store'});
           return res.end();
+        }
+        // A guest can check or withdraw their own request without an account and without
+        // a script. The reference alone is not enough: the contact details left with the
+        // request must match too, and every attempt is counted against the caller.
+        if(parts[1]==='manage'){
+          if(req.method!=='POST')throw new ServiceError(405,'method');
+          const now=Date.now();
+          for(const [key,value] of attempts)if(value.until<=now)attempts.delete(key);
+          const manageKey='site-manage|'+req.socket.remoteAddress;
+          if(attempts.size>=10000&&!attempts.has(manageKey))throw new ServiceError(429,'rate_limited');
+          const manageLimit=attempts.get(manageKey)||{count:0,until:now+15*60*1000};
+          if(manageLimit.count>=20)throw new ServiceError(429,'rate_limited');
+          manageLimit.count++;attempts.set(manageKey,manageLimit);
+          const data=await form(req);
+          const manageLanguage=pickSiteLanguage(data.lang,req.headers['accept-language']);
+          const managedReference=String(data.reference||'').trim().toUpperCase().slice(0,12);
+          let managed=null,manageError=null;
+          if(String(data.company||'').trim())manageError='rate_limited';
+          else if(!['lookup','withdraw'].includes(String(data.action||'')))manageError='not_found';
+          else try{
+            const input={slug,reference:data.reference,contact:data.contact};
+            managed=String(data.action)==='withdraw'?store.withdrawBookingRequest(input):store.lookupBookingRequest(input);
+          }catch(e){
+            if(!(e instanceof ServiceError))throw e;
+            manageError=e.status===409||e.message==='request_state'?'request_state':e.status===429?'rate_limited':'not_found';
+          }
+          let manageSite;
+          try{ manageSite=store.publicSite(slug); }
+          catch(e){ throw e instanceof ServiceError?e:new ServiceError(404,'not_found'); }
+          const html=renderPropertySite({site:manageSite,availability:null,language:manageLanguage,
+            requested:{},error:null,sent:null,requestError:null,managed,manageError,managedReference});
+          res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
+          return res.end(html);
         }
         if(parts[1]!==undefined)throw new ServiceError(404,'not_found');
         if(req.method!=='GET')throw new ServiceError(405,'method');

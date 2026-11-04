@@ -74,9 +74,10 @@ export class Store {
       CREATE TABLE IF NOT EXISTS booking_requests (id TEXT PRIMARY KEY, property_id TEXT NOT NULL REFERENCES properties(id),
         slug TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','accepted','declined')),
         guest_name TEXT NOT NULL, contact TEXT NOT NULL, stay_from TEXT NOT NULL, stay_to TEXT NOT NULL,
-        guests INTEGER NOT NULL, room_type_id TEXT NOT NULL, note TEXT NOT NULL, language TEXT NOT NULL,
+        guests INTEGER NOT NULL, rooms INTEGER NOT NULL DEFAULT 1, room_type_id TEXT NOT NULL, note TEXT NOT NULL, language TEXT NOT NULL,
         quoted_total INTEGER, quoted_nightly TEXT, created_at TEXT NOT NULL,
-        decided_at TEXT, decided_by TEXT REFERENCES users(id), decision_note TEXT, reservation_id TEXT, order_id TEXT);
+        decided_at TEXT, decided_by TEXT REFERENCES users(id), decision_note TEXT, reservation_id TEXT, order_id TEXT,
+        withdrawn_at TEXT);
       CREATE INDEX IF NOT EXISTS booking_requests_property ON booking_requests(property_id,status,created_at);
       CREATE TABLE IF NOT EXISTS booking_request_events (id TEXT PRIMARY KEY, request_id TEXT NOT NULL, actor TEXT NOT NULL,
         action TEXT NOT NULL, at TEXT NOT NULL, summary TEXT NOT NULL);
@@ -119,6 +120,13 @@ export class Store {
     // and are widened here rather than being recreated.
     if(!this.db.prepare('PRAGMA table_info(user_properties)').all().some(c=>c.name==='role'))
       this.db.exec('ALTER TABLE user_properties ADD COLUMN role TEXT');
+    // Requests gained a room count and a guest-side withdrawal marker after the first
+    // release. Older databases are widened here; the status column keeps its original
+    // three values, so a withdrawal is a declined request with its own marker rather
+    // than a reason to rebuild the table and rewrite existing data.
+    const requestColumns=this.db.prepare('PRAGMA table_info(booking_requests)').all().map(c=>c.name);
+    if(!requestColumns.includes('rooms'))this.db.exec('ALTER TABLE booking_requests ADD COLUMN rooms INTEGER NOT NULL DEFAULT 1');
+    if(!requestColumns.includes('withdrawn_at'))this.db.exec('ALTER TABLE booking_requests ADD COLUMN withdrawn_at TEXT');
     this.support=new SupportDesk(this);
     this.guest=new GuestMessages(this,messagesAdapter);
     this.checkin=new SelfCheckin(this,selfCheckin);
@@ -391,10 +399,11 @@ export class Store {
       .filter(row=>scope.includes(row.property_id))
       .sort((a,b)=>rank(a.status)-rank(b.status)||(a.created_at<b.created_at?1:a.created_at>b.created_at?-1:0))
       .map(row=>({id:row.id,propertyId:row.property_id,slug:row.slug,status:row.status,guest:row.guest_name,contact:row.contact,
-        start:row.stay_from,end:row.stay_to,guests:row.guests,roomTypeId:row.room_type_id,note:row.note,language:row.language,
+        start:row.stay_from,end:row.stay_to,guests:row.guests,rooms:row.rooms||1,
+        roomTypeId:row.room_type_id,note:row.note,language:row.language,
         quotedTotal:row.quoted_total??null,quotedNightly:row.quoted_nightly?JSON.parse(row.quoted_nightly):null,
         createdAt:row.created_at,decidedAt:row.decided_at,decidedBy:row.decided_by,decisionNote:row.decision_note,
-        reservationId:row.reservation_id,orderId:row.order_id}));
+        withdrawnAt:row.withdrawn_at||null,reservationId:row.reservation_id,orderId:row.order_id}));
   }
   visibleBookingRequestEvents(user){
     const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
@@ -582,15 +591,20 @@ export class Store {
     const rates=quoted&&quoted.length===days.length?days.map((date,i)=>({date,amount:quoted[i]})):null;
     const email=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.contact);
     const longContact=!email&&row.contact.length>40?`Contact: ${row.contact}`:'';
+    const roomCount=Math.min(30,Math.max(1,Number(row.rooms)||1));
+    // Every room gets its own stay, so accepting a request for several rooms goes
+    // through exactly the same inventory and folio rules as any other multi-room stay.
+    const stay=()=>({productId:type.productId,roomTypeId:type.id,gender:'any',start:row.stay_from,end:row.stay_to,group:'',
+      nightly:rates?rates[0].amount:0,...(rates?{nightlyRates:rates}:{}),
+      adults:row.guests,children:0,infants:0,
+      occupants:Array.from({length:row.guests},()=>({name:'',gender:type.gender==='any'?'any':type.gender}))});
     return {type:'create_reservation',propertyId:row.property_id,bookingRequestId:row.id,
       mode:'reserve',bookingKind:'individual',autoAssign:false,source:'bookingengine',
-      guest:row.guest_name,notes:[row.note,longContact].filter(Boolean).join(' — ').slice(0,2048),
+      guest:row.guest_name,notes:[row.note,longContact,roomCount>1?`${roomCount} rooms requested`:'']
+        .filter(Boolean).join(' — ').slice(0,2048),
       date:body.businessDate||localDay(new Date()),
       ...(email?{email:row.contact}:row.contact.length<=40?{phone:row.contact}:{}),
-      stays:[{productId:type.productId,roomTypeId:type.id,gender:'any',start:row.stay_from,end:row.stay_to,group:'',
-        nightly:rates?rates[0].amount:0,...(rates?{nightlyRates:rates}:{}),
-        adults:row.guests,children:0,infants:0,
-        occupants:Array.from({length:row.guests},()=>({name:'',gender:type.gender==='any'?'any':type.gender}))}]};
+      stays:Array.from({length:roomCount},stay)};
   }
   // Declining keeps the request and the reason together: no inventory is touched, no
   // revision moves, and what the guest asked for stays on the record.
@@ -682,7 +696,7 @@ export class Store {
   // What a published site collects instead of a booking. It answers without a session,
   // stores the request as undecided, and quotes without charging, holding or
   // confirming anything: only the front desk can turn it into a stay.
-  submitBookingRequest({slug,roomTypeId,from,to,guests,name,contact,note,language}={}){
+  submitBookingRequest({slug,roomTypeId,from,to,guests,rooms=1,name,contact,note,language}={}){
     const site=this.publicSite(slug);
     const type=site.roomTypes.find(t=>t.id===roomTypeId);
     if(!type)error(400,'site_input');
@@ -693,26 +707,78 @@ export class Store {
     // Capacity is checked now instead of at the desk, so a request that could never be
     // accepted is not queued for someone to reject by hand.
     if(count>type.maxGuests||type.productId==='bed'&&count!==1)error(400,'guest_count');
+    const roomCount=Number(rooms??1);if(!Number.isSafeInteger(roomCount)||roomCount<1||roomCount>8)error(400,'room_count');
     const guestName=String(name??'').replace(/\s+/g,' ').trim();
     if(!guestName||guestName.length>100)error(400,'guest_name');
     const contactText=String(contact??'').replace(/\s+/g,' ').trim();
     if(!contactText||contactText.length>254)error(400,'contact');
+    // Notes are the one free-text field a bot fills with links. Three is already more
+    // than a guest arranging a stay needs, and refusing it writes nothing at all.
+    if((String(note??'').match(/https?:\/\//gi)||[]).length>3)error(400,'site_input');
     const noteText=String(note??'').trim().slice(0,2000);
     const lang=['zh','en','ms'].includes(language)?language:'en';
     const quote=this.publicAvailability({slug,from,to,guests:count}).roomTypes.find(t=>t.id===roomTypeId);
+    // A request for more rooms than are free could never be accepted, so it is refused
+    // here rather than left for somebody to reject by hand. A single room keeps the
+    // original behaviour: asking when nothing is free is still recorded, and it is
+    // the desk's acceptance that runs out of inventory. An unknown availability is
+    // left alone because the desk still has to decide it.
+    if(roomCount>1&&quote&&Number.isSafeInteger(quote.available)&&roomCount>quote.available)error(400,'room_count');
+    const quotedTotal=quote?.total==null?null:quote.total*roomCount;
     const nights=Math.round((Date.parse(to)-Date.parse(from))/86400000);
     const id=randomUUID(),at=new Date().toISOString();
-    this.db.prepare('INSERT INTO booking_requests VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(id,site.propertyId,slug,'pending',guestName,contactText,from,to,count,roomTypeId,noteText,lang,
-        quote?.total??null,quote?.nightly?JSON.stringify(quote.nightly):null,at,null,null,null,null,null);
+    this.db.prepare(`INSERT INTO booking_requests
+      (id,property_id,slug,status,guest_name,contact,stay_from,stay_to,guests,rooms,room_type_id,note,language,
+       quoted_total,quoted_nightly,created_at,decided_at,decided_by,decision_note,reservation_id,order_id,withdrawn_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(id,site.propertyId,slug,'pending',guestName,contactText,from,to,count,roomCount,roomTypeId,noteText,lang,
+        quotedTotal,quote?.nightly?JSON.stringify(quote.nightly):null,at,null,null,null,null,null,null);
     this.db.prepare('INSERT INTO booking_request_events VALUES(?,?,?,?,?,?)').run(randomUUID(),id,'public','submit',at,
-      JSON.stringify({slug,roomTypeId,from,to,guests:count,nights,quotedTotal:quote?.total??null,language:lang}));
+      JSON.stringify({slug,roomTypeId,from,to,guests:count,rooms:roomCount,nights,quotedTotal,language:lang}));
     // The desk has no other way to learn a request arrived, so the people who can decide
     // on one are told here. Without this the request simply waits, unseen.
     this.notifyProperty(site.propertyId,'booking_request',{requestId:id,slug,guest:guestName,from,to,nights,guests:count,
-      roomTypeId,quotedTotal:quote?.total??null},{action:'booking_request_decision'});
-    return {id,reference:id.slice(0,8).toUpperCase(),status:'pending',nights,quotedTotal:quote?.total??null,
+      rooms:roomCount,roomTypeId,quotedTotal},{action:'booking_request_decision'});
+    return {id,reference:id.slice(0,8).toUpperCase(),status:'pending',nights,rooms:roomCount,quotedTotal,
       quotedNightly:quote?.nightly??null};
+  }
+  // A reference is short enough to guess, so it is not a secret. Looking a request up
+  // or withdrawing it also asks for the exact contact details left with it, so one
+  // guest can neither read nor cancel another's request. Only public facts are returned:
+  // no account, no internal audit note, no other guest.
+  normalizeContact(value){return String(value??'').trim().toLowerCase().replace(/\s+/g,'');}
+  findBookingRequest({slug,reference,contact}={}){
+    const ref=String(reference??'').trim().toUpperCase();
+    if(!/^[0-9A-F]{8}$/.test(ref))error(404,'site_input');
+    const row=this.db.prepare('SELECT * FROM booking_requests WHERE slug=? AND substr(upper(id),1,8)=?').get(slug,ref);
+    const contactKey=this.normalizeContact(contact);
+    if(!contactKey||!row||this.normalizeContact(row.contact)!==contactKey)error(404,'site_input');
+    return row;
+  }
+  lookupBookingRequest(input){
+    const row=this.findBookingRequest(input);
+    const property=this.db.prepare('SELECT body FROM properties WHERE id=?').get(row.property_id);
+    const type=property?upgradeCatalog(JSON.parse(property.body)).roomTypes.find(t=>t.id===row.room_type_id):null;
+    return {reference:String(row.id).slice(0,8).toUpperCase(),status:row.status,withdrawn:!!row.withdrawn_at,
+      start:row.stay_from,end:row.stay_to,guests:row.guests,rooms:row.rooms||1,
+      roomType:type?.names||{},roomTypeId:row.room_type_id,quotedTotal:row.quoted_total??null,
+      createdAt:row.created_at,decidedAt:row.decided_at,
+      decisionNote:row.withdrawn_at?null:(row.decision_note||null),
+      canWithdraw:row.status==='pending'};
+  }
+  withdrawBookingRequest(input){
+    const row=this.findBookingRequest(input);
+    if(row.status!=='pending'||row.withdrawn_at)error(409,'request_state');
+    const at=new Date().toISOString();
+    // The status column keeps its original three values, so a guest withdrawal is a
+    // declined request with its own marker and an append-only event. No table is
+    // rebuilt, no booking is touched and no business revision moves.
+    const changed=this.db.prepare(`UPDATE booking_requests SET status='declined',decided_at=?,decided_by=NULL,
+      decision_note='withdrawn_by_guest',withdrawn_at=? WHERE id=? AND status='pending'`).run(at,at,row.id);
+    if(!changed.changes)error(409,'request_state');
+    this.db.prepare('INSERT INTO booking_request_events VALUES(?,?,?,?,?,?)').run(randomUUID(),row.id,'guest','withdraw',at,
+      JSON.stringify({reference:String(row.id).slice(0,8).toUpperCase(),from:row.stay_from,to:row.stay_to,rooms:row.rooms||1}));
+    return this.lookupBookingRequest(input);
   }
   session(token) {
     if(typeof token!=='string'||!/^[a-f0-9]{64}$/.test(token))error(401,'login_required');
@@ -790,6 +856,10 @@ export class Store {
         if(!requestRow||requestRow.property_id!==propertyId)error(404,'not_found');
         if(command.decision==='decline')return this.decideBookingRequest(rowUser,command,key,fingerprint);
         if(command.decision!=='accept')error(400,'request_input');
+        // A withdrawn or already decided request must never become a second booking.
+        // The update at the end is guarded by status='pending', but by then an order
+        // would already exist, so the state has to be checked before rewriting it.
+        if(requestRow.status!=='pending'||requestRow.withdrawn_at)error(409,'request_state');
         command=this.bookingRequestCommand(requestRow);
       }
       // A property override decides what this account may do here, not its account role.

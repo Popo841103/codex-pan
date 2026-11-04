@@ -345,22 +345,23 @@ export function bookingRequestsPage({requests=[],events=[],roomTypes=[],property
  const mine=requests.filter(r=>r.propertyId===propertyId);
  const pending=mine.filter(r=>r.status==='pending').length;
  const typeName=id=>{const type=roomTypes.find(r=>r.id===id);return type?(type.names&&Object.values(type.names).find(Boolean))||type.id:id;};
- const statusKey=status=>({pending:'requestPending',accepted:'requestAccepted',declined:'requestDeclined'}[status]||status);
- const actionKey=action=>({submit:'requestSubmitted',accept:'requestAccepted',decline:'requestDeclined'}[action]||action);
+ const statusKey=r=>r.withdrawnAt?'requestWithdrawn':({pending:'requestPending',accepted:'requestAccepted',declined:'requestDeclined'}[r.status]||r.status);
+ const actionKey=action=>({submit:'requestSubmitted',accept:'requestAccepted',decline:'requestDeclined',withdraw:'requestWithdrawn'}[action]||action);
  const quote=r=>r.quotedTotal===null||r.quotedTotal===undefined
    ?`<span class="muted">${esc(t('requestNoQuote'))}</span>`:esc(money(r.quotedTotal));
  const cell=(r,key)=>esc({time:String(r.createdAt||'').slice(0,16).replace('T',' '),guest:r.guest,contact:r.contact,
-   start:r.start,end:r.end,roomType:typeName(r.roomTypeId),guests:r.guests}[key]??'');
+   start:r.start,end:r.end,roomType:typeName(r.roomTypeId),guests:r.guests,rooms:r.rooms||1}[key]??'');
  const rows=mine.map(r=>{
    const action=r.status!=='pending'?'':editable?`<button type="button" data-request-accept="${esc(r.id)}">${esc(t('requestAccept'))}</button>
      <input data-request-reason="${esc(r.id)}" maxlength="500" placeholder="${esc(t('requestReason'))}" aria-label="${esc(t('requestReason'))}">
      <button type="button" data-request-decline="${esc(r.id)}">${esc(t('requestDecline'))}</button>`
      :`<span class="muted">${esc(t('requestReadOnly'))}</span>`;
-   const outcome=r.status==='accepted'?(r.orderId?`<button type="button" data-open-stay="${esc(r.orderId)}">${esc(t('requestOrder'))}</button>`
-     :esc(t('requestAccepted'))):r.status==='declined'?esc(r.decisionNote||''):'';
+   const outcome=r.withdrawnAt?esc(t('requestGuestWithdrawn')):r.status==='accepted'
+     ?(r.orderId?`<button type="button" data-open-stay="${esc(r.orderId)}">${esc(t('requestOrder'))}</button>`
+       :esc(t('requestAccepted'))):r.status==='declined'?esc(r.decisionNote||''):'';
    return `<tr><td>${cell(r,'time')}</td><td><strong>${cell(r,'guest')}</strong></td><td>${cell(r,'contact')}</td>
     <td>${cell(r,'start')}</td><td>${cell(r,'end')}</td><td>${cell(r,'roomType')}</td><td>${cell(r,'guests')}</td>
-    <td>${quote(r)}</td><td>${esc(t(statusKey(r.status)))}</td><td>${action}${outcome?` ${outcome}`:''}</td></tr>`;
+    <td>${cell(r,'rooms')}</td><td>${quote(r)}</td><td>${esc(t(statusKey(r)))}</td><td>${action}${outcome?` ${outcome}`:''}</td></tr>`;
   }).join('');
  const history=events.length?`<h3>${esc(t('requestEvents'))}</h3><div class="table-wrap"><table><thead><tr>${['time','createdBy','requestStatus','requestReason'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${
    events.slice(0,50).map(e=>`<tr><td>${esc(String(e.at||'').slice(0,16).replace('T',' '))}</td><td>${esc(e.actor)}</td><td>${
@@ -368,7 +369,8 @@ export function bookingRequestsPage({requests=[],events=[],roomTypes=[],property
  return `<section class="panel"><div class="panel-head"><h2>${esc(t('bookingRequests'))}</h2><span>${esc(t('requestAwaiting'))}: ${pending}</span></div>
   <p class="muted">${esc(t('requestsNote'))}</p>
   <p class="muted">${esc(t('requestsPriceNote'))}</p>
-  ${mine.length?`<div class="table-wrap"><table><thead><tr>${['requestTime','requestGuest','requestContact','requestStart','requestEnd','requestRoomType','requestGuests','requestQuote','requestStatus','requestActions'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`
+  <p class="muted">${esc(t('requestReasonNote'))}</p>
+  ${mine.length?`<div class="table-wrap"><table><thead><tr>${['requestTime','requestGuest','requestContact','requestStart','requestEnd','requestRoomType','requestGuests','requestRooms','requestQuote','requestStatus','requestActions'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`
     :`<p class="empty">${esc(t('requestsNone'))}</p>`}
   ${editable?'':`<p class="muted">${esc(t('requestReadOnly'))}</p>`}
   ${history}</section>`;
@@ -379,7 +381,7 @@ export const requestWords={
   requestsNote:'来自已发布门店网站的请求。接受后才会生成订单并占用库存；系统未接入在线支付，接受不等于收款，款项仍在前台按实际收取。',
   requestsPriceNote:'显示的价格是客人提交时按公布房价算出的参考值。若当时没有公布价格，订单会以零房价建立，需要前台补充房价。',
   requestTime:'提交时间',requestGuest:'客人',requestContact:'联系方式',requestStart:'入住',requestEnd:'退房',requestRoomType:'房型',
-  requestGuests:'人数',requestQuote:'提交时报价',requestStatus:'状态',requestActions:'处理',
+  requestGuests:'人数',requestRooms:'房间数',requestWithdrawn:'已撤回',requestGuestWithdrawn:'客人自行撤回',requestReasonNote:'拒绝时填写的原因会原样展示给客人查询自己的请求，请勿写入内部信息。',requestQuote:'提交时报价',requestStatus:'状态',requestActions:'处理',
   requestPending:'待确认',requestAccepted:'已接受',requestDeclined:'已拒绝',requestSubmitted:'已提交',
   requestNoQuote:'无公布价格',requestAccept:'接受并生成订单',requestDecline:'拒绝',requestReason:'拒绝原因',requestOrder:'查看订单',
   requestReadOnly:'只有本门店的操作员及以上可以处理预订请求。',requestsNone:'本门店暂无来自网站的预订请求。',requestEvents:'最近处理记录',
@@ -389,7 +391,7 @@ export const requestWords={
   requestsNote:'Requests raised from the published property site. Only accepting one creates a booking and takes inventory. No online payment is connected, so accepting is not taking money: payment is still taken at the desk as usual.',
   requestsPriceNote:'The price shown is what the site quoted when the guest asked. Where no price was published then, the booking is created at zero and the rate has to be filled in at the desk.',
   requestTime:'Asked at',requestGuest:'Guest',requestContact:'Contact',requestStart:'Arrival',requestEnd:'Departure',requestRoomType:'Room type',
-  requestGuests:'Guests',requestQuote:'Quoted when asked',requestStatus:'Status',requestActions:'Decision',
+  requestGuests:'Guests',requestRooms:'Rooms',requestWithdrawn:'Withdrawn',requestGuestWithdrawn:'Withdrawn by the guest',requestReasonNote:'The reason given when declining is shown to the guest looking up their request, so do not put internal notes there.',requestQuote:'Quoted when asked',requestStatus:'Status',requestActions:'Decision',
   requestPending:'Awaiting a decision',requestAccepted:'Accepted',requestDeclined:'Declined',requestSubmitted:'Submitted',
   requestNoQuote:'No published price',requestAccept:'Accept and create the booking',requestDecline:'Decline',requestReason:'Reason',requestOrder:'Open booking',
   requestReadOnly:'Only an operator or an administrator of this property can decide on booking requests.',requestsNone:'No booking request has reached this property yet.',requestEvents:'Recent decisions',
@@ -399,7 +401,7 @@ export const requestWords={
   requestsNote:'Permintaan daripada laman hartanah yang diterbitkan. Hanya menerima mencipta tempahan dan mengambil inventori. Tiada pembayaran dalam talian disambungkan, jadi menerima bukan mengambil wang: bayaran masih diambil di kaunter seperti biasa.',
   requestsPriceNote:'Harga yang ditunjukkan ialah apa yang laman sebut harga semasa tetamu meminta. Jika tiada harga diterbitkan ketika itu, tempahan dicipta pada sifar dan kadar perlu diisi di kaunter.',
   requestTime:'Diminta pada',requestGuest:'Tetamu',requestContact:'Hubungan',requestStart:'Daftar masuk',requestEnd:'Daftar keluar',requestRoomType:'Jenis bilik',
-  requestGuests:'Bilangan tetamu',requestQuote:'Sebut harga semasa diminta',requestStatus:'Status',requestActions:'Keputusan',
+  requestGuests:'Bilangan tetamu',requestRooms:'Bilik',requestWithdrawn:'Ditarik balik',requestGuestWithdrawn:'Ditarik balik oleh tetamu',requestReasonNote:'Sebab semasa menolak ditunjukkan kepada tetamu yang menyemak permintaan, jangan tulis nota dalaman di situ.',requestQuote:'Sebut harga semasa diminta',requestStatus:'Status',requestActions:'Keputusan',
   requestPending:'Menunggu keputusan',requestAccepted:'Diterima',requestDeclined:'Ditolak',requestSubmitted:'Dihantar',
   requestNoQuote:'Tiada harga diterbitkan',requestAccept:'Terima dan cipta tempahan',requestDecline:'Tolak',requestReason:'Sebab',requestOrder:'Buka tempahan',
   requestReadOnly:'Hanya operator atau pentadbir hartanah ini boleh membuat keputusan tentang permintaan tempahan.',requestsNone:'Belum ada permintaan tempahan untuk hartanah ini.',requestEvents:'Keputusan terkini',
