@@ -6,7 +6,7 @@
 
 - 仓库：`Popo841103/codex-pan`（私有）
 - 分支：`jovian-pms-test`
-- 本次归档前最新代码：`2792aec`；最新交接文档：`6251a4b`
+- 本次归档前最新代码：`2792aec`；最新交接文档：`6251a4b`。归档后继续开发时以仓库 `git log -1` 为准（2026-11-04 追加 `ba64db0`）。
 - 归档目录：`continuity/`
 - 线上测试服务：`https://pms.jovianhome.com`
 

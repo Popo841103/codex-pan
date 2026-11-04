@@ -61,11 +61,15 @@
 
 ## 剩余缺口（按建议优先级）
 
-1. 提醒：外部投递通道、门店可配置级别、优先级之外的自定义规则、通知可查询与撤回。
+1. 提醒：外部投递通道、按条件/班次/账号的自定义规则、通知可查询与撤回。（门店可配置级别已于 ba64db0 完成：每类可设紧急/需处理/常规或跟随系统默认，按门店隔离、管理员专属、append-only 审计。）
 2. 自助入住收尾之后：真实设备发码 / 撤销 / 过期 / 断网联调；身份资料保存期限与删除流程；密钥独立加密备份与「数据库 + 原密钥」恢复演练（当前更新器只备份 SQLite，**不备份 `self-checkin.key`**）。
 3. 业务：房间分组、价计划绑定订单、佣金真实费率与结算、历史分段换房、完整现金盘点差异审批与银行对账。
 4. 站点：照片与逐房描述、多房 / 团体请求、支付与押金、自动确认、反垃圾、请求查询与撤回；目前**一份请求 = 一间房**。
 5. 工程：PostgreSQL 迁移与真实并发验证、真机 Edge / 手机视觉验收、Windows 两项私有文件权限用例的本机复核。
+
+## 本批新增（2026-11-04，ba64db0）
+
+门店可配置提醒级别：默认级别不变，门店可把某类提醒上调/下调或留空跟随系统默认，只影响本店；列表、文字标签与铃铛 feed 同步。改动文件：`pms/server/store.js`（`notice_settings` / `notice_settings_audit` 两张新表、旁路命令 `notice_severity_save`、`visibleNoticeSettings` / `visibleNoticeSettingsAudit` 与 read 暴露）、`pms/src/demo-store.js`（级别常量单一来源 `noticeKinds`/`noticeLevels`/`noticeDefaults`/`severityOf`/`cleanNoticeLevels`，本地归约同步）、`pms/web/workspace-ui.js`（`notificationsPage` 配置表单与三语词条）、`pms/web/app.js`（表单提交与传参）、`pms/web/workspace.css`。Node 330/330、Python 5/5、16 个 DOM 脚本全通过。级别是设置不是业务状态：不推进 revision、不碰订单账务、不产生/清除提醒；管理员专属（遵循门店角色覆盖）；只存显式覆盖，留空会跟随当前系统规则。
 
 ## 部署与证据边界
 
