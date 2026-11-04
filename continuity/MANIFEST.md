@@ -110,7 +110,7 @@
 
 导航说明 `continuity/LIBRARY-MIRROR.md` 也放在该子文件夹内，说明权威来源、当前基线、剩余边界与换工具接手提示词。
 
-## 七、当前最新镜像（2026-11-04，代码 `546e331`）
+## 七、上一批镜像（2026-11-04，代码 `546e331`，已被第八节取代）
 
 父文件夹「JOVIAN PMS 续写档案」：https://www.workbuddy.cn/space/d/gNlfjv1toVvAtB2qSIvW7k
 
@@ -133,3 +133,26 @@
 | 完整源码快照 zip（最新 546e331，932 KB / 202 文件） | https://www.workbuddy.cn/space/d/ujuGpf5gL5XhnV2cAOd347 |
 
 GitHub 对应提交：代码 `546e331`、交接文档 `d9cc9df`，分支 `jovian-pms-test`；已部署并线上核验。`/workspace/JOVIAN-PMS-archive-2026-11-04-P6.zip` 是同一份快照的本地副本（排除 `.git`、依赖目录、数据库导出与凭据）。
+
+## 八、当前最新镜像（2026-11-04，代码 `b4754fc`）
+
+父文件夹「JOVIAN PMS 续写档案」：https://www.workbuddy.cn/space/d/gNlfjv1toVvAtB2qSIvW7k
+
+**本批最新镜像子文件夹「最新状态 · 代码 b4754fc（2026-11-04）」：https://www.workbuddy.cn/space/d/CEBUQhP3DroIVyimPVKomD**
+
+第六、七节与更早的同名文档是历史快照，不要用来判断当前进度；以本节镜像或 GitHub `git log -1` 为准。该子文件夹共 10 个节点（9 份文档 + 1 份源码快照 zip）：
+
+| 文档 | 链接 |
+|---|---|
+| 资料库最新镜像导航（最新 b4754fc） | https://www.workbuddy.cn/space/d/N1i5sIo138jby03Dtxd8Ga |
+| 续写入口（最新 b4754fc） | https://www.workbuddy.cn/space/d/nd5VmNce7pbY3qr5Hw1Bu4 |
+| 项目状态与续写地图（最新 b4754fc） | https://www.workbuddy.cn/space/d/YxWsdUhTL0qcxFqajp7Qq5 |
+| 自主连续推进记录（最新 b4754fc） | https://www.workbuddy.cn/space/d/l93yHr9ccpCPAu4BTyoDPN |
+| 会话上下文重建（最新 b4754fc） | https://www.workbuddy.cn/space/d/ioGYPqe6vp16VhdIlIh0bH |
+| 验证与发布核验清单（最新 b4754fc） | https://www.workbuddy.cn/space/d/V6rKwxvCnh3E2MgKnXU9j3 |
+| 归档内容清单（最新 b4754fc） | https://www.workbuddy.cn/space/d/OPYaycrw31EACCOzhyzDcu |
+| WORKBUDDY-HANDOFF 逐批交接（最新 b4754fc） | https://www.workbuddy.cn/space/d/SEtvSEZaDZmEntBZR9qGLV |
+| 当前状态索引（最新 b4754fc） | https://www.workbuddy.cn/space/d/aRr9xKfzocXfpmy24Cal9C |
+| 完整源码快照 zip（最新 b4754fc，944 KB / 203 文件） | https://www.workbuddy.cn/space/d/YuwBtUqz2DuH3gXwALjLer |
+
+GitHub 对应提交：代码 `b4754fc`、交接与归档文档 `1226c81`，分支 `jovian-pms-test`；代码已部署并线上核验。`/workspace/JOVIAN-PMS-archive-2026-11-04-P8.zip` 是同一份快照的本地副本（`git archive` 导出，排除 `.git`、依赖目录、数据库导出与凭据）。
