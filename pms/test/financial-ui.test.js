@@ -90,3 +90,41 @@ test('recording a channel commission is permissioned, and a recorded invoice is 
  const settled=commissionPage({...state,orders:[{...order,commission:{...order.commission,settledAt:'2027-01-03T00:00:00Z',settledBy:'finance'}}]},{...opts,can:()=>true});
  assert.match(settled,/<td>commissionSettled<\/td>/,'the settlement column follows the recorded state');
 });
+
+test('commission history reads the append-only audit and keeps both sides of a correction visible',async()=>{
+ const {commissionPage}=await import('../web/financial-ui.js');
+ const opts={propertyId:'P',from:'2027-01-01',to:'2027-01-03',sources:['booking'],t:k=>k,currency:n=>'MYR '+n};
+ const order={id:'o1',propertyId:'P',guest:'<guest>',source:'booking',status:'checked_in',
+  start:'2027-01-01',end:'2027-01-03',nightly:10000,
+  nightlyRates:[{date:'2027-01-01',amount:10000},{date:'2027-01-02',amount:10000}],
+  transactions:[],extraCharges:[],
+  commission:{amount:1500,reference:'INV-rev',note:'',at:'2027-01-03T00:00:00Z',actor:'finance',
+   settledAt:'2027-01-03T00:00:00Z',settledBy:'finance'}};
+ const audit=[
+  {id:'a2',propertyId:'P',type:'commission_save',orderId:'o1',actor:'finance',at:'2027-01-03T00:00:00Z',
+   commissionChange:{before:{amount:1234,reference:'<inv>',settledAt:null},after:order.commission}},
+  {id:'a1',propertyId:'P',type:'commission_save',orderId:'o1',actor:'finance',at:'2027-01-02T00:00:00Z',
+   commissionChange:{before:null,after:{amount:1234,reference:'<inv>',settledAt:null}}},
+  {id:'a3',propertyId:'X',type:'commission_save',orderId:'foreign',actor:'other',at:'2027-01-04T00:00:00Z',
+   commissionChange:{before:null,after:{amount:9999,reference:'FOREIGN-REF',settledAt:null}}},
+  {id:'a4',propertyId:'P',type:'payment',orderId:'o1',actor:'ops',at:'2027-01-01T00:00:00Z'}
+ ];
+ const state={orders:[order],resources:[],roomTypes:[],audit};
+ const html=commissionPage(state,opts);
+ assert.match(html,/commissionHistory/, 'the history panel is present for a read-only viewer too');
+ assert.match(html,/<th>commissionHistoryBefore<\/th>/);
+ assert.match(html,/<th>commissionHistoryAfter<\/th>/);
+ assert.match(html,/MYR 1234/,'the previous amount survives the correction');
+ assert.match(html,/MYR 1500/,'the corrected amount is shown as the after side');
+ assert.match(html,/INV-rev/);
+ assert.match(html,/&lt;inv&gt;/,'an invoice reference in the audit is escaped');
+ assert.doesNotMatch(html,/<inv>/);
+ assert.match(html,/&lt;guest&gt;/,'the booking label is escaped');
+ assert.match(html,/commissionSettled/,'a settled correction is labelled settled');
+ assert.ok((html.match(/<em>commissionNotRecorded<\/em>/g)||[]).length>=1,'a first entry shows there was no earlier commission');
+ assert.doesNotMatch(html,/FOREIGN-REF/,'another property\'s commission audit never leaks into this page');
+ assert.doesNotMatch(html,/MYR 9999/);
+ assert.match(html,/2027-01-03T00:00:00Z/);
+ const empty=commissionPage({...state,audit:[]},opts);
+ assert.match(empty,/commissionHistoryEmpty/,'an empty history says so instead of printing a zero row');
+});

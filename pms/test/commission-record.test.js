@@ -133,3 +133,21 @@ test('the local reducer applies the same validation and keeps the shared order s
   assert.throws(()=>apply(state,{type:'commission_save',propertyId:pid,orderId:f.order.id,amount:1,reference:'',settled:false,at:'2027-01-10T00:00:00Z'}),/commission_input/);
  }finally{f.store.close();}
 });
+test('the local reducer audit keeps both sides of a commission correction, like the shared backend',()=>{
+ const f=fixture();try{
+  const state=f.store.read(f.ops);
+  const first=apply(state,{type:'commission_save',propertyId:pid,orderId:f.order.id,amount:1234,reference:'INV-1',note:'',settled:false,at:'2027-01-10T00:00:00Z',actor:'finance'});
+  const second=apply(first,{type:'commission_save',propertyId:pid,orderId:f.order.id,amount:1500,reference:'INV-1-rev',note:'',settled:true,at:'2027-01-11T00:00:00Z',actor:'finance'});
+  const rows=second.audit.filter(a=>a.type==='commission_save');
+  assert.equal(rows.length,2);
+  assert.equal(rows[0].commissionChange.before.amount,1234,'the overwritten figure stays on the record');
+  assert.equal(rows[0].commissionChange.after.amount,1500);
+  assert.equal(rows[0].commissionChange.after.reference,'INV-1-rev');
+  assert.equal(rows[0].commissionChange.after.settledAt,'2027-01-11T00:00:00Z');
+  assert.equal(rows[1].commissionChange.before,null,'a first entry has no earlier commission');
+  assert.equal(rows[1].commissionChange.after.reference,'INV-1');
+  assert.equal(rows[1].propertyId,pid);
+  assert.equal(rows[1].actor,'finance');
+  assert.equal(rows[1].orderId,f.order.id);
+ }finally{f.store.close();}
+});

@@ -168,7 +168,21 @@ try {
   assert.equal(store.read(operator).audit.filter(row=>row.type==='commission_save').length,2,
     'both the first figure and its correction are kept in the audit');
 
-  console.log('Occupant, registration and commission DOM passed: per-person rows with party size, missing names and unassigned rooms kept visible, channel commission recorded and corrected through the real form without touching the booking figures.');
+  // P7: that append-only history is readable on the page, showing both sides of
+  // the correction rather than only the figure that currently sits on the order.
+  const historyTable=()=>[...document.querySelectorAll('#content .table-wrap table')]
+    .find(t=>/变更前|Before|Sebelum/.test(t.querySelector('thead')?.textContent||''));
+  await until(()=>historyTable(),'the commission entry history table is rendered');
+  const historyBody=historyTable().querySelector('tbody').textContent;
+  assert.equal(historyTable().querySelectorAll('tbody tr').length,2,'the first entry and its correction are separate rows');
+  assert.match(historyBody,/DOM-INV-1/,'the superseded invoice reference stays readable');
+  assert.match(historyBody,/DOM-INV-1-rev/,'the corrected invoice reference is the after side');
+  assert.match(historyBody,/12\.34/,'the superseded amount is kept');
+  assert.match(historyBody,/15\.00/,'the corrected amount is kept');
+  assert.match(historyBody,/未记录|Not recorded/,'the first entry says there was no earlier commission');
+  assert.match(historyBody,/已结算|Settled/,'the corrected entry carries its settlement state');
+
+  console.log('Occupant, registration and commission DOM passed: per-person rows with party size, missing names and unassigned rooms kept visible, channel commission recorded and corrected through the real form without touching the booking figures, and the append-only before/after history shown on the page.');
   await new Promise(done=>setTimeout(done,100));
 }finally {
   global.fetch=realFetch;server.closeAllConnections();await new Promise(done=>server.close(done));store.close();dom.window.close();

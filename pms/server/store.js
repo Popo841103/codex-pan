@@ -159,7 +159,11 @@ export class Store {
   }
   createUser({ username, password, role, propertyIds }) {
     if (!/^[a-zA-Z0-9._-]{3,64}$/.test(username||'') || typeof password !== 'string' || password.length<12 || password.length>256 ||
-      !Object.hasOwn(roleTypes,role) || !Array.isArray(propertyIds) || !propertyIds.length || new Set(propertyIds).size!==propertyIds.length) error(400,'user_input');
+      !Object.hasOwn(roleTypes,role) || !Array.isArray(propertyIds) || new Set(propertyIds).size!==propertyIds.length) error(400,'user_input');
+    // Every role still needs at least one property, except an administrator setting up a
+    // fresh installation: there is no property to grant yet, and they must be able to log
+    // in to create the first one. Nothing is readable with an empty scope.
+    if(!propertyIds.length&&role!=='admin')error(400,'user_input');
     const salt=randomBytes(16).toString('hex'), passwordHash=scryptSync(password,salt,64).toString('hex');
     return this.transaction(()=>{
       if(this.db.prepare('SELECT 1 FROM users WHERE username=?').get(username)) error(409,'username_taken');
@@ -249,6 +253,32 @@ export class Store {
       })
       .slice(0,100)
       .map(row=>({id:row.id,actor:row.actor,target:row.target,action:row.action,at:row.at,...JSON.parse(row.summary)}));
+  }
+  // Creating a property cannot go through authorize(): the account does not hold the
+  // property yet, which is the whole point. It is limited to an active administrator and
+  // gives them the property at once, so a brand-new property is usable without a second
+  // step. The body starts genuinely empty: no room type, no room, no bed, no order. The
+  // layout is the operator's to describe, and inventing one would silently decide how
+  // many rooms a property sells.
+  createProperty(actor,command,key,fingerprint){
+    if(actor.role!=='admin')error(403,'forbidden');
+    const id=typeof command.newPropertyId==='string'?command.newPropertyId.trim():'';
+    if(!/^[a-zA-Z0-9_-]{2,40}$/.test(id))error(400,'property_input');
+    const name=typeof command.name==='string'?command.name.trim():'';
+    if(!name||name.length>80)error(400,'property_input');
+    const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
+    if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+    if(this.db.prepare('SELECT 1 FROM properties WHERE id=?').get(id))error(409,'property_exists');
+    const body={version:1,properties:[{id,name}],resources:[],roomTypes:[],physicalRooms:[],ratePlans:[],rateCells:[],
+      orders:[],blocks:[],audit:[],notifications:[],noticeSettings:[],noticeRules:[],businessDate:null,
+      nightAudits:[],shiftTypes:[],handovers:[]};
+    this.db.prepare('INSERT INTO properties VALUES(?,0,?)').run(id,JSON.stringify(body));
+    this.db.prepare('INSERT INTO user_properties (user_id,property_id) VALUES(?,?)').run(actor.id,id);
+    this.db.prepare('INSERT INTO audit VALUES(?,?,?,?,?,?,?)').run(randomUUID(),id,actor.id,'property_create',new Date().toISOString(),0,
+      JSON.stringify({propertyId:id,name,createdBy:actor.username,starterInventory:'empty'}));
+    const response={id,propertyId:id,revision:0};
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    return response;
   }
   // Team access. This writes the user tables, not a property body, so it is handled
   // before the property reducer and never advances a property revision.
@@ -852,6 +882,15 @@ export class Store {
   read(user) {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
+    // An administrator with no property yet still needs to load the workspace to reach
+    // the control that creates the first one. Nothing is disclosed: with no property
+    // scope there is no property row to read, and every command still needs authorize().
+    if(fresh.role==='admin'&&!this.db.prepare('SELECT 1 FROM user_properties WHERE user_id=?').get(user.id))
+      return {ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],
+        reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],
+        members:this.visibleMembers(fresh),memberAudit:this.visibleMemberAudit(fresh),sites:[],siteAudit:[],
+        bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[],
+        noticeRules:[],noticeRulesAudit:[],noPropertyYet:true};
     const ids=this.publicUser(fresh).propertyIds;
     const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[],noticeRules:[],noticeRulesAudit:[]};
     for(const id of ids){
@@ -894,6 +933,9 @@ export class Store {
       if(!rowUser)error(401,'login_required');
       const propertyId=command.propertyId;
       if(typeof propertyId!=='string')error(400,'input');
+      // A new property is created before authorize(): the caller cannot hold a property
+      // that does not exist yet. createProperty() re-checks the administrator role itself.
+      if(command.type==='property_create')return this.createProperty(rowUser,command,key,fingerprint);
       this.authorize(user,propertyId);
       let requestRow=null;
       // Team access is not a property business command: it writes the user tables and

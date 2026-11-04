@@ -305,6 +305,9 @@ export function apply(state, command) {
   if (!next.properties.some(p => p.id === propertyId)) reject('scope');
   let order = next.orders.find(o => o.id === command.orderId && o.propertyId === propertyId);
   let resource = next.resources.find(r => r.id === command.resourceId && r.propertyId === propertyId);
+  // Keep the previous commission so the local reducer's audit tells the same
+  // before/after story as the shared backend's durable audit.
+  const commissionBefore = type === 'commission_save' ? (order?.commission || null) : null;
   const inHouse = target => next.orders.some(o => o.propertyId === propertyId && o.status === 'checked_in' &&
     (!['assign','checkin'].includes(type) || o.id !== order?.id) && overlapsAtoms(next.resources.find(r => r.id === o.resourceId), target));
   const staySnapshot = o => o ? { start:o.start, end:o.end, nightly:o.nightly, resourceId:o.resourceId,
@@ -502,7 +505,8 @@ export function apply(state, command) {
     ...(stayBefore || ['create','box_stays','restore_stays'].includes(type) ? { stayChange:{ before:stayBefore,
       after:['box_stays','restore_stays'].includes(type) ? null : staySnapshot(movedTo),
       reason: typeof command.reason === 'string' ? command.reason.trim() : null } } : {}),
-    ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}), at: command.at });
+    ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}),
+    ...(type==='commission_save'?{commissionChange:{before:commissionBefore,after:order?.commission||null}}:{}), at: command.at });
   return next;
 }
 

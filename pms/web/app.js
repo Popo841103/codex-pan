@@ -52,8 +52,14 @@ const nextDay = d => new Date(Date.parse(`${d}T00:00:00Z`)+86400000).toISOString
 function errorText(error) { const map = { dirty:'dirtyError', date:'dateError', guest:'guestError', amount:'amountError', refund:'refundError' }; return t(map[error.message] || (words[lang][error.message] ? error.message : 'conflict')); }
 async function refreshShared(){
   state=await backend.state();
-  if(!state.properties.length)throw new Error('emptyAccess');
-  if(!state.properties.some(p=>p.id===propertyId))propertyId=state.properties[0]?.id;
+  // A fresh installation has no property at all. That is a state to show, not an
+  // access failure: throwing here would leave the administrator unable to reach the
+  // control that creates the first property.
+  if(!state.properties.length){
+    propertyId=null;
+    if(state.noPropertyYet&&backend.user&&backend.user.role==='admin'){view='resourcesSettings';}
+    else throw new Error('emptyAccess');
+  }else if(!state.properties.some(p=>p.id===propertyId))propertyId=state.properties[0]?.id;
   render();
 }
 // Shared mode returns one merged state for every authorized property, so business-day data is per property.
@@ -124,9 +130,13 @@ function render() {
   updateOrderTypes();
   const source=$('#order-form [name=source]');if(source)source.innerHTML=opts(sourceValues,source.value);
   const date = businessDate();
-  const resources = saleResources(state,propertyId).sort((a,b)=>a.sortOrder-b.sortOrder||a.label.localeCompare(b.label,undefined,{numeric:true}));
+  // A freshly created property has nothing to plan for, and an administrator with no
+  // property at all has no scope to plan in. Both must render, not throw: the empty
+  // property is exactly the page where the operator types their own rooms.
+  const noScope = !propertyId || !state.properties.some(p=>p.id===propertyId);
+  const resources = noScope ? [] : saleResources(state,propertyId).sort((a,b)=>a.sortOrder-b.sortOrder||a.label.localeCompare(b.label,undefined,{numeric:true}));
   const orders = state.orders.filter(o=>o.propertyId===propertyId);
-  const plan = preview(state,propertyId);
+  const plan = noScope ? [] : preview(state,propertyId);
   const active = plan.filter(p=>p.start<=date && p.end>date);
   const blocked = state.blocks.filter(b=>b.propertyId===propertyId && b.start<=date && b.end>date);
   const available = resources.filter(r=>!active.some(p=>p.atoms.some(a=>r.atoms.includes(a))) && !blocked.some(b=>b.atoms.some(a=>r.atoms.includes(a)))).length;
@@ -181,6 +191,20 @@ $('#nav').onclick=e=>{const b=e.target.closest('[data-view]');if(b)goView(b.data
 $('#collapse-navigation').onclick=()=>{navigationCollapsed=!navigationCollapsed;render();};
 async function loadChannelStatus(){const pid=propertyId;if(!backend.shared||!can('guest_read'))return;try{const data=await backend.communications('guest-messages',pid);if(propertyId!==pid)return;channelProvider=data.provider;channelProperty=pid;if(view==='channels')render();}catch(error){if(propertyId===pid)$('#message').textContent=errorText(error);}}
 $('#content').addEventListener('click',async e=>{
+  if(e.target.closest('#new-property-save')){
+    const name=($('#new-property-name')?.value||'').trim();
+    const code=($('#new-property-id')?.value||'').trim();
+    // The code becomes an internal identifier and part of the public web address, so it
+    // is checked here before it is sent and can never be edited afterwards.
+    if(!name||!/^[A-Za-z0-9_-]{2,40}$/.test(code)){$('#message').textContent=t('property_input');return;}
+    try{
+      await backend.execute({type:'property_create',propertyId:code,newPropertyId:code,name},0,crypto.randomUUID());
+      propertyId=code;view='resourcesSettings';
+      await refreshShared();
+      $('#message').textContent=t('saved');
+    }catch(error){$('#message').textContent=errorText(error);}
+    return;
+  }
   if(e.target.closest('#business-date-save')){
     const value=$('#business-date-init')?.value;
     if(!/^\d{4}-\d{2}-\d{2}$/.test(value||'')){$('#message').textContent=t('dateError');return;}
@@ -224,6 +248,9 @@ $('#content').addEventListener('click',e=>{if(e.target.closest('#channel-refresh
 $('#content').addEventListener('change',e=>{if(e.target.id==='customer-query'){customerQuery=e.target.value;render();}});
 $('#language').onchange=e=>{if(!leaveDialogs()){e.target.value=lang;$('#message').textContent=t('busy');return;}lang=e.target.value;$('#message').textContent='';render();};
 function switchProperty(id){
+  // Choosing a property in the picker is a plain choice, not a save: the picker is
+  // closing on its own, so nothing in it can be lost by switching.
+  $('#property-dialog').close();
   if(!leaveDialogs()){$('#message').textContent=t('busy');return false;}
   if(composer.isOpen()){$('#message').textContent=t('draftOpen');return false;}
   if(writing||pendingMutation){$('#message').textContent=t('uncertain');return false;}
@@ -231,7 +258,9 @@ function switchProperty(id){
   propertyId=id;view='home';calendarQuery='';calendarProduct='all';calendarGender='all';calendarRoomType='all';calendarStatus='all';calendarSource='all';
   $('#utility-dialog').close();$('#order-dialog').close();$('#detail-dialog').close();$('#message').textContent='';render();return true;
 }
-$('#property').onchange=e=>{if(!switchProperty(e.target.value))render();};
+// The select itself is re-rendered on every render, so the listener has to survive it:
+// without that the property chosen in the switch never reaches switchProperty().
+document.addEventListener('change',e=>{if(e.target.id==='property')if(!switchProperty(e.target.value))render();});
 $('#choose-property').onclick=()=>showPropertyPicker();
 function showPropertyPicker(){
   if(writing||pendingMutation){$('#message').textContent=t('uncertain');return;}
