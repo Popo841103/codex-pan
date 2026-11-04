@@ -469,7 +469,7 @@ function financialSummary(kind){
   if(kind==='cancellation')return cancellationPenaltyPage(state,options);
   if(kind==='occupants')return roomOccupantPage(state,{...options,basis:filters.basis||'arrival'});
   if(kind==='registration')return registrationRecordPage(state,{...options,basis:filters.basis||'arrival'});
-  return commissionPage(state,options);
+  return commissionPage(state,{...options,can});
  }
  if(kind==='comparison'){
   if(!financeFilters.has(key)){const defaults=defaultComparisonPeriods(businessDate(),businessDate());financeFilters.set(key,{source:'all',...Object.fromEntries(Object.entries(defaults).flatMap(([period,dates])=>[[period+'From',dates.from],[period+'To',dates.to]]))});}
@@ -536,6 +536,18 @@ $('#content').addEventListener('submit',async event=>{
   }
   try{await commit({type:'notice_rule_save',rules});render();}
   catch(error){$('#message').textContent=errorText(error);}
+});
+// A channel commission is a real figure read off an invoice, never a calculated rate.
+$('#content').addEventListener('submit',async event=>{
+  if(event.target.id!=='commission-form')return;
+  event.preventDefault();
+  const form=event.target;
+  try{
+    await commit({type:'commission_save',orderId:form.elements.orderId.value,
+      amount:toMinor(form.elements.amount.value),reference:form.elements.reference.value.trim(),
+      note:form.elements.note.value.trim(),settled:form.elements.settled.checked});
+    render();
+  }catch(error){$('#message').textContent=errorText(error);}
 });
 $('#content').addEventListener('click',async event=>{
   // Clearing test bookings is destructive: the page asks before writing anything, and

@@ -28,9 +28,9 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision'],
+  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
   operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover','booking_request_decision'],
-  finance: ['settle','payment'], viewer: []
+  finance: ['settle','payment','commission_save'], viewer: []
 };
 export class Store {
   constructor(path,{messagesAdapter,selfCheckin={}}={}) {
@@ -982,7 +982,8 @@ export class Store {
         ...(['box_stays','restore_stays'].includes(cmd.type)?{stayIds:cmd.orderIds,inventoryChange:{before:before.orders.filter(o=>cmd.orderIds.includes(o.id)).map(o=>({id:o.id,inventoryStatus:o.inventoryStatus||'reserved',resourceId:o.resourceId})),after:next.orders.filter(o=>cmd.orderIds.includes(o.id)).map(o=>({id:o.id,inventoryStatus:o.inventoryStatus,resourceId:o.resourceId})),reason:cmd.reason}}:{}),
         ...(['block','unblock','bulk_block','bulk_unblock'].includes(cmd.type)?{blockChange:changedBlocks(before.blocks,next.blocks)}:{}),
         fields:Object.keys(command).filter(k=>!['type','propertyId'].includes(k)),
-        ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{})};
+        ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{}),
+        ...(cmd.type==='commission_save'?{commissionChange:{before:before.orders.find(o=>o.id===cmd.orderId)?.commission||null,after:next.orders.find(o=>o.id===cmd.orderId)?.commission||null}}:{})};
       this.db.prepare('INSERT INTO audit VALUES(?,?,?,?,?,?,?)').run(cmd.id,propertyId,user.id,cmd.type,cmd.at,revision,JSON.stringify(summary));
       if(requestRow){
         const stayIds=created?.stayIds||[];

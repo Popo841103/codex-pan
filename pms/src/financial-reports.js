@@ -490,14 +490,14 @@ export function registrationRecord(state,q,{basis='arrival'}={}){
   return {basis,rows,totals};
 }
 
-// No commission has ever been recorded: an order has no commission field, no
-// channel rate is configured and no settlement arrives from anywhere. The page
-// therefore lists what the channel booking was worth and what was received on
-// it, which is what an operator needs to reconcile a channel invoice by hand,
-// and leaves every commission figure empty rather than inventing a rate.
+// A channel commission is what the channel actually billed, recorded by finance
+// from that invoice. No rate is configured and none is ever inferred: a stay with
+// no recorded commission keeps its figures empty, so the page never prints a zero
+// that would look like a real reconciliation.
 export function commissionDetail(state,q){
   const orders=scope(state,q),rows=[],channels=new Map();
-  let unallocated=0;
+  let unallocated=0,recorded=0,commissionTotal=0;
+  const recordedOn=o=>{const c=o.commission;return c&&Number.isSafeInteger(c.amount)&&c.amount>=0?c:null;};
   for(const o of orders){
     if(!validDate(o.start)||!inRange(o.start,q))continue;
     const {lines,unallocated:lost}=orderChargeLines(o);
@@ -506,24 +506,31 @@ export function commissionDetail(state,q){
     const extras=lines.filter(l=>l.kind!=='room'&&l.kind!=='cancellation').reduce((n,l)=>n+l.amount,0);
     const charge=room+extras+penalty,paid=paidOnOrder(o);
     unallocated+=lost.reduce((n,l)=>n+l.amount,0);
+    const entry=recordedOn(o),commission=entry?amount(entry.amount):null;
+    if(commission!==null){recorded++;commissionTotal+=commission;}
     const row={orderId:o.id,reservationId:o.reservationId||null,guest:o.guest||'',source:o.source||'direct',
       channelOrderId:o.channelOrderId||'',roomTypeId:o.roomTypeId||'unspecified',
       roomTypeName:label(state,'roomTypes',o.roomTypeId),
       resourceLabel:label(state,'resources',o.resourceId,'label'),
       status:o.status||'reserved',start:o.start||'',end:o.end||'',nights:nightCount(o),
       room,extras,penalty,charge,paid,outstanding:charge-paid,
-      commission:null,commissionRecorded:false,settlement:'unrecorded'};
+      commission,commissionRecorded:commission!==null,
+      settlement:entry?(entry.settledAt?'settled':'recorded'):'unrecorded',
+      commissionReference:entry?.reference||'',commissionNote:entry?.note||'',commissionAt:entry?.at||''};
     rows.push(row);
     let bucket=channels.get(row.source);
-    if(!bucket){bucket={source:row.source,orders:0,nights:0,room:0,charge:0,paid:0,outstanding:0,commission:null,unrecorded:0};channels.set(row.source,bucket);}
+    if(!bucket){bucket={source:row.source,orders:0,nights:0,room:0,charge:0,paid:0,outstanding:0,commission:null,recorded:0,unrecorded:0,settled:0};channels.set(row.source,bucket);}
     bucket.orders++;bucket.nights+=row.nights;bucket.room+=room;bucket.charge+=charge;
-    bucket.paid+=paid;bucket.outstanding+=row.outstanding;bucket.unrecorded++;
+    bucket.paid+=paid;bucket.outstanding+=row.outstanding;
+    if(commission!==null){bucket.commission=(bucket.commission||0)+commission;bucket.recorded++;if(row.settlement==='settled')bucket.settled++;}
+    else bucket.unrecorded++;
   }
   rows.sort((a,b)=>a.start.localeCompare(b.start)||a.guest.localeCompare(b.guest)||a.orderId.localeCompare(b.orderId));
   const totals=rows.reduce((t,r)=>({orders:t.orders+1,nights:t.nights+r.nights,room:t.room+r.room,charge:t.charge+r.charge,
     paid:t.paid+r.paid,outstanding:t.outstanding+r.outstanding}),{orders:0,nights:0,room:0,charge:0,paid:0,outstanding:0});
+  totals.commission=recorded?commissionTotal:null;
   return {rows,channels:[...channels.values()].sort((a,b)=>a.source.localeCompare(b.source)),
-    totals,unrecorded:rows.length,unallocated};
+    totals,recorded,unrecorded:rows.length-recorded,unallocated};
 }
 export function cashflowReport(state,q){if(!q)throw Error('report_input');if(q.operator!==undefined&&q.operator!=='all'&&q.operator!=='unknown'&&!(typeof q.operator==='string'&&q.operator.startsWith('actor:')&&q.operator.length>6&&q.operator.length<=512))throw Error('report_input');if(q.transactionKind&&!['all','payment','refund','deposit_in','deposit_out'].includes(q.transactionKind))throw Error('report_input');const counts={payment:0,refund:0,deposit_in:0,deposit_out:0};const orders=scope(state,q),rows=[],totals={payment:0,refund:0,deposit_in:0,deposit_out:0,netAccommodation:0,netDeposit:0},byMethod=new Map();for(const o of orders)for(const tr of o.transactions||[]){if(!['payment','refund','deposit_in','deposit_out'].includes(tr.kind))continue;if(q.operator==='unknown'&&tr.actor||q.operator?.startsWith('actor:')&&tr.actor!==q.operator.slice(6))continue;if(q.transactionKind&&q.transactionKind!=='all'&&tr.kind!==q.transactionKind||q.method&&q.method!=='all'&&(tr.method||'unspecified')!==q.method)continue;const date=localDay(tr.at);if(!date||!inRange(date,q))continue;const value=amount(tr.amount);if(value<0)throw Error('report_amount');rows.push({orderId:o.id,reservationId:o.reservationId||null,guest:o.guest||'',source:o.source||'direct',...tr,date});totals[tr.kind]+=value;counts[tr.kind]++;const method=tr.method||'unspecified';if(!byMethod.has(method))byMethod.set(method,{method,counts:{payment:0,refund:0,deposit_in:0,deposit_out:0},payment:0,refund:0,deposit_in:0,deposit_out:0,netAccommodation:0,netDeposit:0});byMethod.get(method)[tr.kind]+=value;byMethod.get(method).counts[tr.kind]++;}for(const t of [totals,...byMethod.values()]){t.netAccommodation=t.payment-t.refund;t.netDeposit=t.deposit_in-t.deposit_out;}rows.sort((a,b)=>a.at.localeCompare(b.at));return {rows,totals,counts,methods:[...byMethod.values()].sort((a,b)=>a.method.localeCompare(b.method))};}
 

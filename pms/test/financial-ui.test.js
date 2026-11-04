@@ -60,6 +60,33 @@ test('occupant, registration and commission pages escape names, keep filters edi
  assert.match(commission,/MYR 20000/,'the room charge is still worth showing');
  assert.match(commission,/commissionNotRecorded/,'the commission column says it is not recorded');
  assert.doesNotMatch(commission,/MYR 0\.00/,'no zero commission is printed where none was ever recorded');
+ assert.match(commission,/<th>commissionOrders<\/th><td>1<\/td>/,'booking and night counts stay plain integers');
+ assert.doesNotMatch(commission,/<th>commissionOrders<\/th><td>MYR/,'a count is never formatted as money');
  const badCom=commissionPage({orders:[],resources:[],roomTypes:[]},{...opts,from:'2027-02-30'});
  assert.match(badCom,/role="alert"/);assert.match(badCom,/data-finance-filter="from"/);
+});
+
+test('recording a channel commission is permissioned, and a recorded invoice is shown without inventing a rate',async()=>{
+ const {commissionPage}=await import('../web/financial-ui.js');
+ const opts={propertyId:'P',from:'2027-01-01',to:'2027-01-03',sources:['booking'],t:k=>k,currency:n=>'MYR '+n};
+ const order={id:'o1',propertyId:'P',guest:'<guest>',source:'booking',channelOrderId:'<ch>',status:'confirmed',
+  start:'2027-01-01',end:'2027-01-03',nightly:10000,
+  nightlyRates:[{date:'2027-01-01',amount:10000},{date:'2027-01-02',amount:10000}],
+  transactions:[],extraCharges:[],
+  commission:{amount:1234,reference:'<inv>',note:'',at:'2027-01-02T00:00:00Z',actor:'finance',settledAt:null,settledBy:null}};
+ const state={orders:[order],resources:[],roomTypes:[],audit:[]};
+ const readonly=commissionPage(state,opts);
+ assert.match(readonly,/commissionReadOnly/,'without permission the page explains who may record');
+ assert.doesNotMatch(readonly,/id="commission-form"/,'a viewer is never offered the recording form');
+ const editable=commissionPage(state,{...opts,can:()=>true});
+ assert.match(editable,/id="commission-form"/);
+ for(const name of ['orderId','amount','reference','note','settled'])assert.match(editable,new RegExp('name="'+name+'"'));
+ assert.match(editable,/commissionRateNote/,'the form says to use the invoiced figure, not an estimate');
+ assert.match(editable,/MYR 1234/,'the invoiced amount is shown');
+ assert.match(editable,/&lt;inv&gt;/,'the invoice reference is escaped');
+ assert.doesNotMatch(editable,/<inv>/);
+ assert.match(editable,/commissionRecorded/,'an unsettled recording is labelled recorded, not settled');
+ assert.match(editable,/<th>commissionAmount<\/th><td>MYR 1234<\/td>/,'the total is the recorded figure, not zero');
+ const settled=commissionPage({...state,orders:[{...order,commission:{...order.commission,settledAt:'2027-01-03T00:00:00Z',settledBy:'finance'}}]},{...opts,can:()=>true});
+ assert.match(settled,/<td>commissionSettled<\/td>/,'the settlement column follows the recorded state');
 });

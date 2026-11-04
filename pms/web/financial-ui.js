@@ -325,20 +325,28 @@ export function registrationRecordPage(state,{propertyId,from,to,source='all',so
  }catch(error){return shell(filters+`<p role="alert">${esc(t(error.message))}</p>`);}
 }
 
-export function commissionPage(state,{propertyId,from,to,source='all',sources=[],t,currency}={}){
+export function commissionPage(state,{propertyId,from,to,source='all',sources=[],t,currency,can=()=>false}={}){
  const shell=crash(t('commissionDetail'));
  try{
   const report=commissionDetail(state,{propertyId,from,to,source});
   const table=(headers,rows)=>`<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">${esc(t('empty'))}</td></tr>`}</tbody></table></div>`;
   const link=r=>`<button data-open-stay="${esc(r.orderId)}">${esc(r.guest||r.orderId)}</button>`;
   const blank=`<em>${esc(t('commissionNotRecorded'))}</em>`;
-  const totals=`<div class="table-wrap"><table><tbody>${[['commissionOrders',report.totals.orders],['nightCount',report.totals.nights],['roomRevenue',report.totals.room],['commissionCharged',report.totals.charge],['commissionPaid',report.totals.paid],['ledgerOutstanding',report.totals.outstanding],['commissionAmount',null]].map(([k,v])=>`<tr><th>${esc(t(k))}</th><td>${v===null?blank:esc(currency(v))}</td></tr>`).join('')}</tbody></table></div>`;
+  const stateLabel=r=>r.settlement==='settled'?t('commissionSettled'):r.settlement==='recorded'?t('commissionRecorded'):t('commissionNotRecorded');
+  const amountCell=r=>r.commission===null?blank:`<span>${esc(currency(r.commission))}</span><small>${esc(r.commissionReference||'')}</small>`;
+  const totals=`<div class="table-wrap"><table><tbody>${[['commissionOrders',report.totals.orders,'count'],['nightCount',report.totals.nights,'count'],['roomRevenue',report.totals.room,'money'],['commissionCharged',report.totals.charge,'money'],['commissionPaid',report.totals.paid,'money'],['ledgerOutstanding',report.totals.outstanding,'money'],['commissionAmount',report.totals.commission,'money']].map(([k,v,kind])=>`<tr><th>${esc(t(k))}</th><td>${v===null?blank:kind==='count'?esc(v):esc(currency(v))}</td></tr>`).join('')}</tbody></table></div>`;
   const byChannel=`<h3>${esc(t('commissionByChannel'))}</h3>${table(['source','commissionOrders','nightCount','roomRevenue','commissionCharged','commissionPaid','ledgerOutstanding','commissionAmount'],
-   report.channels.map(c=>`<tr><th>${esc(t(c.source))}</th><td>${esc(c.orders)}</td><td>${esc(c.nights)}</td><td>${esc(currency(c.room))}</td><td>${esc(currency(c.charge))}</td><td>${esc(currency(c.paid))}</td><td>${esc(currency(c.outstanding))}</td><td>${blank}</td></tr>`).join(''))}`;
-  const body=report.rows.map(r=>`<tr><td>${esc(r.start)}</td><td>${esc(t(r.source))}</td><td>${esc(r.channelOrderId||'\u2014')}</td><td>${link(r)}</td><td>${esc(r.roomTypeName||t('unspecified'))}</td><td>${esc(r.resourceLabel||t('unassignedStay'))}</td><td>${esc(r.start)} \u2192 ${esc(r.end)}</td><td>${esc(r.nights)}</td><td>${esc(currency(r.room))}</td><td>${esc(currency(r.extras))}</td><td>${esc(currency(r.penalty))}</td><td>${esc(currency(r.charge))}</td><td>${esc(currency(r.paid))}</td><td>${esc(currency(r.outstanding))}</td><td>${blank}</td><td>${esc(t('commissionNotRecorded'))}</td></tr>`).join('');
+   report.channels.map(c=>`<tr><th>${esc(t(c.source))}</th><td>${esc(c.orders)}</td><td>${esc(c.nights)}</td><td>${esc(currency(c.room))}</td><td>${esc(currency(c.charge))}</td><td>${esc(currency(c.paid))}</td><td>${esc(currency(c.outstanding))}</td><td>${c.commission===null?blank:esc(currency(c.commission))}${c.unrecorded?`<small>${esc(t('commissionUnrecordedCount'))}: ${esc(c.unrecorded)}</small>`:''}</td></tr>`).join(''))}`;
+  const body=report.rows.map(r=>`<tr><td>${esc(r.start)}</td><td>${esc(t(r.source))}</td><td>${esc(r.channelOrderId||'\u2014')}</td><td>${link(r)}</td><td>${esc(r.roomTypeName||t('unspecified'))}</td><td>${esc(r.resourceLabel||t('unassignedStay'))}</td><td>${esc(r.start)} \u2192 ${esc(r.end)}</td><td>${esc(r.nights)}</td><td>${esc(currency(r.room))}</td><td>${esc(currency(r.extras))}</td><td>${esc(currency(r.penalty))}</td><td>${esc(currency(r.charge))}</td><td>${esc(currency(r.paid))}</td><td>${esc(currency(r.outstanding))}</td><td>${amountCell(r)}</td><td>${esc(stateLabel(r))}</td></tr>`).join('');
   const detail=`<h3>${esc(t('reportDetails'))}</h3>${table(['reportDate','source','channelOrderId','guest','roomType','room','mdrStay','nightCount','roomRevenue','mdrExtras','mdrCancellation','commissionCharged','commissionPaid','ledgerOutstanding','commissionAmount','commissionSettlement'],body)}`;
+  const candidates=(state.orders||[]).filter(o=>o.propertyId===propertyId&&o.status!=='cancelled')
+    .sort((a,b)=>String(b.start||'').localeCompare(String(a.start||''))).slice(0,200);
+  const options=candidates.map(o=>`<option value="${esc(o.id)}">${esc(o.guest||o.id)} · ${esc(o.start||'')} · ${esc(o.id)}</option>`).join('');
+  const editor=can('commission_save')
+    ? `<details><summary>${esc(t('commissionRecordTitle'))}</summary><form id="commission-form" class="commission-form"><label>${esc(t('commissionOrder'))}<select name="orderId" required>${options}</select></label><label>${esc(t('commissionAmountInput'))}<input name="amount" type="number" min="0" max="1000000" step="0.01" required></label><label>${esc(t('commissionReference'))}<input name="reference" maxlength="100" required></label><label>${esc(t('commissionNoteInput'))}<input name="note" maxlength="500"></label><label class="check-label"><input type="checkbox" name="settled">${esc(t('commissionSettled'))}</label><p class="muted">${esc(t('commissionRateNote'))}</p><button class="primary" ${candidates.length?'':'disabled'}>${esc(t('commissionSave'))}</button></form></details>`
+    : `<p class="muted">${esc(t('commissionReadOnly'))}</p>`;
   const unallocated=report.unallocated?`<p role="status">${esc(t('commissionUnallocated'))}: ${esc(currency(report.unallocated))}</p>`:'';
-  return shell(rangeFilter(from,to,sources,source,t)+`<p role="status">${esc(t('commissionNote'))}</p><p class="muted">${esc(t('commissionNoteDetail'))}</p>${totals}${byChannel}${detail}${unallocated}`);
+  return shell(rangeFilter(from,to,sources,source,t)+`<p role="status">${esc(t('commissionNote'))}</p><p class="muted">${esc(t('commissionNoteDetail'))}</p>${editor}${totals}${byChannel}${detail}${unallocated}`);
  }catch(error){return shell(rangeFilter(from,to,sources,source,t)+`<p role="alert">${esc(t(error.message))}</p>`);}
 }
 
@@ -358,8 +366,9 @@ const occupantWords={
   commissionOrders:'订单数',commissionCharged:'账单合计',commissionPaid:'已收',commissionAmount:'佣金金额',
   commissionNotRecorded:'未记录',commissionSettlement:'结算状态',commissionByChannel:'按渠道汇总',
   commissionUnallocated:'无营业日的费用（不计入合计）',
-  commissionNote:'渠道佣金尚未接入：订单不保存佣金金额，也没有任何渠道佣金率配置，因此本表不推算佣金。',
-  commissionNoteDetail:'下表列出每笔渠道订单的房费、附加费、违约金与已收金额，供人工与渠道账单核对；佣金列一律显示未记录。要产生真实佣金数字，需要录入渠道佣金率或接入渠道结算数据。'},
+  commissionNote:'渠道佣金由财务按渠道账单人工录入；系统不配置佣金率，也不按房价推算佣金。',
+  commissionNoteDetail:'下表列出每笔渠道订单的房费、附加费、违约金与已收金额，供与渠道账单核对。未录入佣金的订单仍显示未记录，不会打印 0；已录入的显示账单实际金额与结算状态。',
+  commissionRecordTitle:'录入渠道佣金',commissionOrder:'订单',commissionAmountInput:'佣金金额（MYR）',commissionReference:'渠道账单号',commissionNoteInput:'备注',commissionSave:'保存佣金',commissionSettled:'已结算',commissionRecorded:'已录入待结算',commissionReadOnly:'只有财务或管理员可以录入渠道佣金。',commissionRateNote:'请填写渠道账单上的实际佣金金额，不要填估算值；录入会记入审计，可更正。',commissionUnrecordedCount:'未录入'},
  en:{roomOccupantDetail:'Room occupant detail',registrationRecord:'Registration record',commissionDetail:'Commission detail',
   occupantBasis:'Placement',basisArrival:'By arrival date',basisOverlap:'Any night in the period',
   occupantName:'Occupant',occupantGender:'Gender',occupantParty:'Party size',occupantPeople:'People',occupantStays:'Stays',
@@ -375,8 +384,9 @@ const occupantWords={
   commissionOrders:'Bookings',commissionCharged:'Billed',commissionPaid:'Received',commissionAmount:'Commission',
   commissionNotRecorded:'Not recorded',commissionSettlement:'Settlement',commissionByChannel:'By channel',
   commissionUnallocated:'Charges without a business date (excluded from totals)',
-  commissionNote:'Channel commission is not connected: an order stores no commission amount and no channel rate is configured, so no commission is calculated here.',
-  commissionNoteDetail:'What follows is what each channel booking was worth and what was received on it, which is what reconciling a channel invoice by hand needs. A real commission figure needs a stored channel rate or real settlement data.'},
+  commissionNote:'Finance records the commission the channel actually billed. No rate is configured and none is inferred from the room price.',
+  commissionNoteDetail:'What follows is what each channel booking was worth and what was received on it, for reconciling a channel invoice. Bookings with no recorded commission still say not recorded rather than printing 0; recorded ones show the invoiced amount and settlement state.',
+  commissionRecordTitle:'Record a channel commission',commissionOrder:'Booking',commissionAmountInput:'Commission (MYR)',commissionReference:'Channel invoice reference',commissionNoteInput:'Note',commissionSave:'Save commission',commissionSettled:'Settled',commissionRecorded:'Recorded, not settled',commissionReadOnly:'Only finance or an administrator can record a channel commission.',commissionRateNote:'Enter the amount on the channel invoice, never an estimate. Recording is audited and can be corrected.',commissionUnrecordedCount:'Not recorded'},
  ms:{roomOccupantDetail:'Butiran penghuni bilik',registrationRecord:'Rekod pendaftaran',commissionDetail:'Butiran komisen',
   occupantBasis:'Asas penempatan',basisArrival:'Mengikut tarikh ketibaan',basisOverlap:'Sebarang malam dalam tempoh',
   occupantName:'Penghuni',occupantGender:'Jantina',occupantParty:'Bilangan sekali',occupantPeople:'Orang',occupantStays:'Penginapan',
@@ -392,8 +402,9 @@ const occupantWords={
   commissionOrders:'Tempahan',commissionCharged:'Dibilkan',commissionPaid:'Diterima',commissionAmount:'Komisen',
   commissionNotRecorded:'Tidak direkod',commissionSettlement:'Penyelesaian',commissionByChannel:'Mengikut saluran',
   commissionUnallocated:'Caj tanpa tarikh operasi (tidak termasuk jumlah)',
-  commissionNote:'Komisen saluran belum disambung: tempahan tidak menyimpan amaun komisen dan tiada kadar komisen saluran dikonfigurasi, jadi tiada komisen dikira di sini.',
-  commissionNoteDetail:'Yang berikut ialah nilai tempahan saluran dan apa yang diterima padanya, iaitu apa yang diperlukan untuk memadankan invois saluran secara manual. Angka komisen sebenar memerlukan kadar saluran yang disimpan atau data penyelesaian sebenar.'}
+  commissionNote:'Kewangan merekod komisen yang sebenarnya dibilkan oleh saluran. Tiada kadar dikonfigurasi dan tiada komisen dianggarkan daripada harga bilik.',
+  commissionNoteDetail:'Yang berikut ialah nilai tempahan saluran dan apa yang diterima padanya untuk memadankan invois saluran. Tempahan tanpa komisen direkod masih menyatakan tidak direkod, bukan mencetak 0; yang telah direkod menunjukkan amaun invois dan status penyelesaian.',
+  commissionRecordTitle:'Rekod komisen saluran',commissionOrder:'Tempahan',commissionAmountInput:'Komisen (MYR)',commissionReference:'Rujukan invois saluran',commissionNoteInput:'Nota',commissionSave:'Simpan komisen',commissionSettled:'Diselesaikan',commissionRecorded:'Direkod, belum diselesaikan',commissionReadOnly:'Hanya kewangan atau pentadbir boleh merekod komisen saluran.',commissionRateNote:'Masukkan amaun pada invois saluran, jangan anggaran. Rekod diaudit dan boleh dibetulkan.',commissionUnrecordedCount:'Tidak direkod'}
 };
 for(const language of Object.keys(occupantWords))Object.assign(financialWords[language],occupantWords[language]);
 for(const language of Object.keys(penaltyWords))Object.assign(financialWords[language],penaltyWords[language]);

@@ -275,7 +275,7 @@ export function apply(state, command) {
     status:o.status, productId:o.productId, finalCharge:o.finalCharge ?? null } : null;
   const stayBefore = ['edit','assign','checkin','checkout','cancel','lock'].includes(type) ? staySnapshot(order) : null;
   const catalogActions = ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'];
-  const needsOrder = ['settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock'].includes(type);
+  const needsOrder = ['settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock','commission_save'].includes(type);
   if (needsOrder && !order) reject('scope');
   if(order?.folioClosed&&['edit','payment','cancel'].includes(type))reject('folio_closed');
   // Clearing test bookings removes them outright rather than cancelling them, so a
@@ -379,6 +379,17 @@ export function apply(state, command) {
     if (command.kind === 'refund' && amount > balance.paid) reject('refund');
     if (command.kind === 'deposit_out' && amount > balance.deposit) reject('refund');
     order.transactions.push({ id:command.id, actor:command.actor||'local', kind:command.kind, amount, method:command.method, reference:text(command.reference||'',100),note:text(command.note||'',500), at:command.at });
+  } else if (type === 'commission_save') {
+    // A channel commission is the amount the channel actually billed, entered by
+    // finance from that invoice. No rate is configured and none is ever inferred.
+    if (!Number.isSafeInteger(command.amount) || command.amount < 0 || command.amount > 100000000) reject('commission_input');
+    const reference = String(command.reference ?? '').trim();
+    if (!reference || reference.length > 100) reject('commission_input');
+    const note = String(command.note ?? '').trim();
+    if (note.length > 500) reject('commission_input');
+    if (typeof command.settled !== 'boolean') reject('commission_input');
+    order.commission = {amount: command.amount, reference, note, at: command.at, actor: command.actor || 'local',
+      settledAt: command.settled ? command.at : null, settledBy: command.settled ? (command.actor || 'local') : null};
   } else if (type === 'cancel') {
     if (order.status !== 'confirmed' || !command.reason?.trim()) reject('state');
     order.finalCharge = money(command.finalCharge);

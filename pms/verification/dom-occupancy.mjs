@@ -120,12 +120,55 @@ try {
   assert.match(text(),/240\.00/,'what the channel booking was worth is still reported');
   assert.match(text(),/50\.00/,'what was received on it is still reported');
   assert.match(text(),/未记录|Not recorded/,'the commission column says no commission was ever recorded');
-  assert.match(text(),/尚未接入|not connected/,'the page says commission is not connected');
-  const commissionTotals=Object.fromEntries(totalsTable());
-  assert.equal(commissionTotals['佣金金额']??commissionTotals['Commission'],'未记录',
+  assert.match(text(),/人工录入|actually billed|dibilkan/,'the page explains that finance records the invoiced commission');
+  assert.doesNotMatch(text(),/尚未接入|not connected/,'the page no longer says commission is unconnected');
+  const emptyTotals=Object.fromEntries(totalsTable());
+  assert.equal(emptyTotals['佣金金额']??emptyTotals['Commission'],'未记录',
     'the commission total is left empty rather than calculated from an invented rate');
+  assert.equal(emptyTotals['订单数']??emptyTotals['Bookings'],'3','counts are plain integers, never formatted as money');
+  assert.equal(emptyTotals['间夜量']??emptyTotals['Room-nights'],'7');
 
-  console.log('Occupant, registration and commission DOM passed: per-person rows with party size, missing names and unassigned rooms kept visible, commission reported as not recorded.');
+  // P4: an administrator records the commission shown on the channel invoice
+  // through the real form, then corrects it to settled. The other two stays must
+  // keep saying not recorded, and none of the booking's own figures may move.
+  const commissionOrderId=channel.id+'-stay-1';
+  const before=Object.fromEntries(totalsTable());
+  const revBefore=revision();
+  assert($('#commission-form'),'an administrator is offered the recording form');
+  set('#commission-form [name="orderId"]',commissionOrderId);
+  set('#commission-form [name="amount"]','12.34');
+  set('#commission-form [name="reference"]','DOM-INV-1');
+  set('#commission-form [name="note"]','Statement Jan');
+  $('#commission-form').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true}));
+  await until(()=>text().includes('DOM-INV-1'),'the recorded invoice reference appears after the form saves');
+  assert(revision()>revBefore,'recording a commission is an audited business command');
+  const first=Object.fromEntries(totalsTable());
+  assert.match(first['佣金金额']??first['Commission'],/^MYR\s12\.34$/,'the total is the invoiced amount, not an invented rate');
+  for(const [label,value] of Object.entries(before))
+    if(label!=='佣金金额'&&label!=='Commission')assert.equal(first[label],value,`${label} is untouched by recording a commission`);
+  const detailRows=()=>[...document.querySelectorAll('#content .table-wrap table')[2].querySelectorAll('tbody tr')].map(row=>row.textContent);
+  assert.equal(detailRows().length,3,'every stay is still listed');
+  assert(detailRows().some(row=>row.includes('DOM-INV-1')&&row.includes('12.34')),'the channel row shows the invoice it was reconciled against');
+  assert.equal(detailRows().filter(row=>row.includes('未记录')||row.includes('Not recorded')).length,2,
+    'the other two stays still have no commission recorded');
+  assert.match(text(),/已录入待结算|Recorded, not settled/,'an unsettled recording is labelled recorded, not settled');
+
+  // A corrected, settled invoice replaces the first figure; both writes are audited.
+  assert($('#commission-form'),'the form is available again after saving');
+  set('#commission-form [name="orderId"]',commissionOrderId);
+  set('#commission-form [name="amount"]','15.00');
+  set('#commission-form [name="reference"]','DOM-INV-1-rev');
+  set('#commission-form [name="note"]','');
+  $('#commission-form [name="settled"]').checked=true;
+  $('#commission-form').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true}));
+  await until(()=>text().includes('DOM-INV-1-rev'),'the corrected invoice reference appears after the second save');
+  const second=Object.fromEntries(totalsTable());
+  assert.match(second['佣金金额']??second['Commission'],/^MYR\s15\.00$/,'the report follows the latest recorded figure');
+  assert.match(text(),/已结算|Settled/);
+  assert.equal(store.read(operator).audit.filter(row=>row.type==='commission_save').length,2,
+    'both the first figure and its correction are kept in the audit');
+
+  console.log('Occupant, registration and commission DOM passed: per-person rows with party size, missing names and unassigned rooms kept visible, channel commission recorded and corrected through the real form without touching the booking figures.');
   await new Promise(done=>setTimeout(done,100));
 }finally {
   global.fetch=realFetch;server.closeAllConnections();await new Promise(done=>server.close(done));store.close();dom.window.close();
