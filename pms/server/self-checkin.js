@@ -10,7 +10,11 @@ const text=(value,max,required=false)=>{if(typeof value!=='string'||value.length
 const doc=value=>text(value,30,true).replace(/[ -]/g,'').toUpperCase();
 const count=order=>(order.adults||1)+(order.children||0)+(order.infants||0);
 const signature=order=>sha(JSON.stringify([order.id,order.propertyId,order.resourceId,order.start,order.end,order.arrivalTime||'15:00',order.departureTime||'12:00',count(order)]));
-export const checkinPermissions=role=>['admin','operations'].includes(role)?['sc_read','sc_invite','sc_revoke','sc_review','sc_document','sc_checkin',...(role==='admin'?['sc_policy_save']:[])]:[];
+// How long a property keeps the encrypted identity documents it collected, counted
+// from the stay's departure date. Purging is always an explicit, audited decision;
+// nothing here ever deletes a registration on a timer or on a read.
+export const minRetentionDays=1,maxRetentionDays=3650,defaultRetentionDays=90;
+export const checkinPermissions=role=>['admin','operations'].includes(role)?['sc_read','sc_invite','sc_revoke','sc_review','sc_document','sc_checkin',...(role==='admin'?['sc_policy_save','sc_purge_identity']:[])]:[];
 export function loadOrCreateGuestKey(path,{allowCreate=true}={}){
   if(!allowCreate){try{lstatSync(path);}catch{throw new Error('Existing encrypted guest data requires its original guest data key.');}}
   try{writeFileSync(path,randomBytes(32),{flag:'wx',mode:0o600});}catch(error){if(error.code!=='EEXIST')throw new Error('Guest data key could not be created.');}
@@ -18,7 +22,7 @@ export function loadOrCreateGuestKey(path,{allowCreate=true}={}){
   const key=readFileSync(path);if(key.length!==32)throw new Error('Guest data key has an invalid length.');return key;
 }
 const disconnected={status:()=>({provider:'tthotel',connected:false,tested:false}),provision:async()=>fail(503,'checkin_lock_offline')};
-const defaults=()=>({enabled:false,requirePayment:true,requiredDeposit:0,registrationMode:'all',instructions:'',revision:0});
+const defaults=()=>({enabled:false,requirePayment:true,requiredDeposit:0,registrationMode:'all',instructions:'',retentionDays:defaultRetentionDays,revision:0});
 export class SelfCheckin {
   constructor(store,{key=null,clock=()=>Date.now(),accessProvider=disconnected}={}){
     if(key!==null&&(!Buffer.isBuffer(key)||key.length!==32))throw Error('Invalid guest data key');
@@ -39,10 +43,22 @@ export class SelfCheckin {
     // column and are widened here rather than being recreated.
     if(!this.db.prepare('PRAGMA table_info(sc_grants)').all().some(c=>c.name==='rejection_reason'))
       this.db.exec('ALTER TABLE sc_grants ADD COLUMN rejection_reason TEXT');
+    // A purged registration keeps its row, its order link and its audit trail; only
+    // the encrypted identity payload goes away. The marker lets the desk say why
+    // there are no documents rather than implying the guest never registered.
+    if(!this.db.prepare('PRAGMA table_info(sc_grants)').all().some(c=>c.name==='purged_at'))
+      this.db.exec('ALTER TABLE sc_grants ADD COLUMN purged_at TEXT');
   }
   now(){return this.clock();}
   actor(user,pid,action){const actor=this.db.prepare('SELECT id,role,username FROM users WHERE id=? AND active=1').get(user.id);if(!actor)fail(401,'login_required');this.store.authorize(actor,pid);if(!checkinPermissions(actor.role).includes(action))fail(403,'forbidden');return actor;}
-  policy(pid){const row=this.db.prepare('SELECT * FROM sc_policies WHERE property_id=?').get(pid);return row?{...JSON.parse(row.body),revision:row.revision}:defaults();}
+  policy(pid){const row=this.db.prepare('SELECT * FROM sc_policies WHERE property_id=?').get(pid);return row?{...defaults(),...JSON.parse(row.body),revision:row.revision}:defaults();}
+  // The property works in Malaysia local time. The cut-off is computed here on the
+  // server from that day and the configured period; a browser never supplies a date.
+  retention(pid){const days=this.policy(pid).retentionDays,localDay=new Date(this.now()+8*3600000).toISOString().slice(0,10);
+    return {days,cutoff:new Date(Date.parse(localDay+'T00:00:00Z')-days*86400000).toISOString().slice(0,10)};}
+  eligibleGrants(pid,cutoff){const body=this.body(pid);
+    return this.db.prepare('SELECT * FROM sc_grants WHERE property_id=? AND (submission IS NOT NULL OR document_hashes IS NOT NULL OR rejection_reason IS NOT NULL)').all(pid)
+      .filter(grant=>{const order=body.orders.find(o=>o.id===grant.order_id&&o.propertyId===pid);return !!order?.end&&order.end<cutoff;});}
   body(pid){const row=this.db.prepare('SELECT body FROM properties WHERE id=?').get(pid);if(!row)fail(400,'scope');return JSON.parse(row.body);}
   order(grant,body=this.body(grant.property_id)){const order=body.orders.find(o=>o.id===grant.order_id&&o.propertyId===grant.property_id);if(!order)fail(400,'checkin_unavailable');return order;}
   grant(id,pid){const grant=this.db.prepare('SELECT * FROM sc_grants WHERE id=? AND property_id=?').get(id,pid);if(!grant)fail(404,'checkin_not_found');return grant;}
@@ -55,6 +71,9 @@ export class SelfCheckin {
   auth(token){if(typeof token!=='string'||!/^[-_a-zA-Z0-9]{43}$/.test(token))fail(401,'checkin_unavailable');let grant=this.db.prepare('SELECT * FROM sc_grants WHERE token_hash=?').get(sha(token));if(!grant){const session=this.db.prepare('SELECT * FROM sc_sessions WHERE token_hash=? AND expires_at>?').get(sha(token),this.now());if(session)grant=this.db.prepare('SELECT * FROM sc_grants WHERE id=?').get(session.grant_id);}return this.valid(grant);}
   conditions(grant,body=this.body(grant.property_id)){
     const order=this.order(grant,body),policy=this.policy(grant.property_id),resource=body.resources.find(r=>r.id===order.resourceId),times=this.times(order),reasons=[];
+    // Once the identity payload has been purged there is nothing left to approve or
+    // to copy into the stay, so check-in from this registration is closed for good.
+    if(grant.purged_at)reasons.push('checkin_identity_purged');
     if(!policy.enabled||!['confirmed','checked_in'].includes(order.status)||isBoxed(order))reasons.push('checkin_unavailable');
     const reviewer=grant.reviewer_id&&this.db.prepare("SELECT 1 FROM users u JOIN user_properties p ON p.user_id=u.id WHERE u.id=? AND u.active=1 AND u.role IN ('admin','operations') AND p.property_id=?").get(grant.reviewer_id,grant.property_id);
     if(grant.review!=='approved'||grant.approved_sig!==signature(order)||!reviewer)reasons.push('checkin_review_pending');
@@ -75,14 +94,14 @@ export class SelfCheckin {
     }
     return {order,policy,resource,times,reasons};
   }
-  read(user,pid){this.actor(user,pid,'sc_read');const grants=this.db.prepare('SELECT * FROM sc_grants WHERE property_id=? ORDER BY rowid DESC').all(pid).map(grant=>{
+  read(user,pid){this.actor(user,pid,'sc_read');const {days,cutoff}=this.retention(pid),eligible=this.eligibleGrants(pid,cutoff).length;const grants=this.db.prepare('SELECT * FROM sc_grants WHERE property_id=? ORDER BY rowid DESC').all(pid).map(grant=>{
     const {order,reasons}=this.conditions(grant);const people=grant.submission?this.decrypt(grant.submission,grant.id+':people'):[];
     return {id:grant.id,orderId:order.id,guest:order.guest,revision:grant.revision,status:grant.status,review:grant.review,expiresAt:grant.expires_at,registered:people.length,required:this.policy(pid).registrationMode==='all'?count(order):1,
-      rejectionReason:grant.review==='rejected'?grant.rejection_reason||null:null,
+      rejectionReason:grant.review==='rejected'?grant.rejection_reason||null:null,identityPurged:!!grant.purged_at,
       checkinReady:grant.review==='approved'&&!reasons.length&&order.status==='confirmed',
       checkedIn:order.status==='checked_in',
       people:people.map(person=>({name:person.name,documentType:person.documentType,documentLast4:person.documentNumber.slice(-4)})),reasons,access:this.db.prepare('SELECT id,status,reason FROM sc_access WHERE grant_id=? ORDER BY rowid DESC').all(grant.id)};
-  });return {propertyId:pid,policy:this.policy(pid),lock:this.access.status(pid),encryptionReady:!!this.key,grants};}
+  });return {propertyId:pid,policy:this.policy(pid),retention:{days,cutoff,eligible},lock:this.access.status(pid),encryptionReady:!!this.key,grants};}
   command(user,{key,expectedRevision,command}){
     if(typeof key!=='string'||!/^[a-zA-Z0-9_-]{8,100}$/.test(key)||!Number.isSafeInteger(expectedRevision)||expectedRevision<0||!command||typeof command.propertyId!=='string')fail(400,'checkin_input');
     const {propertyId:pid,type}=command,actor=this.actor(user,pid,type),fingerprint=sha(JSON.stringify(command));
@@ -97,17 +116,34 @@ export class SelfCheckin {
       let response;
       if(type==='sc_policy_save'){
         const current=this.policy(pid);if(current.revision!==expectedRevision)fail(409,'checkin_stale');
-        if(typeof command.enabled!=='boolean'||typeof command.requirePayment!=='boolean'||!['all','one_per_stay'].includes(command.registrationMode)||!Number.isSafeInteger(command.requiredDeposit)||command.requiredDeposit<0||command.requiredDeposit>100000000)fail(400,'checkin_input');
-        const next={enabled:command.enabled,requirePayment:command.requirePayment,requiredDeposit:command.requiredDeposit,registrationMode:command.registrationMode,instructions:text(command.instructions??'',3000)};
+        const retentionDays=command.retentionDays===undefined?defaultRetentionDays:command.retentionDays;
+        if(typeof command.enabled!=='boolean'||typeof command.requirePayment!=='boolean'||!['all','one_per_stay'].includes(command.registrationMode)||!Number.isSafeInteger(command.requiredDeposit)||command.requiredDeposit<0||command.requiredDeposit>100000000||!Number.isSafeInteger(retentionDays)||retentionDays<minRetentionDays||retentionDays>maxRetentionDays)fail(400,'checkin_input');
+        const next={enabled:command.enabled,requirePayment:command.requirePayment,requiredDeposit:command.requiredDeposit,registrationMode:command.registrationMode,instructions:text(command.instructions??'',3000),retentionDays};
         this.db.prepare('INSERT INTO sc_policies VALUES(?,?,?) ON CONFLICT(property_id) DO UPDATE SET revision=excluded.revision,body=excluded.body').run(pid,current.revision+1,JSON.stringify(next));
         this.audit(pid,null,actor,type,{before:current,after:next});response={revision:current.revision+1};
+      }else if(type==='sc_purge_identity'){
+        // Deliberately explicit: no timer, no read and no startup ever removes a
+        // guest's documents. An administrator sees the cut-off and the count first.
+        const current=this.policy(pid);if(current.revision!==expectedRevision)fail(409,'checkin_stale');
+        const {days,cutoff}=this.retention(pid),rows=this.eligibleGrants(pid,cutoff),at=new Date(this.now()).toISOString();
+        let pins=0;
+        for(const grant of rows){
+          pins+=this.db.prepare('UPDATE sc_access SET pin=NULL,reason=?,updated_at=? WHERE grant_id=? AND pin IS NOT NULL').run('identity_purged',at,grant.id).changes;
+          this.db.prepare('UPDATE sc_grants SET submission=NULL,document_hashes=NULL,rejection_reason=NULL,purged_at=?,revision=revision+1 WHERE id=?').run(at,grant.id);
+        }
+        // The audit says how many records were purged and against which cut-off. It
+        // never contains a name, a document number or any decrypted text.
+        this.audit(pid,null,actor,type,{cutoff,retentionDays:days,grantsCleared:rows.length,pinsCleared:pins});
+        response={revision:current.revision,cutoff,retentionDays:days,grantsCleared:rows.length,pinsCleared:pins};
       }else if(type==='sc_invite'){
         if(!this.key)fail(503,'checkin_key_missing');if(!this.policy(pid).enabled)fail(400,'checkin_disabled');if(expectedRevision!==0)fail(409,'checkin_stale');
         const order=this.order({order_id:command.orderId,property_id:pid}),end=this.times(order).end;if(!['confirmed','checked_in'].includes(order.status)||isBoxed(order)||end<=this.now())fail(400,'checkin_unavailable');
         const id=randomUUID(),token=randomBytes(32).toString('base64url'),accessCode=randomBytes(12).toString('hex'),expiry=Math.min(end,this.now()+30*86400000);
         const old=this.db.prepare("SELECT id FROM sc_grants WHERE property_id=? AND order_id=? AND status='active'").all(pid,order.id);
         for(const previous of old){this.db.prepare("UPDATE sc_grants SET status='revoked',revision=revision+1 WHERE id=?").run(previous.id);this.db.prepare("UPDATE sc_access SET status='revoke_pending',pin=NULL,reason='invite_replaced' WHERE grant_id=? AND status IN ('active','provisioning','unknown')").run(previous.id);}
-        this.db.prepare('INSERT INTO sc_grants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,pid,order.id,actor.id,sha(token),sha(accessCode),expiry,'active',1,null,null,'unsubmitted',null,null,new Date(this.now()).toISOString(),null);
+        // Name the columns: sc_grants has been widened twice with ALTER TABLE, and a
+        // positional INSERT would bind the wrong values as soon as a column is added.
+        this.db.prepare('INSERT INTO sc_grants(id,property_id,order_id,creator_id,token_hash,code_hash,expires_at,status,revision,submission,document_hashes,review,reviewer_id,approved_sig,created_at,rejection_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,pid,order.id,actor.id,sha(token),sha(accessCode),expiry,'active',1,null,null,'unsubmitted',null,null,new Date(this.now()).toISOString(),null);
         this.audit(pid,id,actor,type,{orderId:order.id});
         // Retry credentials are sealed; neither receipts nor audit contain plaintext tokens.
         response={grantId:id,revision:1,token,accessCode,expiresAt:expiry};

@@ -35,6 +35,21 @@ const db=new DatabaseSync(process.argv[2]);
 await backup(db,process.argv[3]);db.close();
 JS
 chmod 600 "$BACKUP/jovian.sqlite"
+# The guest identity documents are encrypted with a private key kept beside the
+# database. A SQLite-only backup could be restored but those records could never
+# be read again, so copy the key into the same 0700 backup directory. This is a
+# host-local file copy only: the key itself is never printed, logged or shipped in
+# a release archive. Whoever holds this backup can decrypt the guest records, so
+# the directory must be protected (and, for real use, encrypted) as carefully as
+# the live key. A "database + original key" restore rehearsal is still required.
+GUEST_KEY="$(dirname "$DBPATH")/self-checkin.key"
+if [[ -f "$GUEST_KEY" && ! -L "$GUEST_KEY" ]]; then
+  cp -- "$GUEST_KEY" "$BACKUP/self-checkin.key"
+  chmod 600 "$BACKUP/self-checkin.key"
+  printf '%s\n' 'guest-data-key: included (private file, keep this backup protected)' >"$BACKUP/backup-contents"
+else
+  printf '%s\n' 'guest-data-key: absent (self-registration has not created one yet)' >"$BACKUP/backup-contents"
+fi
 printf '%s\n' "$PREVIOUS" >"$BACKUP/previous-release"
 printf '%s\n' "$COMMIT" >"$BACKUP/new-commit"
 SWITCHED=0

@@ -9,7 +9,8 @@ import {makeServer} from '../server/http.js';
 import {NobedsMessages} from '../server/nobeds-messages.js';
 const {JSDOM,VirtualConsole}=await import(pathToFileURL(resolve(process.argv[2])).href);
 const upstream=[],adapter=new NobedsMessages({'TEST-KL':{hotelId:47,token:'TEST-ONLY-NOT-A-CREDENTIAL',channels:['booking','airbnb'],sendEnabled:true}},async(url,options)=>{upstream.push({method:options.method,path:url.pathname});return new Response(JSON.stringify(url.pathname.includes('bookings')?[{hotel_id:47,order_id:901}]:options.method==='POST'?{}:[{id:1,hotel_id:47,rid:901,message:'TEST guest <img src=x>',reply:'',created_at:'2027-01-10T07:00:00Z'}]));});
-const store=new Store(':memory:',{messagesAdapter:adapter,selfCheckin:{key:randomBytes(32),clock:()=>Date.parse('2027-01-10T07:05:00Z')}});store.seedTestProperties();
+let now=Date.parse('2027-01-10T07:05:00Z');
+const store=new Store(':memory:',{messagesAdapter:adapter,selfCheckin:{key:randomBytes(32),clock:()=>now}});store.seedTestProperties();
 const username='test-admin-'+randomUUID().slice(0,8),password=randomUUID(),admin=store.createUser({username,password,role:'admin',propertyIds:['TEST-KL','TEST-PG']});
 const order=store.command(admin,{key:randomUUID(),expectedRevision:0,command:{type:'create',propertyId:'TEST-KL',guest:'TEST OTA guest',productId:'room',gender:'any',roomTypeId:'TEST-KL-legacy-room-any',source:'booking',resourceId:'TEST-KL-R1',start:'2027-01-10',end:'2027-01-12',nightly:0}}).id;
 const server=makeServer(store);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base='http://127.0.0.1:'+server.address().port,realFetch=fetch,errors=[],windows=[];let cookie='',dropSend=false,confirm=true;
@@ -48,6 +49,25 @@ try{
  assert.equal(store.db.prepare("SELECT COUNT(*) n FROM sc_audit WHERE action='sc_checkin'").get().n,1);
  assert.equal(store.checkin.read(admin,'TEST-KL').grants[0].checkedIn,true);
  assert.equal(document.querySelector('#checkin-at-desk'),null);assert($('#utility-body').textContent.includes('已在前台办理入住'));
- assert.equal(store.read(admin).orders.find(o=>o.id===order).status,'checked_in');assert.equal(errors.length,0,errors.map(e=>e.message).join('\n'));
- console.log('Communication DOM passed: support/help, OTA sync/notes, lost-response retry without duplicate send, draft/property isolation, private QR, public registration/staff review, one-click desk check-in from an approved registration, and unconnected lock gating.');
+ assert.equal(store.read(admin).orders.find(o=>o.id===order).status,'checked_in');
+
+ // P5: the desk chooses a retention period, sees the server-computed cut-off and
+ // the number of registrations due, then deliberately purges them. Nothing is
+ // deleted by a timer, a read or a startup, and the booking itself never moves.
+ activate(staff);$('#self-checkin').click();await until(()=>document.querySelector('#checkin-policy-form'),'check-in admin for retention');
+ $('#checkin-policy-form').closest('details').open=true;set('#checkin-policy-form [name=retentionDays]','30');$('#checkin-policy-form button').click();
+ await until(()=>store.checkin.policy('TEST-KL').retentionDays===30&&!$('#checkin-policy-form button').disabled,'retention period saved');
+ now=Date.parse('2027-06-10T07:05:00Z');$('#checkin-refresh').click();
+ await until(()=>document.querySelector('#checkin-purge')&&$('#utility-body').textContent.includes('2027-05-11'),'the server cut-off is shown before purging');
+ assert.equal($('#checkin-purge').disabled,false,'an administrator with due registrations is allowed to purge');
+ assert($('#utility-body').textContent.includes('身份资料保留天数'));
+ confirm=true;$('#checkin-purge').click();
+ await until(()=>store.checkin.read(admin,'TEST-KL').grants[0].identityPurged,'identity documents purged through the real UI');
+ assert.equal(store.db.prepare('SELECT submission FROM sc_grants').get().submission,null);
+ assert.equal(store.db.prepare("SELECT COUNT(*) n FROM sc_audit WHERE action='sc_purge_identity'").get().n,1,'one append-only audit row');
+ assert($('#utility-body').textContent.includes('身份资料已按保留策略清除'),'the desk is told the documents were purged, not merely missing');
+ assert.equal(store.read(admin).orders.find(o=>o.id===order).status,'checked_in','purging identity never changes the stay');
+ assert.equal(document.querySelector('#checkin-at-desk'),null,'a purged registration cannot be checked in again');
+ assert.equal(errors.length,0,errors.map(e=>e.message).join('\n'));
+ console.log('Communication DOM passed: support/help, OTA sync/notes, lost-response retry without duplicate send, draft/property isolation, private QR, public registration/staff review, one-click desk check-in, unconnected lock gating, and an explicit audited identity retention purge.');
 }finally{global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();for(const dom of windows)dom.window.close();}
