@@ -13,7 +13,7 @@ bash -n deploy/ci/setup-server.sh
 bash -n deploy/ci/receive-release.sh
 ```
 
-当前基线（2026-11-04）：Node **348/348**，Python **5/5**，16 个 DOM 脚本，38 个运行时 JS 语法检查。
+当前基线（2026-11-04）：Node **356/356**，Python **5/5**，16 个 DOM 脚本，38 个运行时 JS 语法检查。
 
 ## 可选的 DOM 流程验证
 
@@ -58,6 +58,10 @@ curl -s -o /dev/null -w "%{http_code}\n" https://pms.jovianhome.com/web/backend.
 curl -s https://pms.jovianhome.com/web/workspace-ui.js | grep -o "notice-rule-form\|noticeRuleTitle\|data-notice-rule-at-least" | sort -u
 curl -s https://pms.jovianhome.com/web/app.js | grep -o "notice_rule_save\|noticeRules" | sort -u
 curl -s https://pms.jovianhome.com/src/demo-store.js | grep -o "cleanNoticeRules\|escalateSeverity\|noticeRuleKinds" | sort -u
+
+# a7e3b5f 前台一键办理入住：
+curl -s https://pms.jovianhome.com/web/checkin-admin-ui.js | grep -o "sc_checkin\|checkinAtDesk\|checkin-at-desk\|checkinDeskReady\|checkinAlready" | sort -u
+curl -s https://pms.jovianhome.com/web/workspace.css | grep -o "checkin-desk-action" | sort -u
 ```
 
 公开站点（无脚本、无会话、`default-src 'none'`）：
@@ -78,6 +82,8 @@ grep -c derivedNotifications /opt/jovian-pms-test/current/server/store.js
 grep -c rejection_reason /opt/jovian-pms-test/current/server/self-checkin.js
 grep -c notice_rules_audit /opt/jovian-pms-test/current/server/store.js
 grep -c cleanNoticeRules /opt/jovian-pms-test/current/server/store.js
+grep -c checkinFromGrant /opt/jovian-pms-test/current/server/self-checkin.js
+grep -c sc_checkin /opt/jovian-pms-test/current/server/self-checkin.js
 ```
 
 **不要**把「`/api/xxx` 无会话返回 401」当成新后端的证据——所有 `/api/` 路径都这样。`/healthz` 200 至少说明新后端已加载且启动成功（含建表与加列迁移），但不能证明某个函数在运行。

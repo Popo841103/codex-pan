@@ -1,6 +1,6 @@
 # JOVIAN PMS · 项目状态与续写地图
 
-截至 2026-11-04，代码 `019cbe8`（提醒条件式升级规则），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **348/348**、Python **5/5**、DOM 流程 **16/16**、38 个运行时 JS 语法检查通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。
+截至 2026-11-04，代码 `a7e3b5f`（审核通过后前台一键办理入住），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **356/356**、Python **5/5**、DOM 流程 **16/16**、38 个运行时 JS 语法检查通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。
 
 ## 系统是什么
 
@@ -42,6 +42,7 @@
 | 13 | `ba64db0` | 门店可配置提醒级别：每类可设紧急/需处理/常规或跟随系统默认 |
 | 14 | `d879ec1` | 多房公开请求、客人凭编号+联系方式查询/撤回、反垃圾 |
 | 15 | `019cbe8` | **提醒条件式升级规则**：可数事实达阈值时自动升级、阈值可配 |
+| 16 | `a7e3b5f` | **审核通过后前台一键办理入住**：走真实业务 check-in 命令，不开门、不发 PIN |
 
 每个批次通常伴随一条 `Record ... in the handoff` 文档提交，细节见 `WORKBUDDY-HANDOFF.md`。
 
@@ -65,10 +66,16 @@
 ## 剩余缺口（按建议优先级）
 
 1. 提醒：外部投递通道、按班次/账号的自定义规则、通知可查询与撤回。（门店可配置级别已于 ba64db0 完成；条件式升级规则已于 019cbe8 完成：可数事实达阈值时自动升级、阈值可配、只升不降、按门店隔离、管理员专属、append-only 审计。仍缺按班次/账号作用域与外部投递。）
-2. 自助入住收尾之后：真实设备发码 / 撤销 / 过期 / 断网联调；身份资料保存期限与删除流程；密钥独立加密备份与「数据库 + 原密钥」恢复演练（当前更新器只备份 SQLite，**不备份 `self-checkin.key`**）。
+2. 自助入住收尾之后：真实设备发码 / 撤销 / 过期 / 断网联调；（审核通过后前台一键办理入住已于 a7e3b5f 完成，仍不开门、不生成 PIN，设备确认后的自动入住分支仍未与真机联调。）身份资料保存期限与删除流程；密钥独立加密备份与「数据库 + 原密钥」恢复演练（当前更新器只备份 SQLite，**不备份 `self-checkin.key`**）。
 3. 业务：房间分组、价计划绑定订单、佣金真实费率与结算、历史分段换房、完整现金盘点差异审批与银行对账。
 4. 站点：照片与逐房描述、支付与押金、自动确认、真正的验证码 / 账号体系。（多房请求、客人凭编号+联系方式查询/撤回、蜜罐与链接反垃圾已于 d879ec1 完成；目前一份请求仍只对应一个房型，不自动确认、不收支付。）
 5. 工程：PostgreSQL 迁移与真实并发验证、真机 Edge / 手机视觉验收、Windows 两项私有文件权限用例的本机复核。
+
+## 本批新增（2026-11-04，a7e3b5f）
+
+审核通过后前台一键办理入住：`sc_checkin` 是人工显式动作，不是审核的副作用。它在 `SelfCheckin.command()` 的事务外单独分派（`store.transaction()` 是 `BEGIN IMMEDIATE`，不可重入），通过 `store.command(actor, {type:'checkin', ...})` 走完整业务校验（库存、账务、房态、营业日、revision、审计）；`beforeApply` 在入住事务内重新调 `conditions()` 复核，把审核通过的登记姓名写入 `order.occupants`。复用 `approved_sig` / `signature(order)` / `reviewer_id`；日期由服务端按门店本地时间计算，不收浏览器日期。幂等靠 `sc_receipts`，`sc_audit` 追加一条 append-only `sc_checkin`；不调用锁 provider、不建 `sc_access`、不生成 PIN。`read()` 暴露 `checkinReady` / `checkedIn`，前台弹层三语说明「审核通过只代表身份已核验，不会开门也不会生成门锁密码」，列表标记待办理/已办理。
+
+改动 `pms/server/self-checkin.js`、`pms/web/checkin-admin-ui.js`、`pms/web/workspace.css`，新增 `pms/test/self-checkin-desk.test.js`（8 例），扩展 `pms/verification/communications-dom.mjs` 用真实 HTTP 全流程驱动。Node 356/356、Python 5/5、16 DOM、38 运行时 JS 语法全通过。线上外部实见 `/healthz` 200、`checkin-admin-ui.js` 五个新标识、`workspace.css` 的 `checkin-desk-action`、12 个导入模块全 200、站点 CSP 不变；`/server/self-checkin.js` 404，后端属**部署重启推断**，需主机 `grep -c checkinFromGrant /opt/jovian-pms-test/current/server/self-checkin.js` 佐证。
 
 ## 本批新增（2026-11-04，019cbe8）
 
