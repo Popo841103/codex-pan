@@ -13,7 +13,7 @@ bash -n deploy/ci/setup-server.sh
 bash -n deploy/ci/receive-release.sh
 ```
 
-当前基线（2026-11-04）：Node **330/330**，Python **5/5**。
+当前基线（2026-11-04）：Node **340/340**，Python **5/5**。
 
 ## 可选的 DOM 流程验证
 

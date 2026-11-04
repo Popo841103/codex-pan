@@ -50,7 +50,7 @@
 
 ## 验证演进（回归基线）
 
-Node 224 → 292 → 305 → 315 → 322 → 325 → **330**；Python **5/5**；DOM 脚本 **16/16**（含 `dom-booking-requests.mjs`、`dom-notifications.mjs`）。每批都要跑全量，不能只跑新增用例。
+Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → **340**；Python **5/5**；DOM 脚本 **16/16**（含 `dom-booking-requests.mjs`、`dom-notifications.mjs`）。每批都要跑全量，不能只跑新增用例。
 
 ## 外部核验能证明什么、不能证明什么
 
