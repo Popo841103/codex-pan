@@ -86,3 +86,26 @@
 - [ ] 资料库里能打开续写文档并下载源码快照 zip
 - [ ] `npm test` 与 Python 测试能跑通（Node 24）
 - [ ] 线上 `/healthz` 仍返回 200
+
+## 六、最新镜像（2026-11-04，代码 `0ad964c`）
+
+父文件夹「JOVIAN PMS 续写档案」：https://www.workbuddy.cn/space/d/gNlfjv1toVvAtB2qSIvW7k
+
+**本批最新镜像子文件夹「最新状态 · 代码 0ad964c（2026-11-04）」：https://www.workbuddy.cn/space/d/pusBqavOwyeJ6buww4QxKe**
+
+上面第二节列出的 2026-11-04 早期同名文档是历史快照（停在 `2792aec` / Node 325），状态已过期；判断当前进度请以下表的最新镜像或以 GitHub `git log -1` 为准。
+
+| 文档 | 链接 |
+|---|---|
+| JOVIAN PMS · 资料库最新镜像导航（最新 0ad964c） | https://www.workbuddy.cn/space/d/d6CCMtaj97XQ6AWnWlyyZx |
+| JOVIAN PMS · 续写入口（最新 0ad964c） | https://www.workbuddy.cn/space/d/3GdfVJtjFYbqbt8OutueLt |
+| JOVIAN PMS · 项目状态与续写地图（最新 0ad964c） | https://www.workbuddy.cn/space/d/0A49siWVtfZ7WJrA12U3Vd |
+| JOVIAN PMS · 自主连续推进记录（最新 0ad964c） | https://www.workbuddy.cn/space/d/ZNfRmZomMtw8WhVvnWzYVx |
+| JOVIAN PMS · 会话上下文重建（最新 0ad964c） | https://www.workbuddy.cn/space/d/I9IZNOH9STAL4trMfqfANB |
+| JOVIAN PMS · 验证与发布核验清单（最新 0ad964c） | https://www.workbuddy.cn/space/d/vZeLwHUeuH9u0Oskc2VzmF |
+| JOVIAN PMS · 归档内容清单（最新 0ad964c） | https://www.workbuddy.cn/space/d/TroQDCbWSRfTqzbGSG7YHo |
+| JOVIAN PMS · WORKBUDDY-HANDOFF 逐批交接（最新 0ad964c） | https://www.workbuddy.cn/space/d/Pu6Tc9IGUHmO33ZOv2zorW |
+| JOVIAN PMS · 当前状态索引（最新 0ad964c） | https://www.workbuddy.cn/space/d/axR4gNUDM5WTOKZC9raXXT |
+| 完整源码快照 zip（最新 0ad964c） | https://www.workbuddy.cn/space/d/jHXinzS1OC4akj6KfokOpO |
+
+导航说明 `continuity/LIBRARY-MIRROR.md` 也放在该子文件夹内，说明权威来源、当前基线、剩余边界与换工具接手提示词。
