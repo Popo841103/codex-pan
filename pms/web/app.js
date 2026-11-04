@@ -140,7 +140,7 @@ function render() {
   else if(view==='resourcesSettings') { $('#content').innerHTML=catalogPage(state,propertyId,lang,t,can); }
   else if(view==='teamAccess') { $('#content').innerHTML=teamAccessPage({members:state.members||[],memberAudit:state.memberAudit||[],properties:state.properties,propertyId,user:backend.user,can,t,escape}); }
   else if(view==='propertySite') { $('#content').innerHTML=propertySitePage({sites:state.sites||[],siteAudit:state.siteAudit||[],roomTypes:state.roomTypes,ratePlans:state.ratePlans,propertyId,can,t,escape}); }
-   else if(view==='notifications') { $('#content').innerHTML=notificationsPage({notifications:state.notifications||[],properties:state.properties,propertyId,can,t,escape}); }
+   else if(view==='notifications') { $('#content').innerHTML=notificationsPage({notifications:state.notifications||[],noticeSettings:state.noticeSettings||[],noticeSettingsAudit:state.noticeSettingsAudit||[],properties:state.properties,propertyId,can,t,escape}); }
  else if(view==='bookingRequests') { $('#content').innerHTML=bookingRequestsPage({requests:state.bookingRequests||[],events:state.bookingRequestEvents||[],roomTypes:state.roomTypes,propertyId,can,t,escape,currency}); }
  else if(view==='dataCleanup') { $('#content').innerHTML=dataMaintenancePage({orders:state.orders,reservations:state.reservations||[],propertyId,can,t,escape}); }
   else if(view==='rates'){const from=ratePageDates.get(propertyId)||businessDate();$('#content').innerHTML='<section class="panel"><p>'+rateLabel('可售量按每日及房型独立计算，整套与床位不能相加；跨日连续库存以提交校验为准。','Availability is per day and type; suites and beds cannot be added together. Continuous stays are validated on submission.','Ketersediaan mengikut hari dan jenis; suite dan katil tidak boleh dijumlah. Penginapan berterusan disemak semasa hantar.')+'</p><div class="panel-head"><h2>'+t('rateInventory')+'</h2><button data-rates-open>'+rateLabel('批量更新与计划管理','Bulk updates and plans','Kemas kini pukal dan pelan')+'</button></div><label>'+rateLabel('日历开始日期','Calendar start','Tarikh mula kalendar')+'<input id="rate-page-date" type="date" value="'+escape(from)+'" required></label>'+rateCalendar(state,{propertyId,start:from,currency,t,availability:(id,day)=>rateAvailability(state,propertyId,id,day,businessDate())})+'</section>';}
@@ -509,6 +509,16 @@ $('#content').addEventListener('submit',async event=>{
       planCodes:[...form.elements.plans.selectedOptions].map(o=>o.value)});
     render();
   }catch(error){$('#message').textContent=errorText(error);}
+});
+// A property's notice priorities are a setting rather than a business command. The
+// form carries every known kind, and 'default' means follow the current system rule.
+$('#content').addEventListener('submit',async event=>{
+  if(event.target.id!=='notice-severity-form')return;
+  event.preventDefault();
+  const levels={};
+  for(const select of event.target.querySelectorAll('[data-notice-level]'))levels[select.name]=select.value;
+  try{await commit({type:'notice_severity_save',levels});render();}
+  catch(error){$('#message').textContent=errorText(error);}
 });
 $('#content').addEventListener('click',async event=>{
   // Clearing test bookings is destructive: the page asks before writing anything, and

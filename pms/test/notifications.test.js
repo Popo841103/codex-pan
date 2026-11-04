@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID,randomBytes } from 'node:crypto';
 import { Store } from '../server/store.js';
+import { apply, seed, noticeKinds, noticeLevels, severityOf, cleanNoticeLevels } from '../src/demo-store.js';
 
 const open = () => { const store = new Store(':memory:'); store.seedTestProperties(); return store; };
 const user = (store, role='admin', propertyIds=['TEST-KL']) =>
@@ -336,4 +337,136 @@ test('a registration waiting on a person is raised, and stops when that person d
   checkin(boss,{type:'sc_review',grantId:grant.id,review:'approved',reason:'TEST checked identity at the desk'},grant.revision);
   assert.equal(kinds(store,boss).includes('checkin_review'),false,'reviewed, so no longer standing');
   store.close();
+});
+
+
+// A property may decide how much each kind of notice matters to it. The system default
+// never changes; only what this property chose differently is stored, so a level left
+// alone keeps following the current rule. The chosen level is what the list is read by.
+const bookAt = (store,u,propertyId,guest) => send(store,u,{type:'create_reservation',mode:'reserve',bookingKind:'individual',
+  companyName:'',source:'direct',autoAssign:false,guest,date:'2027-06-01',
+  stays:[{productId:'room',roomTypeId:roomType(store,propertyId).id,gender:'any',start:'2027-06-01',end:'2027-06-03',
+    adults:1,children:0,infants:0,occupants:[{name:'',gender:'any'}],nightly:10000,
+    nightlyRates:days('2027-06-01','2027-06-03').map(date=>({date,amount:10000}))}]},propertyId);
+const dirtyTwo = (store,propertyId='TEST-KL') => setBody(store,value=>{
+  value.resources.filter(r=>r.productId==='room').slice(0,2).forEach(r=>{r.cleaning='dirty';});},propertyId);
+const levels = (store,u,value,propertyId='TEST-KL',key=randomUUID()) =>
+  store.command({id:u.id},{key,expectedRevision:revision(store,propertyId),
+    command:{propertyId,type:'notice_severity_save',levels:value}});
+
+test('a property can read cleaning before a guest, and that choice is its own',()=>{
+  const store=open(),boss=user(store,'admin',['TEST-KL','TEST-PG']);
+  withBusinessDate(store,boss);
+  withBusinessDate(store,boss,'2027-06-01','TEST-PG');
+  bookAt(store,boss,'TEST-KL','KL No Show');
+  bookAt(store,boss,'TEST-PG','PG No Show');
+  dirtyTwo(store,'TEST-KL');dirtyTwo(store,'TEST-PG');
+  const before=store.read({id:boss.id}).notifications;
+  assert.ok(before.findIndex(n=>n.kind==='no_show'&&n.propertyId==='TEST-KL')<
+    before.findIndex(n=>n.kind==='rooms_to_clean'&&n.propertyId==='TEST-KL'),'by default the guest comes first');
+  const rev=revision(store);
+  levels(store,boss,{no_show:'routine',rooms_to_clean:'urgent'});
+  assert.equal(revision(store),rev,'a setting never advances a business revision');
+  const after=store.read({id:boss.id}).notifications;
+  const klClean=after.find(n=>n.kind==='rooms_to_clean'&&n.propertyId==='TEST-KL');
+  const klGuest=after.find(n=>n.kind==='no_show'&&n.propertyId==='TEST-KL');
+  assert.equal(klClean.severity,'urgent','cleaning was raised by this property');
+  assert.equal(klGuest.severity,'routine','the arrival was lowered by this property');
+  assert.ok(after.indexOf(klClean)<after.indexOf(klGuest),'the property chose to read cleaning first');
+  // The bell uses its own light feed, so the changed order has to reach it too.
+  const feed=store.notificationFeed(boss);
+  assert.ok(feed.items.indexOf(feed.items.find(n=>n.kind==='rooms_to_clean'&&n.propertyId==='TEST-KL'))<
+    feed.items.indexOf(feed.items.find(n=>n.kind==='no_show'&&n.propertyId==='TEST-KL')),
+    'the header bell reads the list in the property order as well');
+  // The other property was never configured, so it keeps the system order.
+  const pgClean=after.find(n=>n.kind==='rooms_to_clean'&&n.propertyId==='TEST-PG');
+  const pgGuest=after.find(n=>n.kind==='no_show'&&n.propertyId==='TEST-PG');
+  assert.equal(pgClean.severity,'routine','another property is not dragged along');
+  assert.equal(pgGuest.severity,'urgent');
+  assert.ok(after.indexOf(pgGuest)<after.indexOf(pgClean));
+  store.close();
+});
+
+test('only an administrator of that property may set its priorities',()=>{
+  const store=open(),boss=user(store),keeper=user(store,'operations'),money=user(store,'finance'),watcher=user(store,'viewer');
+  const elsewhere=user(store,'admin',['TEST-PG']);
+  for(const denied of [keeper,money,watcher])
+    assert.throws(()=>levels(store,denied,{rooms_to_clean:'urgent'}),e=>e.status===403,'only an administrator decides');
+  assert.throws(()=>levels(store,elsewhere,{rooms_to_clean:'urgent'}),e=>e.status===403,
+    'an administrator of another property cannot set this one');
+  assert.equal(store.visibleNoticeSettings(boss).length,0,'nothing was written by a refused attempt');
+  // A property-level override makes a viewer an administrator here, as it does for
+  // every other action: the page and the server must agree.
+  store.db.prepare('UPDATE user_properties SET role=? WHERE user_id=? AND property_id=?').run('admin',watcher.id,'TEST-KL');
+  assert.deepEqual(levels(store,watcher,{rooms_to_clean:'urgent'}).levels,{rooms_to_clean:'urgent'});
+  assert.equal(store.visibleNoticeSettings(boss)[0].levels.rooms_to_clean,'urgent');
+  store.close();
+});
+
+test('priority input is validated, defaults are not frozen, and the audit is append-only',()=>{
+  const store=open(),boss=user(store);
+  for(const bad of [{made_up_kind:'urgent'},{rooms_to_clean:'critical'},['urgent'],'urgent',null,42])
+    assert.throws(()=>levels(store,boss,bad),e=>e.status===400,'a level must be a known kind and a real level');
+  assert.equal(store.visibleNoticeSettings(boss).length,0,'nothing was stored by a refused value');
+  // 'default', an empty string and null all mean follow the system rule, so a form
+  // that sends every kind still stores only what was actually changed.
+  const saved=levels(store,boss,{no_show:'default',overdue_checkout:'',checkin_review:null,rooms_to_clean:'urgent'});
+  assert.deepEqual(saved.levels,{rooms_to_clean:'urgent'},'only explicit overrides are stored');
+  const setting=store.visibleNoticeSettings(boss)[0];
+  assert.equal(setting.propertyId,'TEST-KL');
+  assert.equal(setting.updatedBy,boss.id);
+  const audit=store.visibleNoticeSettingsAudit(boss);
+  assert.equal(audit.length,1,'the change is recorded');
+  assert.deepEqual(audit[0].previous,{},'what it replaced is kept');
+  assert.deepEqual(audit[0].next,{rooms_to_clean:'urgent'});
+  assert.throws(()=>store.db.prepare("UPDATE notice_settings_audit SET summary='{}' WHERE id=?").run(audit[0].id),
+    /notice_settings_audit_append_only/,'the audit cannot be rewritten');
+  assert.throws(()=>store.db.prepare('DELETE FROM notice_settings_audit WHERE id=?').run(audit[0].id),
+    /notice_settings_audit_append_only/,'nor deleted');
+  // Clearing the overrides puts everything back on the system rule.
+  levels(store,boss,{rooms_to_clean:'default'});
+  assert.deepEqual(store.visibleNoticeSettings(boss)[0].levels,{},'nothing is overridden any more');
+  assert.equal(severityOf('rooms_to_clean',store.visibleNoticeSettings(boss)[0].levels),'routine');
+  assert.equal(store.visibleNoticeSettingsAudit(boss).length,2,'the reset is recorded too');
+  store.close();
+});
+
+test('saving priorities is idempotent, scoped, and changes no business state',()=>{
+  const store=open(),boss=user(store),elsewhere=user(store,'admin',['TEST-PG']);
+  publish(store,boss);
+  const key=randomUUID();
+  const first=levels(store,boss,{rooms_to_clean:'urgent'},'TEST-KL',key);
+  const replay=levels(store,boss,{rooms_to_clean:'urgent'},'TEST-KL',key);
+  assert.equal(replay.replayed,true,'the same request key answers from its receipt');
+  assert.deepEqual(replay.levels,first.levels);
+  assert.throws(()=>levels(store,boss,{rooms_to_clean:'routine'},'TEST-KL',key),e=>e.status===409,
+    'a reused key carrying a different body is refused');
+  assert.deepEqual(store.visibleNoticeSettings(elsewhere),[],'another property cannot read this setting');
+  assert.deepEqual(store.visibleNoticeSettingsAudit(elsewhere),[],'nor its audit');
+  const state=store.read({id:boss.id});
+  assert.equal(state.noticeSettings.length,1,'the desk page is given the setting to show');
+  assert.equal(state.noticeSettingsAudit.length,1);
+  assert.equal(state.orders.length,0,'no booking was created');
+  assert.equal(state.notifications.length,0,'no notice was raised');
+  store.close();
+});
+
+test('the shared defaults, kinds and validation live in one place with the local reducer',()=>{
+  assert.deepEqual(noticeLevels,['urgent','attention','routine']);
+  assert.ok(noticeKinds.includes('rooms_to_clean')&&noticeKinds.includes('checkin_review'));
+  assert.equal(severityOf('no_show'),'urgent');
+  assert.equal(severityOf('rooms_to_clean'),'routine');
+  assert.equal(severityOf('unlisted_kind'),'attention','an unknown kind is never invented as urgent');
+  assert.equal(severityOf('rooms_to_clean',{rooms_to_clean:'urgent'}),'urgent');
+  assert.equal(severityOf('rooms_to_clean',{rooms_to_clean:'bogus'}),'routine','a bad override falls back');
+  assert.deepEqual(cleanNoticeLevels({no_show:'default',rooms_to_clean:'urgent'}),{rooms_to_clean:'urgent'});
+  assert.equal(cleanNoticeLevels({no_show:'bogus'}),null);
+  // The local-only mode answers the same command, so a desk working without the shared
+  // backend can save its settings without the page failing.
+  const local=seed();
+  const updated=apply(local,{propertyId:'TEST-KL',type:'notice_severity_save',levels:{rooms_to_clean:'urgent'},
+    at:'2027-06-01T00:00:00.000Z',actor:'local'});
+  assert.deepEqual(updated.noticeSettings.find(s=>s.propertyId==='TEST-KL').levels,{rooms_to_clean:'urgent'});
+  assert.throws(()=>apply(local,{propertyId:'TEST-KL',type:'notice_severity_save',levels:{fake:'urgent'},at:'x'}),
+    'a value the server would refuse is refused locally too');
 });

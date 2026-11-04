@@ -187,13 +187,41 @@ import { upgradeCatalog, configureCatalog, saleResources, overlapsAtoms, isClean
 import { createReservation, stayDays, prepareStay } from './reservations.js';
 export class DemoError extends Error {}
 const reject = code => { throw new DemoError(code); };
+// How much a notice matters. Kept here rather than in the server alone so the desk
+// page and the shared backend can never disagree about the default, the names of
+// the kinds or what a property is allowed to override.
+export const noticeLevels=['urgent','attention','routine'];
+export const noticeKinds=['no_show','overdue_checkout','unassigned_arrival','checkin_review','booking_request','request_waiting','rooms_to_clean'];
+export const noticeDefaults={no_show:'urgent',overdue_checkout:'urgent',unassigned_arrival:'urgent',checkin_review:'urgent',
+  booking_request:'attention',request_waiting:'attention',rooms_to_clean:'routine'};
+export const severityRank={urgent:0,attention:1,routine:2};
+// An override is only honoured for a kind this build knows and a level that exists;
+// an unlisted kind is not invented as urgent, it waits behind the people who are here.
+export const severityOf=(kind,levels)=>{
+  const override=levels&&Object.hasOwn(levels,kind)?levels[kind]:null;
+  return noticeLevels.includes(override)?override:(noticeDefaults[kind]||'attention');
+};
+// Validation is shared so a browser value and a stored value are checked the same way.
+// Only explicit overrides are kept: a level left at the default follows the current
+// system rule instead of freezing an old one into the property's settings.
+export const cleanNoticeLevels=value=>{
+  if(!value||typeof value!=='object'||Array.isArray(value))return null;
+  const out={};
+  for(const [kind,level] of Object.entries(value)){
+    if(!noticeKinds.includes(kind))return null;
+    if(level===null||level===undefined||level===''||level==='default')continue;
+    if(!noticeLevels.includes(level))return null;
+    out[kind]=level;
+  }
+  return out;
+};
 export function seed() {
   const properties = [{ id: 'TEST-KL', name: 'TEST · Kuala Lumpur' }, { id: 'TEST-PG', name: 'TEST · Penang' }];
   const resources = properties.flatMap(p => [
     ...Array.from({ length: p.id === 'TEST-KL' ? 10 : 2 }, (_, i) => ({ id: `${p.id}-R${i+1}`, label: `R${String(i+1).padStart(2,'0')}`, roomId: `${p.id}-R${i+1}`, propertyId: p.id, productId: 'room', gender: 'any', atoms: [`${p.id}-R${i+1}`], cleaning: 'clean' })),
     ...Array.from({ length: p.id === 'TEST-KL' ? 30 : 6 }, (_, i) => ({ id: `${p.id}-B${i+1}`, label: `D${Math.floor(i/6)+1} · B${i%6+1}`, roomId: `${p.id}-D${Math.floor(i/6)+1}`, propertyId: p.id, productId: 'bed', gender: i < 12 ? 'female' : i < 24 ? 'male' : 'any', atoms: [`${p.id}-B${i+1}`], cleaning: 'clean' }))
   ]);
-  return upgradeCatalog({ version: 1, properties, resources, orders: [], blocks: [], audit: [], notifications: [] });
+  return upgradeCatalog({ version: 1, properties, resources, orders: [], blocks: [], audit: [], notifications: [], noticeSettings: [] });
 }
 export function preview(state, propertyId) {
   state = upgradeCatalog(state);
@@ -234,6 +262,16 @@ export function apply(state, command) {
     next.orders = next.orders.filter(o => !gone.has(o.id));
     // A booking record exists only to hold its stays, so one left with none goes too.
     next.reservations = (next.reservations||[]).filter(r => r.propertyId !== propertyId || r.stayIds.some(id => !gone.has(id)));
+  }
+  // Locally the priority setting lives in the state itself. Both modes use the same
+  // validation, so a level the shared backend would refuse is refused here too.
+  if (type === 'notice_severity_save') {
+    const levels = cleanNoticeLevels(command.levels);
+    if (!levels) reject('input');
+    next.noticeSettings = [...(next.noticeSettings||[]).filter(s => s.propertyId !== propertyId),
+      {propertyId, levels, updatedAt: command.at, updatedBy: command.actor || 'local'}];
+    next.notifications = (next.notifications||[]).map(n => n.propertyId === propertyId
+      ? {...n, severity: severityOf(n.kind, levels)} : n);
   }
   // Nights already closed by a night audit cannot be rewritten without an explicit override.
   // Authorization for that override is enforced by the shared service, never by the browser.
@@ -364,7 +402,7 @@ export function apply(state, command) {
     const block = next.blocks.find(b => b.id === command.blockId && b.propertyId === propertyId);
     if (!block) reject('scope');
     next.blocks = next.blocks.filter(b => b !== block);
-  } else if (type !== 'purge_test_orders') reject('input');
+  } else if (!['purge_test_orders','notice_severity_save'].includes(type)) reject('input');
   preview(next, propertyId);
   const movedTo = next.orders.find(o => o.id === (order?.id || command.id)) || null;
   next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, orderId: order?.id || null, resourceId: resource?.id || null, resourceIds: command.resourceIds, cleaning:command.cleaning, actor: command.actor || 'local',

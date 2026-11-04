@@ -144,6 +144,34 @@ try {
   assert.ok(list.indexOf('sev-urgent')<list.indexOf('sev-routine'),'the guest who should be here is read before the cleaning');
   assert.match(text(),/Priority|级别/,'the level is written as a word, not only as a colour');
 
+  // The property, not only the system, decides what is read first. The page shows the
+  // built-in level and lets an administrator change it; saving is a setting, so no
+  // revision moves and no notice is raised or dismissed by it.
+  await until(()=>$('#notice-severity-form'),'the priority settings form is on the page');
+  assert.equal(document.querySelectorAll('#notice-severity-form [data-notice-level]').length,7,'every known kind can be set');
+  assert.match($('#notice-severity-form').textContent,/Urgent|紧急/,'the built-in level is written out next to each kind');
+  const revBefore=revision();
+  const noticeCountBefore=store.db.prepare('SELECT COUNT(*) n FROM notifications').get().n;
+  $('#notice-severity-form [name="no_show"]').value='routine';
+  $('#notice-severity-form [name="rooms_to_clean"]').value='urgent';
+  $('#notice-severity-form').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true}));
+  await until(()=>$('#notice-severity-form [name="rooms_to_clean"]').value==='urgent'&&
+    store.db.prepare('SELECT body FROM notice_settings WHERE property_id=?').get('TEST-KL'),
+    'the settings were saved and the page shows them');
+  await until(()=>{const rows=[...document.querySelectorAll('#content table:first-of-type tbody tr')].map(r=>r.textContent);
+    const clean=rows.findIndex(r=>/Rooms needing cleaning|待清洁房/.test(r)),guest=rows.findIndex(r=>/Arrival that never arrived|应入住未入住/.test(r));
+    return clean>=0&&guest>=0&&clean<guest;},'cleaning is now read before the guest');
+  const flipped=$('#content').innerHTML;
+  assert.match(flipped,/Recent priority changes|最近的级别调整/,'the change is recorded on the page');
+  assert.equal(revision(),revBefore,'saving a setting advanced no business revision');
+  assert.equal(store.db.prepare('SELECT COUNT(*) n FROM notifications').get().n,noticeCountBefore,
+    'saving raised and dismissed nothing');
+  // Leaving a kind at the system default stores nothing for it, so following the rule
+  // is not the same as freezing an old value into a setting.
+  const storedLevels=JSON.parse(store.db.prepare('SELECT body FROM notice_settings WHERE property_id=?').get('TEST-KL').body);
+  assert.deepEqual(storedLevels,{no_show:'routine',rooms_to_clean:'urgent'},'only what was changed is stored');
+
+
   // Self-registration ends with a person: identity handed in is work waiting on them, and
   // the notice opens the review page rather than deciding anything.
   store.checkin.command({id:admin.id},{key:randomUUID(),expectedRevision:0,command:{propertyId:'TEST-KL',type:'sc_policy_save',

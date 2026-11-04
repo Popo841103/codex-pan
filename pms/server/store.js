@@ -3,7 +3,8 @@ import {GuestMessages,guestPermissions} from './guest-messages.js';
 import {SupportDesk,supportPermissions} from './support.js';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
-import { seed, apply, preview, nightAuditExceptions } from '../src/demo-store.js';
+import { seed, apply, preview, nightAuditExceptions, severityOf, severityRank, cleanNoticeLevels } from '../src/demo-store.js';
+export { severityOf } from '../src/demo-store.js';
 import { InventoryConflict } from '../src/inventory.js';
 import { upgradeCatalog, saleResources } from '../src/catalog.js';
 import { rateAvailability } from '../src/rate-availability.js';
@@ -15,14 +16,10 @@ export class ServiceError extends Error {
 const error = (status, code) => { throw new ServiceError(status, code); };
 const hash = value => createHash('sha256').update(value).digest('hex');
 const stayTypes=['edit','assign','checkin','checkout','cancel','lock'];
-// How much a notice matters. A clock alone would put a room needing cleaning next to a
-// guest who should have arrived hours ago, so the list is read by what is waiting on a
-// person: somebody who should be here comes first, housekeeping comes last.
-const noticeSeverity={no_show:'urgent',overdue_checkout:'urgent',unassigned_arrival:'urgent',checkin_review:'urgent',
-  booking_request:'attention',request_waiting:'attention',rooms_to_clean:'routine'};
-const severityRank={urgent:0,attention:1,routine:2};
-// An unlisted kind is not invented as urgent; it waits behind the people who are here.
-export const severityOf=kind=>noticeSeverity[kind]||'attention';
+// Defaults and override validation live in src/demo-store.js, which both the shared
+// backend and the desk page import, so a level can never mean one thing in the list
+// and another in the settings form. The list is read by what is waiting on a person:
+// somebody who should be here comes first, housekeeping comes last.
 const staySnapshot=(body,id)=>{const order=(body?.orders||[]).find(o=>o.id===id);return order?{start:order.start,end:order.end,
   nightly:order.nightly,resourceId:order.resourceId,status:order.status,productId:order.productId,finalCharge:order.finalCharge??null}:null;};
 
@@ -31,7 +28,7 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save','purge_test_orders','booking_request_decision'],
+  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','member_save','site_save','notice_severity_save','purge_test_orders','booking_request_decision'],
   operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover','booking_request_decision'],
   finance: ['settle','payment'], viewer: []
 };
@@ -98,6 +95,16 @@ export class Store {
         PRIMARY KEY(notification_id,user_id));
       CREATE TRIGGER IF NOT EXISTS notification_reads_no_update BEFORE UPDATE ON notification_reads BEGIN SELECT RAISE(ABORT,'notification_reads_append_only'); END;
       CREATE TRIGGER IF NOT EXISTS notification_reads_no_delete BEFORE DELETE ON notification_reads BEGIN SELECT RAISE(ABORT,'notification_reads_append_only'); END;
+      -- How much each kind of notice matters is a property's own choice. It is a
+      -- setting, not business state, so it lives apart from the property body and
+      -- never advances a revision someone else is working to. Only the overrides
+      -- are stored: a level left at the default follows the system rule.
+      CREATE TABLE IF NOT EXISTS notice_settings (property_id TEXT PRIMARY KEY REFERENCES properties(id),
+        body TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL REFERENCES users(id));
+      CREATE TABLE IF NOT EXISTS notice_settings_audit (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL REFERENCES users(id),
+        property_id TEXT NOT NULL REFERENCES properties(id), at TEXT NOT NULL, summary TEXT NOT NULL);
+      CREATE TRIGGER IF NOT EXISTS notice_settings_audit_no_update BEFORE UPDATE ON notice_settings_audit BEGIN SELECT RAISE(ABORT,'notice_settings_audit_append_only'); END;
+      CREATE TRIGGER IF NOT EXISTS notice_settings_audit_no_delete BEFORE DELETE ON notice_settings_audit BEGIN SELECT RAISE(ABORT,'notice_settings_audit_append_only'); END;
       CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS receipts (user_id TEXT NOT NULL REFERENCES users(id), request_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
         response TEXT NOT NULL, PRIMARY KEY(user_id,request_key));
@@ -417,6 +424,44 @@ export class Store {
     }
     return raised;
   }
+  // A property's own priority for each kind of notice. It is a setting, not business
+  // state: it is stored and audited apart from the property body, so changing it never
+  // advances a revision somebody else is working to. Only explicit overrides are kept,
+  // so a level left at the default keeps following the current system rule.
+  saveNoticeSettings(actor,command,key,fingerprint){
+    const propertyId=command.propertyId;
+    // An administrator of this property decides how its list is read. A property-level
+    // role override counts here exactly as it does for every other action.
+    if(this.propertyRole(actor,propertyId)!=='admin')error(403,'forbidden');
+    const levels=cleanNoticeLevels(command.levels);
+    if(!levels)error(400,'notice_levels');
+    const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
+    if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+    const before=this.db.prepare('SELECT * FROM notice_settings WHERE property_id=?').get(propertyId);
+    const previous=before?JSON.parse(before.body):{};
+    const at=new Date().toISOString(),id=randomUUID();
+    this.db.prepare(`INSERT INTO notice_settings VALUES(?,?,?,?) ON CONFLICT(property_id) DO UPDATE SET
+      body=excluded.body,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
+      .run(propertyId,JSON.stringify(levels),at,actor.id);
+    this.db.prepare('INSERT INTO notice_settings_audit VALUES(?,?,?,?,?)').run(id,actor.id,propertyId,at,
+      JSON.stringify({previous,next:levels}));
+    const response={id,propertyId,levels};
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    return response;
+  }
+  visibleNoticeSettings(user){
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    return this.db.prepare('SELECT * FROM notice_settings').all().filter(row=>scope.includes(row.property_id))
+      .map(row=>({propertyId:row.property_id,levels:JSON.parse(row.body),updatedAt:row.updated_at,updatedBy:row.updated_by}));
+  }
+  visibleNoticeSettingsAudit(user){
+    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    return this.db.prepare(`SELECT a.*,u.username actor FROM notice_settings_audit a JOIN users u ON u.id=a.actor_id
+      ORDER BY a.at DESC, a.rowid DESC LIMIT 200`).all()
+      .filter(row=>scope.includes(row.property_id))
+      .map(row=>{const summary=JSON.parse(row.summary);return {id:row.id,at:row.at,actor:row.actor,
+        propertyId:row.property_id,previous:summary.previous,next:summary.next};});
+  }
   // Only the notices addressed to this account, and only for properties it is scoped to.
   // Stored events and standing facts are put together here so the desk sees one list.
   visibleNotifications(user){
@@ -425,10 +470,14 @@ export class Store {
     const stored=this.db.prepare('SELECT * FROM notifications WHERE user_id=? ORDER BY at DESC LIMIT 500').all(user.id)
       .filter(row=>scope.includes(row.property_id))
       .map(row=>({id:row.id,propertyId:row.property_id,kind:row.kind,at:row.at,...JSON.parse(row.summary)}));
-    const all=[...stored,...this.derivedNotifications(user)].map(n=>({...n,readAt:reads.get(n.id)??null,severity:severityOf(n.kind)}));
+    // An override belongs to the property that raised the notice, so one property's
+    // choice can never reorder another property's list.
+    const overrides=new Map(this.visibleNoticeSettings(user).map(s=>[s.propertyId,s.levels]));
+    const all=[...stored,...this.derivedNotifications(user)].map(n=>({...n,readAt:reads.get(n.id)??null,
+      severity:severityOf(n.kind,overrides.get(n.propertyId))}));
     // What is waiting on a person comes first, then what they have not seen, then the
     // newest. A guest standing outside the door outranks a room that needs cleaning, and
-    // notices from the same moment keep a stable order.
+    // notices from the same moment keep a stable order. A property may change that order.
     return all.sort((a,b)=>severityRank[a.severity]-severityRank[b.severity]||(a.readAt?1:0)-(b.readAt?1:0)||(a.at<b.at?1:a.at>b.at?-1:0)||(a.id<b.id?-1:1));
   }
   // Notices that are not events but facts still standing: a guest who should have arrived,
@@ -681,7 +730,7 @@ export class Store {
     const fresh=this.db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(user.id);
     if(!fresh)error(401,'login_required');
     const ids=this.publicUser(fresh).propertyIds;
-    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[],notifications:[]};
+    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[]};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
@@ -702,6 +751,8 @@ export class Store {
     result.bookingRequests=this.visibleBookingRequests(fresh);
     result.bookingRequestEvents=this.visibleBookingRequestEvents(fresh);
     result.notifications=this.visibleNotifications(fresh);
+    result.noticeSettings=this.visibleNoticeSettings(fresh);
+    result.noticeSettingsAudit=this.visibleNoticeSettingsAudit(fresh);
     return result;
   }
   command(user,{key,expectedRevision,command},{beforeApply}={}) {
@@ -725,6 +776,9 @@ export class Store {
       if(command.type==='member_save')return this.saveMember(rowUser,command,key,fingerprint);
       // Publishing a property site writes public content, not property state.
       if(command.type==='site_save')return this.saveSite(rowUser,command,key,fingerprint);
+      // A property's choice of notice priority is a setting, not a property business
+      // command: answered here so it never advances a revision someone else is using.
+      if(command.type==='notice_severity_save')return this.saveNoticeSettings(rowUser,command,key,fingerprint);
       // Marking a notice read is personal housekeeping, not a property business command:
       // it is answered here so it never advances a revision someone else is working to.
       if(command.type==='notification_read')return this.readNotifications(rowUser,command,key,fingerprint);
