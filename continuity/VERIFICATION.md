@@ -13,7 +13,7 @@ bash -n deploy/ci/setup-server.sh
 bash -n deploy/ci/receive-release.sh
 ```
 
-当前基线（2026-11-04）：Node **365/365**，Python **5/5**，16 个 DOM 脚本，38 个运行时 JS 语法检查。
+当前基线（2026-11-04）：Node **374/374**，Python **5/5**，16 个 DOM 脚本，38 个运行时 JS 语法检查，部署 shell `bash -n`。改 `deploy/update-vultr-test.sh` 后必须同步 `deploy/ci/BOOTSTRAP.txt` 内嵌的 base64+gzip 副本与 SHA-256（`test_release_archive.py` 会拦截不同步，否则新服务器会装回旧脚本）；重生成用确定性 gzip：`gzip.compress(data, compresslevel=9, mtime=0)`。
 
 ## 可选的 DOM 流程验证
 

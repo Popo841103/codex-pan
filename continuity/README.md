@@ -4,7 +4,7 @@
 
 ## 一句话现状
 
-私有仓库 `Popo841103/codex-pan` 的 `jovian-pms-test` 分支，是马来西亚 CO-HUB 青旅与 JOVIAN 公寓共用的 PMS 测试系统。代码、账号、订单、账务和数据库都在线上测试环境里，**不重建、不回退、不重置**。归档时最新代码提交 `2792aec`、最新文档提交 `6251a4b`；此后已继续开发，最新提交请以 `git log -1` 与 `WORKBUDDY-HANDOFF.md` 末尾章节为准（2026-11-04 追加 `ba64db0`：门店可配置提醒级别）。
+私有仓库 `Popo841103/codex-pan` 的 `jovian-pms-test` 分支，是马来西亚 CO-HUB 青旅与 JOVIAN 公寓共用的 PMS 测试系统。代码、账号、订单、账务和数据库都在线上测试环境里，**不重建、不回退、不重置**。归档时最新代码提交 `2792aec`、最新文档提交 `6251a4b`；此后已连续开发多批，最新提交请以 `git log -1` 与 `WORKBUDDY-HANDOFF.md` 末尾章节为准（截至 2026-11-04 最新代码 `0ad964c`：身份资料保存期限与显式清除、访客数据密钥随发布备份；自主推进批次 P1–P5 已收敛，详见 `continuity/AUTONOMOUS-RUN.md` 与 `continuity/PROJECT-STATE.md`）。
 
 ## 三条恢复路径
 

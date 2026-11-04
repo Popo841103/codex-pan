@@ -40,6 +40,8 @@
 | 11 | 冒烟缺字段、`overdue_checkout` 场景构造；`request_waiting` 误用 `request.guest`（应为 `guest_name`）；feed 只传 id 导致派生提醒被权限过滤 | 补齐字段；改列名；`notificationFeed` 从 `users` 表读有效账号再算，未读计数与列表随之一致 |
 | 12 | `data-notice-view="checkin"` 指向的是弹层不是视图；`session()` 编辑时误删一段返回字段；自助登记关闭后 `session()` / `register()` 都会 401，测试不能靠它取 revision | app.js 里对 `checkin` 分支走 `leaveDialogs()` + `selfCheckinUI.open()`；恢复 `room/instructions/lock/accessStatus/canRequestAccess`；测试改从 `sc_grants` 表读 revision |
 | 13 | P4 改了佣金页文案后 `dom-occupancy.mjs` 仍断言「佣金尚未接入 / not connected」，全量 DOM 才暴露；`currency()` 用 U+00A0 不间断空格，`'MYR 12.34'` 严格相等失败；佣金页 totals 把订单数 / 间夜量经 `currency()` 渲染成 `MYR 0.03` / `MYR 0.07` | 旧断言改为新语义并扩展成真实表单端到端流程；金额断言用 `/^MYR\s12\.34$/`；totals 按 `count` / `money` 分支渲染，计数用 `esc(v)` |
+| 14 | P5 改了 `deploy/update-vultr-test.sh` 后 `test_release_archive.py` 失败：`deploy/ci/BOOTSTRAP.txt` 内嵌四份部署脚本的 base64+gzip 副本带 SHA-256 校验，不同步会让新服务器装回旧脚本、静默丢失密钥备份；`sc_grants` 已被加宽两次，`sc_invite` 的位置参数 INSERT 会在加列后错位 | 用确定性 gzip（`mtime=0`、level 9、`json.dumps(separators)`）重生成 payload 与 digest，Python 5/5 恢复；INSERT 改为具名列 |
+
 
 ## 关键实现模式（接着改时用得上）
 
@@ -54,7 +56,7 @@
 
 ## 验证演进（回归基线）
 
-Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → 340 → 348 → 356 → **365**；Python **5/5**；DOM 脚本 **16/16**（含 `dom-booking-requests.mjs`、`dom-notifications.mjs`）；38 个运行时 JS 语法检查。每批都要跑全量，不能只跑新增用例。
+Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → 340 → 348 → 356 → 365 → **374**；Python **5/5**；DOM 脚本 **16/16**（含 `dom-booking-requests.mjs`、`dom-notifications.mjs`）；38 个运行时 JS 语法检查。每批都要跑全量，不能只跑新增用例。
 
 ## 外部核验能证明什么、不能证明什么
 
@@ -65,5 +67,5 @@ Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → 340 → 348 → 356
 ## 下一批从哪开始
 
 1. 先 `git log --oneline -10` 与 `WORKBUDDY-HANDOFF.md` 末尾对齐状态，再读 `continuity/PROJECT-STATE.md` 的「剩余缺口」。
-2. 自主队列见 `continuity/AUTONOMOUS-RUN.md`：P1（多房请求与客人自查/撤回）、P2（条件式升级规则）、P3（审核通过后前台一键办理入住，`a7e3b5f`）、P4（渠道佣金人工录入 / 结算状态，`0aae239`）已完成；接下来 **P5（身份资料保存期限与删除流程、`self-checkin.key` 随发布备份）**。房间分组与价计划绑定订单已有基础实现，不重复造。提醒按班次/账号作用域、外部投递仍属需外部条件或需另行取舍的缺口，不擅自伪造通道。
+2. 自主队列见 `continuity/AUTONOMOUS-RUN.md`：P1（多房请求与客人自查/撤回）、P2（条件式升级规则）、P3（审核通过后前台一键办理入住，`a7e3b5f`）、P4（渠道佣金人工录入 / 结算状态，`0aae239`）、P5（身份资料保存期限与显式清除、`self-checkin.key` 随发布备份，`0ad964c`）已完成，**自主队列 P1–P5 收敛**；剩余项均属需外部条件或用户明确禁止伪造的边界，不擅自推进。房间分组与价计划绑定订单已有基础实现，不重复造。提醒按班次/账号作用域、外部投递仍属需外部条件或需另行取舍的缺口，不擅自伪造通道。
 3. 每批照旧：实现 → 全量 Node/Python/DOM → 提交并推送 → 核验线上 → 更新 `WORKBUDDY-HANDOFF.md` 与 `JOVIAN-CURRENT-STATUS.md`（含测试数量）。

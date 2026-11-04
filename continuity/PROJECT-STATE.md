@@ -1,6 +1,6 @@
 # JOVIAN PMS · 项目状态与续写地图
 
-截至 2026-11-04，代码 `0aae239`（财务录入渠道账单实际佣金），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **365/365**、Python **5/5**、DOM 流程 **16/16**、38 个运行时 JS 语法检查通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。
+截至 2026-11-04，代码 `0ad964c`（管理员显式清除到期身份资料、访客数据密钥随发布备份），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **374/374**、Python **5/5**、DOM 流程 **16/16**、38 个运行时 JS 语法检查与部署 shell `bash -n` 通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。**自主推进队列 P1–P5 已收敛**，详见 `continuity/AUTONOMOUS-RUN.md`。
 
 ## 系统是什么
 
@@ -44,6 +44,7 @@
 | 15 | `019cbe8` | **提醒条件式升级规则**：可数事实达阈值时自动升级、阈值可配 |
 | 16 | `a7e3b5f` | **审核通过后前台一键办理入住**：走真实业务 check-in 命令，不开门、不发 PIN |
 | 17 | `0aae239` | **渠道佣金人工录入 / 结算状态**：按渠道账单录入实际金额、账单号、备注与结算状态；不推算费率、不接 OTA |
+| 18 | `0ad964c` | **身份资料保存期限与显式清除**：门店保留天数、服务端 cut-off、仅管理员二次确认后清除、append-only 审计；`self-checkin.key` 纳入发布备份 |
 
 每个批次通常伴随一条 `Record ... in the handoff` 文档提交，细节见 `WORKBUDDY-HANDOFF.md`。
 
@@ -67,10 +68,16 @@
 ## 剩余缺口（按建议优先级）
 
 1. 提醒：外部投递通道、按班次/账号的自定义规则、通知可查询与撤回。（门店可配置级别已于 ba64db0 完成；条件式升级规则已于 019cbe8 完成：可数事实达阈值时自动升级、阈值可配、只升不降、按门店隔离、管理员专属、append-only 审计。仍缺按班次/账号作用域与外部投递。）
-2. 自助入住收尾之后：真实设备发码 / 撤销 / 过期 / 断网联调；（审核通过后前台一键办理入住已于 a7e3b5f 完成，仍不开门、不生成 PIN，设备确认后的自动入住分支仍未与真机联调。）身份资料保存期限与删除流程；密钥独立加密备份与「数据库 + 原密钥」恢复演练（当前更新器只备份 SQLite，**不备份 `self-checkin.key`**）。
+2. 自助入住收尾之后：真实设备发码 / 撤销 / 过期 / 断网联调；（审核通过后前台一键办理入住已于 a7e3b5f 完成，仍不开门、不生成 PIN，设备确认后的自动入住分支仍未与真机联调。）身份资料保存期限与显式清除、密钥纳入发布备份（已于 `0ad964c` 完成：门店保留天数默认 90、服务端算 cut-off、管理员二次确认后清除、只清加密证件与 PIN、旧策略读默认、密钥复制进 0700 备份目录）。**仍缺**：备份目录加密、密钥轮换、「数据库 + 原密钥」恢复演练；系统刻意不自动删除任何资料。
 3. 业务：房间分组（已有基础实现）、价计划绑定订单（已有基础实现）、佣金自动费率与渠道结算导入、账期关闭、完整现金盘点差异审批与银行对账。（渠道账单上的**单笔实际佣金已可人工录入**于 `0aae239`，含账单号、备注、结算状态与 append-only 审计；仍未接 OTA 结算、没有费率、没有银行对账、没有整期关闭。）
 4. 站点：照片与逐房描述、支付与押金、自动确认、真正的验证码 / 账号体系。（多房请求、客人凭编号+联系方式查询/撤回、蜜罐与链接反垃圾已于 d879ec1 完成；目前一份请求仍只对应一个房型，不自动确认、不收支付。）
 5. 工程：PostgreSQL 迁移与真实并发验证、真机 Edge / 手机视觉验收、Windows 两项私有文件权限用例的本机复核。
+
+## 本批新增（2026-11-04，0ad964c）
+
+身份资料保存期限与显式清除：`sc_grants.submission` 原先存加密身份资料、`sc_access.pin` 存加密 PIN，既无保留期限也无删除路径；发布备份只备份 SQLite，恢复后这些记录将永久无法解密。`retentionDays` 现为门店策略设置（默认 90、范围 1–3650，走既有 `sc_policy_save`），`retention()` 在服务端按 UTC+8 本地日与各住宿离店日期算 cut-off，不收浏览器日期；`read()` 返回 `{days,cutoff,eligible}`，前台先看到截止日与到期条数再操作。`sc_purge_identity` 是独立命令、仅 `admin`（含门店角色覆盖）、需二次确认，**无定时器、无启动扫描、无读取触发删除**；只清 `submission` / `document_hashes` / `rejection_reason` / `sc_access.pin` 并写 `purged_at`，不动订单、账务、幂等收据与审计；append-only 审计只记 cut-off、天数、清除条数与 PIN 数，不含姓名证件号或解密文本。`conditions()` 对已清除登记永久拒绝入住，`read()` 暴露 `identityPurged`。旧库经 `PRAGMA table_info` 守卫的 `ALTER TABLE ADD COLUMN`，`policy()` 用 `defaults()` 补齐旧策略；`sc_invite` 的 INSERT 改为具名列（表已加宽两次，位置参数会错位）。发布备份把 `self-checkin.key` 复制进同一 0700 目录、chmod 600、写 `backup-contents`，仅主机本地复制，密钥不进仓库 / 发布包 / 日志。前端三语词条、保留天数输入、清除面板与 CSS。
+
+改动 `pms/server/self-checkin.js`、`pms/web/checkin-admin-ui.js`、`pms/web/workspace.css`、`pms/deploy/update-vultr-test.sh`、`pms/deploy/ci/BOOTSTRAP.txt`、`pms/verification/communications-dom.mjs`，新增 `pms/test/self-checkin-retention.test.js`（9 例）。Node 374/374、Python 5/5、16 DOM、38 运行时 JS 语法、部署 shell 语法全通过。线上外部实见 `/healthz` 200、`checkin-admin-ui.js` 十个新标识、`workspace.css` 的 `.checkin-retention`、12 个 `app.js` 导入模块与 2 个 `src` 导入全 200、公开站点 CSP 仍 `default-src 'none'`；`/server/self-checkin.js` 404，后端命令、新列与发布备份改动属**部署重启推断**，需主机 `grep -c sc_purge_identity /opt/jovian-pms-test/current/server/self-checkin.js` 佐证。**踩坑**：改部署脚本后 `BOOTSTRAP.txt` 的校验和副本不同步会让新服务器装回旧脚本，已用确定性 gzip 重生成 payload 与 digest，Python 5/5 恢复通过。
 
 ## 本批新增（2026-11-04，0aae239）
 

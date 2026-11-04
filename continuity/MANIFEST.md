@@ -6,7 +6,7 @@
 
 - 仓库：`Popo841103/codex-pan`（私有）
 - 分支：`jovian-pms-test`
-- 本清单写于 `ba64db0` 时期，只记录当时的归档快照；**后续批次不改写本行**，以仓库 `git log -1` 与 `continuity/PROJECT-STATE.md` / `WORKBUDDY-HANDOFF.md` 为准（截至 2026-11-04 为 `0aae239`）。
+- 本清单写于 `ba64db0` 时期，只记录当时的归档快照；**后续批次不改写本行**，以仓库 `git log -1` 与 `continuity/PROJECT-STATE.md` / `WORKBUDDY-HANDOFF.md` 为准（截至 2026-11-04 为 `0ad964c`）。
 - 归档目录：`continuity/`
 - 线上测试服务：`https://pms.jovianhome.com`
 
