@@ -88,6 +88,10 @@ export function shiftSummary(state, { from, to }) {
   const kinds = ['payment', 'refund', 'deposit_in', 'deposit_out'];
   const byKind = Object.fromEntries(kinds.map(kind => [kind, { count: 0, amount: 0 }]));
   const byMethod = {};
+  // Only money that actually changes the cash drawer belongs in a cash count:
+  // room payments less refunds. Deposits are a liability held separately and are
+  // never counted as till cash, so they get their own column, not this one.
+  const cashByMethod = {};
   let count = 0;
   for (const order of state.orders || []) for (const transaction of order.transactions || []) {
     if (typeof transaction.at !== 'string' || transaction.at < from || transaction.at >= to) continue;
@@ -98,11 +102,16 @@ export function shiftSummary(state, { from, to }) {
     byMethod[method] ??= { count: 0, amount: 0 };
     byMethod[method].count += 1;
     byMethod[method].amount += transaction.amount;
+    if (transaction.kind === 'payment' || transaction.kind === 'refund') {
+      cashByMethod[method] = (cashByMethod[method] || 0) + (transaction.kind === 'payment' ? transaction.amount : -transaction.amount);
+    }
     count += 1;
   }
   return { from, to, count, byKind, byMethod,
     net: byKind.payment.amount - byKind.refund.amount,
-    depositNet: byKind.deposit_in.amount - byKind.deposit_out.amount };
+    depositNet: byKind.deposit_in.amount - byKind.deposit_out.amount,
+    cashExpectedByMethod: cashByMethod,
+    cashExpectedTotal: Object.values(cashByMethod).reduce((sum, value) => sum + value, 0) };
 }
 
 // Commands are applied to an already-cloned draft; every failure throws before any mutation lands.
@@ -171,8 +180,35 @@ export function applyBusinessDay(next, command, reject, { isBoxed } = {}) {
     const note = typeof command.note === 'string' ? command.note.trim() : '';
     if (note.length > 500) reject('input');
     const summary = shiftSummary(state, { from, to });
+    // A cash count is optional. Omitting it leaves an old-style handover exactly as
+    // it was: no cashCount field at all, never a guessed zero. The till total is
+    // one whole number of minor units, the figure a person actually counts. The
+    // expected figure is payments less refunds only; deposits stay in their own
+    // column because they are a liability, not money in the drawer.
+    let cashCount = null;
+    if (command.countedCash !== undefined) {
+      if (!Number.isSafeInteger(command.countedCash) || command.countedCash < 0 || command.countedCash > 100000000) reject('cash_count');
+      const variance = command.countedCash - summary.cashExpectedTotal;
+      cashCount = { counted: command.countedCash, expected: summary.cashExpectedTotal, variance,
+        status: variance === 0 ? 'balanced' : 'pending', approval: null };
+    }
     state.handovers.push({ id: command.id, at: command.at, actor: command.actor || 'local',
-      businessDate: state.businessDate, shiftTypeId: shift.id, shiftName: shift.name, from, to, note, summary });
+      businessDate: state.businessDate, shiftTypeId: shift.id, shiftName: shift.name, from, to, note, summary,
+      ...(cashCount ? { cashCount } : {}) });
+    return state;
+  }
+  // A short or over till is never silently written off. An administrator records a
+  // reason against the variance; the counted and expected figures are never changed
+  // by the approval, so the original discrepancy stays readable on the record.
+  if (type === 'cash_variance_approve') {
+    const reason = typeof command.reason === 'string' ? command.reason.trim() : '';
+    if (!reason || reason.length > 500) reject('input');
+    const target = state.handovers.find(h => h.id === command.handoverId);
+    if (!target || !target.cashCount) reject('scope');
+    if (target.cashCount.status !== 'pending') reject('cash_variance_decided');
+    state.handovers = state.handovers.map(h => h.id === command.handoverId
+      ? { ...h, cashCount: { ...h.cashCount, status: 'approved', approval: { at: command.at, actor: command.actor || 'local', reason } } }
+      : h);
     return state;
   }
   reject('input');
@@ -181,7 +217,7 @@ export function applyBusinessDay(next, command, reject, { isBoxed } = {}) {
 
 // Folded in above: a release install only refreshes files that already exist,
 // so the business-day rules live here rather than in a new module.
-const businessDayActions = ['business_date_init','night_audit','shift_save','shift_delete','shift_handover'];
+const businessDayActions = ['business_date_init','night_audit','shift_save','shift_delete','shift_handover','cash_variance_approve'];
 import { planInventory } from './inventory.js';
 import { upgradeCatalog, configureCatalog, saleResources, overlapsAtoms, isClean, setCleaning } from './catalog.js';
 import { createReservation, stayDays, prepareStay } from './reservations.js';

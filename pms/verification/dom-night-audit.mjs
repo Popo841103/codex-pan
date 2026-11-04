@@ -88,7 +88,55 @@ try {
   assert.equal(handover.from,'2027-01-12T07:00:00+08:00','handover windows use the property offset');
   assert.equal(handover.to,'2027-01-12T15:00:00+08:00');
   assert.equal(typeof handover.summary.net,'number');
-  console.log('Night audit DOM passed: trusted business date, blocked then forced close with reason, shift and handover window.');
+  assert.equal('cashCount' in handover,false,'an old handover has no invented cash count');
+  await until(()=>(document.querySelector('#content')?.textContent||'').includes('未盘点'),'the uncounted handover row is rendered');
+  assert.match($('#content').textContent,/未盘点|Not counted|Belum dikira/,'the UI says the till was not counted');
+  assert.equal(document.querySelector('[data-cash-approve]'),null,'no approval is offered without a count');
+
+  // Counting the till is optional. A counted figure that differs from the expected
+  // net cash is a visible discrepancy, never a silent write-off. The commit above
+  // already re-rendered this page, so no module re-import is needed here.
+  set('#handover-cash','5.00');
+  $('#handover-run').click();
+  await until(()=>store.read(operator).handovers.length===2,'a handover with a counted till is recorded');
+  const countedHandover=store.read(operator).handovers.find(h=>h.cashCount);
+  assert.equal(countedHandover.cashCount.counted,500,'the UI converts MYR to minor units');
+  assert.equal(countedHandover.cashCount.expected,0,'no real transactions fall inside this historical shift window');
+  assert.equal(countedHandover.cashCount.variance,500);
+  assert.equal(countedHandover.cashCount.status,'pending');
+  assert.equal(countedHandover.cashCount.approval,null);
+  await until(()=>document.querySelector(`[data-cash-approve="${countedHandover.id}"]`),'the pending variance is visible in the UI');
+  assert.match($('#content').textContent,/待管理员审批|Awaiting administrator approval|Menunggu kelulusan pentadbir/);
+
+  const reason='TEST float returned to the guest';
+  set(`#cash-reason-${countedHandover.id}`,reason);
+  document.querySelector(`[data-cash-approve="${countedHandover.id}"]`).click();
+  await until(()=>store.read(operator).handovers.find(h=>h.id===countedHandover.id)?.cashCount?.status==='approved','administrator approval is recorded');
+  const approved=store.read(operator).handovers.find(h=>h.id===countedHandover.id).cashCount;
+  assert.equal(approved.counted,500);
+  assert.equal(approved.expected,0);
+  assert.equal(approved.variance,500,'the original discrepancy stays readable, never rewritten');
+  assert.equal(approved.approval.reason,reason);
+  assert.equal(approved.approval.actor,username);
+  assert.equal(store.read(operator).audit.filter(a=>a.type==='cash_variance_approve').length,1,'the approval is durable and happens once');
+  await until(()=>!document.querySelector(`[data-cash-approve="${countedHandover.id}"]`),'a decided variance cannot be approved twice');
+  assert.match($('#content').textContent,/已审批|Approved|Diluluskan/);
+
+  // A balanced till needs no approval; leaving the field blank keeps the old shape.
+  set('#handover-cash','0.00');
+  $('#handover-run').click();
+  await until(()=>store.read(operator).handovers.length===3,'a balanced handover is recorded');
+  const balanced=store.read(operator).handovers.at(-1);
+  assert.equal(balanced.cashCount.status,'balanced');
+  assert.equal(balanced.cashCount.approval,null);
+  await until(()=>(document.querySelector('#content')?.textContent||'').includes('已平'),'the balanced row is rendered');
+  assert.equal(document.querySelector(`[data-cash-approve="${balanced.id}"]`),null,'a balanced till is never offered for approval');
+
+  set('#handover-cash','');
+  $('#handover-run').click();
+  await until(()=>store.read(operator).handovers.length===4,'a handover with no count is recorded');
+  assert.equal('cashCount' in store.read(operator).handovers.at(-1),false,'an empty count leaves the old record shape');
+  console.log('Night audit DOM passed: trusted business date, blocked then forced close with reason, shift and handover window, optional cash count, pending variance and administrator approval.');
   await new Promise(done=>setTimeout(done,100));
 }finally {
   global.fetch=realFetch;server.closeAllConnections();await new Promise(done=>server.close(done));store.close();dom.window.close();

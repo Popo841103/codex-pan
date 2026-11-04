@@ -197,13 +197,26 @@ $('#content').addEventListener('click',async e=>{
     try{await commit({type:'shift_save',name,start:$('#shift-start').value,end:$('#shift-end').value});}
     catch(error){$('#message').textContent=errorText(error);}return;
   }
+  const cashApprove=e.target.closest('[data-cash-approve]');
+  if(cashApprove){
+    const id=cashApprove.dataset.cashApprove;
+    if(!window.confirm(t('cashApproveConfirm')))return;
+    try{await commit({type:'cash_variance_approve',handoverId:id,reason:$('#cash-reason-'+id)?.value||''});}
+    catch(error){$('#message').textContent=errorText(error);}return;
+  }
   const drop=e.target.closest('[data-night-audit="shift-delete"]');
   if(drop){try{await commit({type:'shift_delete',shiftId:drop.dataset.shift});}catch(error){$('#message').textContent=errorText(error);}return;}
   if(e.target.closest('#handover-run')){
     const shiftId=$('#handover-shift')?.value,current=nightAuditState(),shift=current.shiftTypes.find(s=>s.id===shiftId);
     if(!shift||!current.businessDate){$('#message').textContent=t('shift_window');return;}
     const {from,to}=handoverWindow(current.businessDate,shift);
-    try{await commit({type:'shift_handover',shiftTypeId:shiftId,from,to,note:$('#handover-note')?.value||''});}
+    const cashRaw=String($('#handover-cash')?.value??'').trim();
+    const command={type:'shift_handover',shiftTypeId:shiftId,from,to,note:$('#handover-note')?.value||''};
+    if(cashRaw!==''){
+      if(!/^\d+(\.\d{1,2})?$/.test(cashRaw)){$('#message').textContent=t('cash_count');return;}
+      command.countedCash=toMinor(cashRaw);
+    }
+    try{await commit(command);}
     catch(error){$('#message').textContent=errorText(error);}return;
   }
 });

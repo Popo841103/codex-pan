@@ -34,6 +34,10 @@ export const nightAuditWords = {
     shiftOvernight: '跨午夜', deleteShift: '删除', handover: '交接班', handoverShift: '班次', runHandover: '确认交班', handoverNote: '备注',
     handoverHistory: '交班记录', handedBy: '交班人', window: '时段', receipts: '收款笔数', netReceived: '净收款', deposits: '押金净额', noShifts: '尚未配置班次',
     handoverDone: '交班已记录', businessDateNote: '营业日由夜审推进，交班记录归属当前营业日',
+    cashStatus: '现金盘点', cashCount: '实点现金（MYR）', cashCountNote: '只核对本班收款减退款的净现金；押金是负债，单独列示、不计入抽屉现金。留空表示本班不盘点，系统不会替你填 0。',
+    cashExpected: '期望净现金', cashVariance: '差异', cashNotCounted: '未盘点', cashBalanced: '已平', cashPending: '待管理员审批', cashApproved: '已审批',
+    cashApprove: '审批差异', cashApproveReason: '审批原因／处理说明', cashApproveConfirm: '确认审批这笔现金差异？审批后不可撤销，实点与期望金额仍会原样保留。', cashApprovedBy: '审批人',
+    cash_count: '请填写有效的实点金额（非负、最多两位小数）。', cash_variance_decided: '这笔差异已经处理，不能重复审批。',
     order: '订单', exceptionDate: '发生日期',
     audited: '该日期已被夜审关闭，需要管理员授权后才能修改', business_date: '尚未设定营业日',
     night_audit_exceptions: '存在必须处理的异常，不能直接夜审', shift_name: '班次名称重复',
@@ -50,6 +54,10 @@ export const nightAuditWords = {
     shiftOvernight: 'Overnight', deleteShift: 'Delete', handover: 'Shift handover', handoverShift: 'Shift', runHandover: 'Confirm handover', handoverNote: 'Note',
     handoverHistory: 'Handover records', handedBy: 'Handed over by', window: 'Window', receipts: 'Transactions', netReceived: 'Net received', deposits: 'Deposit net', noShifts: 'No shifts configured yet',
     handoverDone: 'Handover recorded', businessDateNote: 'The business date advances by night audit; handovers belong to the current business date',
+    cashStatus: 'Cash count', cashCount: 'Cash counted (MYR)', cashCountNote: 'Reconcile the shift net cash only: payments less refunds. Deposits are a liability shown separately, never till cash. Leave blank to skip the count; the system never fills in a zero for you.',
+    cashExpected: 'Expected net cash', cashVariance: 'Variance', cashNotCounted: 'Not counted', cashBalanced: 'Balanced', cashPending: 'Awaiting administrator approval', cashApproved: 'Approved',
+    cashApprove: 'Approve variance', cashApproveReason: 'Reason / how it was handled', cashApproveConfirm: 'Approve this cash variance? This cannot be undone; the counted and expected amounts stay on the record.', cashApprovedBy: 'Approved by',
+    cash_count: 'Enter a valid counted amount (non-negative, at most two decimals).', cash_variance_decided: 'This variance has already been decided and cannot be approved again.',
     order: 'Booking', exceptionDate: 'Date',
     audited: 'That date is closed by a night audit; only an administrator can change it', business_date: 'No business date has been set',
     night_audit_exceptions: 'Required exceptions remain, so the audit cannot close the day', shift_name: 'That shift name already exists',
@@ -66,6 +74,10 @@ export const nightAuditWords = {
     shiftOvernight: 'Lepas tengah malam', deleteShift: 'Padam', handover: 'Serahan syif', handoverShift: 'Syif', runHandover: 'Sahkan serahan', handoverNote: 'Catatan',
     handoverHistory: 'Rekod serahan', handedBy: 'Diserahkan oleh', window: 'Tempoh', receipts: 'Transaksi', netReceived: 'Bersih diterima', deposits: 'Bersih deposit', noShifts: 'Syif belum dikonfigurasi',
     handoverDone: 'Serahan direkod', businessDateNote: 'Hari perniagaan dimajukan oleh audit malam; serahan milik hari perniagaan semasa',
+    cashStatus: 'Kiraan tunai', cashCount: 'Tunai dikira (MYR)', cashCountNote: 'Semak tunai bersih syif sahaja: kutipan tolak bayaran balik. Deposit adalah liabiliti yang disenaraikan berasingan, bukan wang dalam laci. Kosongkan untuk tidak mengira; sistem tidak akan mengisi sifar bagi anda.',
+    cashExpected: 'Tunai bersih dijangka', cashVariance: 'Perbezaan', cashNotCounted: 'Belum dikira', cashBalanced: 'Seimbang', cashPending: 'Menunggu kelulusan pentadbir', cashApproved: 'Diluluskan',
+    cashApprove: 'Lulus perbezaan', cashApproveReason: 'Sebab / cara dikendalikan', cashApproveConfirm: 'Lulus perbezaan tunai ini? Tindakan ini tidak boleh dibatalkan; jumlah dikira dan dijangka kekal pada rekod.', cashApprovedBy: 'Diluluskan oleh',
+    cash_count: 'Masukkan jumlah dikira yang sah (bukan negatif, maksud dua perpuluhan).', cash_variance_decided: 'Perbezaan ini sudah diputuskan dan tidak boleh diluluskan semula.',
     order: 'Tempahan', exceptionDate: 'Tarikh',
     audited: 'Tarikh ini telah ditutup oleh audit malam; hanya pentadbir boleh mengubahnya', business_date: 'Hari perniagaan belum ditetapkan',
     night_audit_exceptions: 'Pengecualian wajib masih ada; audit tidak boleh dijalankan', shift_name: 'Nama syif sudah wujud',
@@ -119,11 +131,20 @@ export function nightAuditPage(state, propertyId, { t, escape, currency, can, la
   </section>
   <section class="panel"><div class="panel-head"><h2>${escape(t('handover'))}</h2></div>
     <div class="form-row"><label>${escape(t('handoverShift'))}<select id="handover-shift">${shifts.map(s => `<option value="${escape(s.id)}">${escape(s.name)} (${escape(s.start)}–${escape(s.end)})</option>`).join('')}</select></label>
-    <label>${escape(t('handoverNote'))}<input id="handover-note" maxlength="500"></label></div>
+    <label>${escape(t('handoverNote'))}<input id="handover-note" maxlength="500"></label>
+    <label>${escape(t('cashCount'))}<input id="handover-cash" type="number" min="0" max="1000000" step="0.01" placeholder="${escape(t('cashNotCounted'))}"></label></div>
+    <p class="muted">${escape(t('cashCountNote'))}</p>
     <button id="handover-run" class="primary" ${can('shift_handover') && shifts.length ? '' : 'disabled'}>${escape(t('runHandover'))}</button>
-    <div class="table-wrap"><table><thead><tr><th>${escape(t('businessDay'))}</th><th>${escape(t('handoverShift'))}</th><th>${escape(t('window'))}</th><th>${escape(t('receipts'))}</th><th>${escape(t('netReceived'))}</th><th>${escape(t('deposits'))}</th><th>${escape(t('handedBy'))}</th></tr></thead><tbody>${
-      handovers.length ? handovers.map(h => `<tr><td>${escape(h.businessDate)}</td><td>${escape(h.shiftName)}</td><td>${date(h.from)} → ${date(h.to)}</td><td>${h.summary.count}</td><td>${escape(currency(h.summary.net))}</td><td>${escape(currency(h.summary.depositNet))}</td><td>${escape(h.actor)}</td></tr>`).join('')
-      : `<tr><td colspan="7">—</td></tr>`}</tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>${escape(t('businessDay'))}</th><th>${escape(t('handoverShift'))}</th><th>${escape(t('window'))}</th><th>${escape(t('receipts'))}</th><th>${escape(t('netReceived'))}</th><th>${escape(t('deposits'))}</th><th>${escape(t('cashStatus'))}</th><th>${escape(t('handedBy'))}</th><th>${escape(t('action'))}</th></tr></thead><tbody>${
+      handovers.length ? handovers.map(h => {
+        const cash = h.cashCount;
+        const status = cash ? t(cash.status === 'balanced' ? 'cashBalanced' : cash.status === 'pending' ? 'cashPending' : 'cashApproved') : t('cashNotCounted');
+        const detail = cash ? `${escape(t('cashExpected'))}: ${escape(currency(cash.expected))} · ${escape(t('cashCount'))}: ${escape(currency(cash.counted))} · ${escape(t('cashVariance'))}: ${escape(currency(cash.variance))}<small>${escape(status)}</small>${cash.approval ? `<small>${escape(t('cashApprovedBy'))}: ${escape(cash.approval.actor)} · ${escape(cash.approval.reason)}</small>` : ''}` : `<span class="muted">${escape(t('cashNotCounted'))}</span>`;
+        const approve = cash && cash.status === 'pending' && can('cash_variance_approve')
+          ? `<input id="cash-reason-${escape(h.id)}" maxlength="500" placeholder="${escape(t('cashApproveReason'))}"><button data-cash-approve="${escape(h.id)}">${escape(t('cashApprove'))}</button>` : '';
+        return `<tr><td>${escape(h.businessDate)}</td><td>${escape(h.shiftName)}</td><td>${date(h.from)} → ${date(h.to)}</td><td>${h.summary.count}</td><td>${escape(currency(h.summary.net))}</td><td>${escape(currency(h.summary.depositNet))}</td><td>${detail}</td><td>${escape(h.actor)}</td><td>${approve}</td></tr>`;
+      }).join('')
+      : `<tr><td colspan="9">—</td></tr>`}</tbody></table></div>
   </section>` : '';
   return head + exceptionPanel + shiftPanel;
 }
