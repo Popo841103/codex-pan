@@ -10,7 +10,7 @@ const text=(value,max,required=false)=>{if(typeof value!=='string'||value.length
 const doc=value=>text(value,30,true).replace(/[ -]/g,'').toUpperCase();
 const count=order=>(order.adults||1)+(order.children||0)+(order.infants||0);
 const signature=order=>sha(JSON.stringify([order.id,order.propertyId,order.resourceId,order.start,order.end,order.arrivalTime||'15:00',order.departureTime||'12:00',count(order)]));
-export const checkinPermissions=role=>['admin','operations'].includes(role)?['sc_read','sc_invite','sc_revoke','sc_review','sc_document',...(role==='admin'?['sc_policy_save']:[])]:[];
+export const checkinPermissions=role=>['admin','operations'].includes(role)?['sc_read','sc_invite','sc_revoke','sc_review','sc_document','sc_checkin',...(role==='admin'?['sc_policy_save']:[])]:[];
 export function loadOrCreateGuestKey(path,{allowCreate=true}={}){
   if(!allowCreate){try{lstatSync(path);}catch{throw new Error('Existing encrypted guest data requires its original guest data key.');}}
   try{writeFileSync(path,randomBytes(32),{flag:'wx',mode:0o600});}catch(error){if(error.code!=='EEXIST')throw new Error('Guest data key could not be created.');}
@@ -79,11 +79,18 @@ export class SelfCheckin {
     const {order,reasons}=this.conditions(grant);const people=grant.submission?this.decrypt(grant.submission,grant.id+':people'):[];
     return {id:grant.id,orderId:order.id,guest:order.guest,revision:grant.revision,status:grant.status,review:grant.review,expiresAt:grant.expires_at,registered:people.length,required:this.policy(pid).registrationMode==='all'?count(order):1,
       rejectionReason:grant.review==='rejected'?grant.rejection_reason||null:null,
+      checkinReady:grant.review==='approved'&&!reasons.length&&order.status==='confirmed',
+      checkedIn:order.status==='checked_in',
       people:people.map(person=>({name:person.name,documentType:person.documentType,documentLast4:person.documentNumber.slice(-4)})),reasons,access:this.db.prepare('SELECT id,status,reason FROM sc_access WHERE grant_id=? ORDER BY rowid DESC').all(grant.id)};
   });return {propertyId:pid,policy:this.policy(pid),lock:this.access.status(pid),encryptionReady:!!this.key,grants};}
   command(user,{key,expectedRevision,command}){
     if(typeof key!=='string'||!/^[a-zA-Z0-9_-]{8,100}$/.test(key)||!Number.isSafeInteger(expectedRevision)||expectedRevision<0||!command||typeof command.propertyId!=='string')fail(400,'checkin_input');
     const {propertyId:pid,type}=command,actor=this.actor(user,pid,type),fingerprint=sha(JSON.stringify(command));
+    // Checking a guest in from an approved registration is a business command: it
+    // moves the order, the inventory, the folio and the property revision, so it has
+    // to run through store.command's own transaction. SQLite cannot nest that
+    // transaction inside the sc_* one below, so this path answers on its own.
+    if(type==='sc_checkin')return this.checkinFromGrant(actor,{key,expectedRevision,command,fingerprint});
     return this.store.transaction(()=>{
       const prior=this.db.prepare('SELECT * FROM sc_receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)fail(409,'idempotency_mismatch');const stored=JSON.parse(prior.response),response=stored.sealed?this.decrypt(stored.sealed,actor.id+':'+key):stored;if(response.grantId){const existing=this.grant(response.grantId,pid);if(type==='sc_invite')this.valid(existing);}return {...response,replayed:true};}
@@ -124,6 +131,46 @@ export class SelfCheckin {
       }
       this.db.prepare('INSERT INTO sc_receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(type==='sc_invite'?{sealed:this.crypt(response,actor.id+':'+key)}:response));return response;
     });
+  }
+  // Approval is a person saying the identity details are in order. It is not a door
+  // opening and it is not check-in. This is the desk deliberately finishing the job:
+  // it runs the real business check-in command, so every inventory, folio, business
+  // date, room-state and audit rule that a manual check-in obeys still applies. No
+  // lock provider is called, no PIN is minted and no sc_access row is created.
+  checkinFromGrant(actor,{key,expectedRevision,command,fingerprint}){
+    const pid=command.propertyId,grant=this.grant(command.grantId,pid);
+    if(grant.revision!==expectedRevision)fail(409,'checkin_stale');
+    const prior=this.db.prepare('SELECT * FROM sc_receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
+    if(prior){if(prior.fingerprint!==fingerprint)fail(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+    // Reuse every gate the guest's own access request uses, plus the confirmed state
+    // the business command insists on. A registration that has since been moved,
+    // cancelled, boxed or left unpaid is refused here rather than half applied.
+    const checks=this.conditions(grant);
+    if(checks.reasons.length)fail(400,checks.reasons[0]);
+    if(checks.order.status!=='confirmed')fail(400,'checkin_unavailable');
+    const order=checks.order,sig=signature(order),people=this.decrypt(grant.submission,grant.id+':people');
+    // The desk works in property local time; never trust a browser-supplied date.
+    const date=new Date(this.now()+8*3600000).toISOString().slice(0,10);
+    if(date<order.start||date>=order.end)fail(400,'checkin_time');
+    const revision=this.db.prepare('SELECT revision FROM properties WHERE id=?').get(pid).revision;
+    const result=this.store.command(actor,{key,expectedRevision:revision,
+      command:{type:'checkin',propertyId:pid,orderId:order.id,date}},{beforeApply:body=>{
+        const fresh=this.grant(grant.id,pid),latest=this.conditions(fresh,body);
+        if(latest.reasons.length||latest.order.status!=='confirmed'||signature(latest.order)!==sig)fail(400,'checkin_unavailable');
+        // The names the guest registered and the staff approved become the stay's
+        // occupants inside the very transaction that checks them in, so no state is
+        // ever visible with an approved registration but empty occupant names.
+        latest.order.roomTypeId??=latest.resource.roomTypeId;
+        latest.order.occupants=Array.from({length:count(latest.order)},(_,i)=>({name:people[i]?.name||latest.order.occupants?.[i]?.name||'',gender:latest.order.occupants?.[i]?.gender||latest.order.gender}));
+      }});
+    const response={grantId:grant.id,revision:grant.revision,orderId:order.id,date,businessRevision:result.revision,checkedIn:true};
+    // Both records follow the committed business command. A retry with the same key
+    // is answered from the receipt above, so the append-only audit never doubles.
+    this.store.transaction(()=>{
+      this.audit(pid,grant.id,actor,'sc_checkin',{orderId:order.id,date,revision:result.revision});
+      this.db.prepare('INSERT INTO sc_receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    });
+    return response;
   }
   lookup({propertyId,identifier,accessCode}){
     let grant;try{const code=text(accessCode,100,true).toLowerCase();grant=this.db.prepare("SELECT * FROM sc_grants WHERE property_id=? AND code_hash=? AND status='active'").get(text(propertyId,100,true),sha(code));this.valid(grant);const order=this.order(grant),value=text(identifier,100,true);

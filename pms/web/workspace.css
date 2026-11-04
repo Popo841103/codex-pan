@@ -112,3 +112,5 @@ tr.sev-urgent td:first-child{box-shadow:inset 3px 0 0 #d0342c}
 .notice-settings input[type=number]{height:40px;font-size:14px;width:110px;max-width:100%;padding:0 8px;border:1px solid #d7dce2;border-radius:6px;box-sizing:border-box}
 .notice-settings .table-wrap{margin:12px 0}
 .notice-settings button.primary{margin-top:8px}
+.checkin-desk-action{margin:12px 0;padding:12px;border:1px solid #d7dce2;border-radius:8px}
+.checkin-desk-action p{margin:0 0 8px}
