@@ -47,10 +47,11 @@
 - **提醒严重级别**：`severityOf(kind)` 映射 `urgent/attention/routine`，排序 `severityRank → unread → at → id`；未知类型默认 `attention`，不冒充紧急。
 - **自助入住**：`sc_grants` 表加列用 `PRAGMA table_info` 检查后 `ALTER TABLE ADD COLUMN`（旧库自动迁移，不重建）；`INSERT INTO sc_grants VALUES(...)` 是位置参数，加列必须同步增加占位符；`register()` / `onOrderChange()` 都要清空 `rejection_reason`。
 - **退款 / 拒绝原因**是给客人看的自由文本，前端一律转义后输出。
+- **条件式升级规则**：`noticeRuleKinds` 只含可计数的派生事实（`rooms_to_clean` 按脏房数、`request_waiting` / `checkin_review` 按条数），派生时给每条带 `magnitude`；`cleanNoticeRules` 校验、`escalateSeverity` 在 `severityOf()` 之后应用且**只升不降**（避免紧急客人被降级）；`notice_rule_save` 是旁路命令，`notice_rules` / `notice_rules_audit` 用 `CREATE TABLE IF NOT EXISTS` 建表（新表不需 ALTER 加列），审计 append-only。本地归约 `apply()` 要把 `notice_rule_save` 加进末尾白名单，否则会 `reject('input')`；保存任一提醒设置后都要用同一组常量重算 severity，避免留下旧级别。
 
 ## 验证演进（回归基线）
 
-Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → **340**；Python **5/5**；DOM 脚本 **16/16**（含 `dom-booking-requests.mjs`、`dom-notifications.mjs`）。每批都要跑全量，不能只跑新增用例。
+Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → 340 → **348**；Python **5/5**；DOM 脚本 **16/16**（含 `dom-booking-requests.mjs`、`dom-notifications.mjs`）；38 个运行时 JS 语法检查。每批都要跑全量，不能只跑新增用例。
 
 ## 外部核验能证明什么、不能证明什么
 
@@ -61,5 +62,5 @@ Node 224 → 292 → 305 → 315 → 322 → 325 → 330 → **340**；Python **
 ## 下一批从哪开始
 
 1. 先 `git log --oneline -10` 与 `WORKBUDDY-HANDOFF.md` 末尾对齐状态，再读 `continuity/PROJECT-STATE.md` 的「剩余缺口」。
-2. 建议顺序：提醒级别可配置 / 提醒外部通道（需真实通道才能做，否则只能留在系统内） → 自助入住真实设备与数据保全流程 → 房间分组、价计划绑定订单、佣金结算 → 站点多房请求与反垃圾。
+2. 自主队列见 `continuity/AUTONOMOUS-RUN.md`：P1（多房请求与客人自查/撤回）、P2（条件式升级规则）已完成；接下来 P3（自助登记审核通过 ↔ 前台入住办理联动）→ P4（房间分组 / 价计划绑定订单 / 佣金结算中可行的一组）→ P5（身份资料保存期限与删除流程、`self-checkin.key` 随发布备份）。提醒按班次/账号作用域、外部投递仍属需外部条件或需另行取舍的缺口，不擅自伪造通道。
 3. 每批照旧：实现 → 全量 Node/Python/DOM → 提交并推送 → 核验线上 → 更新 `WORKBUDDY-HANDOFF.md` 与 `JOVIAN-CURRENT-STATUS.md`（含测试数量）。

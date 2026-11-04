@@ -20,7 +20,7 @@
 | 编号 | 批次 | 状态 |
 |---|---|---|
 | P1 | 公开预订请求增强：客人凭 reference 查询状态与撤回、一份请求支持多间房、提交反垃圾 | 已完成 `d879ec1` |
-| P2 | 提醒条件式规则：按事实阈值升级（如脏房超过 N 间才算紧急）、阈值可配置 | 进行中 |
+| P2 | 提醒条件式规则：按事实阈值升级（如脏房超过 N 间才算紧急）、阈值可配置 | 已完成 `019cbe8` |
 | P3 | 待核验自助登记 ↔ 前台入住办理联动：审核通过后一键办理入住 | 待做 |
 | P4 | 业务补齐：房间分组 / 价计划绑定订单 / 佣金结算中可行的一组 | 待做 |
 | P5 | 自助入住收尾：身份资料保存期限与删除流程；`self-checkin.key` 随发布备份 | 待做 |
@@ -44,3 +44,5 @@
 - 起始基线：代码 `ba64db0`（门店可配置提醒级别），文档 `77ca8d1`。Node 330/330、Python 5/5、16 个 DOM 脚本、38 个运行时 JS 语法检查全通过。
 
 - P1 `d879ec1`：多房请求（1–8 间、报价按全部房间、接受生成多个 stay）、客人凭编号+联系方式查询/撤回、拒绝原因对客人可见、撤回标记与 append-only 事件、旧库两列迁移、蜜罐与链接反垃圾；并前置修掉「接受已撤回/已决定请求会建出孤立订单」的隐患。Node 340/340、Python 5/5、16 DOM、38 运行时语法全通过。部署 `c47bf5a` 后 15s 上线：实见 `/healthz` 200（含迁移启动）、`workspace-ui.js` 四个新标识、12 个导入模块全 200、站点 CSP 仍 none、`/server/store.js` 404；线上无已发布站点，公开页新表单只能由进程内 HTTP 测试佐证，不谎称公网读到。
+
+- P2 `019cbe8`：条件式升级规则。`notice_rules` / `notice_rules_audit` 两张新表（`CREATE TABLE IF NOT EXISTS`，旧库启动自动建，不重建不回写）、`notice_rule_save` 旁路命令、`derivedNotifications()` 给三类可数派生事实带 `magnitude`、`visibleNotifications()` 在 `severityOf()` 之后套用 `escalateSeverity()` 且只升不降；`src/demo-store.js` 单一常量来源（`noticeRuleKinds` / `cleanNoticeRules` / `escalateSeverity`）与本地归约 `apply()` 同步；提醒页第三面板三语表单、升级标记、审计表。按门店隔离、管理员专属、append-only 审计、幂等、默认无规则行为完全不变。Node 348/348、Python 5/5、16 DOM、38 运行时语法全通过。推送后线上实见 `/healthz` 200、`workspace-ui.js` 五个新标识、`app.js` 两个新标识、`src/demo-store.js` 三个新标识、`workspace.css` 数字输入样式、12 个 `app.js` 导入模块与 2 个 `src` 导入全 200、公开站点 CSP 仍 none；`/server/store.js` 404，后端新表/命令属**部署重启推断**（主机 `grep -c notice_rules_audit /opt/jovian-pms-test/current/server/store.js` 佐证），不谎称公网读到。踩坑：DOM 脚本中 `$('#refresh').click()` 的刷新是异步的，第一次断言读到了上一批的旧 DOM（cleaning 仍是 urgent），改为轮询等待系统默认顺序恢复后再判断，已修好。

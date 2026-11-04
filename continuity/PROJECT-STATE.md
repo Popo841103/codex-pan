@@ -1,6 +1,6 @@
 # JOVIAN PMS · 项目状态与续写地图
 
-截至 2026-11-04，代码 `2792aec`（提醒严重级别排序 + 自助入住收尾），文档 `6251a4b`。Node **325/325**、Python **5/5**、DOM 流程 **16/16** 通过；线上测试服务 `/healthz` 200，前端新文件已核验。
+截至 2026-11-04，代码 `019cbe8`（提醒条件式升级规则），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **348/348**、Python **5/5**、DOM 流程 **16/16**、38 个运行时 JS 语法检查通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。
 
 ## 系统是什么
 
@@ -39,10 +39,13 @@
 | 10 | `df352d3` | 内部提醒：铃铛、未读计数、60 秒轮询、已读只记不改 |
 | 11 | `d8391ca` | 派生待办提醒：应入住未入住、应离店未退房、今日到店未分房、脏房汇总、请求等待过久 |
 | 12 | `2792aec` | **提醒严重级别排序**；**自助入住收尾**（待核验登记进提醒、拒绝给客人原因） |
+| 13 | `ba64db0` | 门店可配置提醒级别：每类可设紧急/需处理/常规或跟随系统默认 |
+| 14 | `d879ec1` | 多房公开请求、客人凭编号+联系方式查询/撤回、反垃圾 |
+| 15 | `019cbe8` | **提醒条件式升级规则**：可数事实达阈值时自动升级、阈值可配 |
 
 每个批次通常伴随一条 `Record ... in the handoff` 文档提交，细节见 `WORKBUDDY-HANDOFF.md`。
 
-## 第 12 批（最新）具体做了什么
+## 第 12 批具体做了什么
 
 - 提醒新增 `severity`：`urgent`（应入住未入住 / 应离店未退房 / 今日到店未分房 / 登记待核验）、`attention`（网站请求、请求等待过久）、`routine`（待清洁房）。排序改为**级别 → 未读 → 时间 → id**，页面上用文字徽章写出级别，不只靠颜色。
 - 自助登记提交后进入 `checkin_review` 派生提醒，只通知能审核的本店账号；审核后自动消失；只在自助登记开启时提醒；提醒按钮打开审核弹层而不代做决定。
@@ -61,11 +64,21 @@
 
 ## 剩余缺口（按建议优先级）
 
-1. 提醒：外部投递通道、按条件/班次/账号的自定义规则、通知可查询与撤回。（门店可配置级别已于 ba64db0 完成：每类可设紧急/需处理/常规或跟随系统默认，按门店隔离、管理员专属、append-only 审计。）
+1. 提醒：外部投递通道、按班次/账号的自定义规则、通知可查询与撤回。（门店可配置级别已于 ba64db0 完成；条件式升级规则已于 019cbe8 完成：可数事实达阈值时自动升级、阈值可配、只升不降、按门店隔离、管理员专属、append-only 审计。仍缺按班次/账号作用域与外部投递。）
 2. 自助入住收尾之后：真实设备发码 / 撤销 / 过期 / 断网联调；身份资料保存期限与删除流程；密钥独立加密备份与「数据库 + 原密钥」恢复演练（当前更新器只备份 SQLite，**不备份 `self-checkin.key`**）。
 3. 业务：房间分组、价计划绑定订单、佣金真实费率与结算、历史分段换房、完整现金盘点差异审批与银行对账。
 4. 站点：照片与逐房描述、支付与押金、自动确认、真正的验证码 / 账号体系。（多房请求、客人凭编号+联系方式查询/撤回、蜜罐与链接反垃圾已于 d879ec1 完成；目前一份请求仍只对应一个房型，不自动确认、不收支付。）
 5. 工程：PostgreSQL 迁移与真实并发验证、真机 Edge / 手机视觉验收、Windows 两项私有文件权限用例的本机复核。
+
+## 本批新增（2026-11-04，019cbe8）
+
+提醒条件式升级规则：门店可让某类「可计数」的待办在积压到阈值时自动升级。规则 kind 限定 `rooms_to_clean`（脏房间数）、`request_waiting`（等待过久请求条数）、`checkin_review`（待核验登记条数）；存储事件无规模，不能配规则。规则形如 `{atLeast:N, level:L}`，N 为 1–99 整数，L 为 `urgent/attention/routine`；`default`/空/`null` 表示删除规则。升函数在 `severityOf()`（系统默认 + 门店级别覆盖）之后应用，**只升不降**，避免「紧急客人被降级」；列表对被规则升级的行显示标记。默认无规则 = 行为完全不变（含铃铛 feed）。
+
+表与命令：`notice_rules` / `notice_rules_audit` 两张新表（`CREATE TABLE IF NOT EXISTS`，旧库启动自动建，不重建、不回写），触发器禁止 UPDATE/DELETE；`notice_rule_save` 旁路命令（不推进业务 revision、不产生/清除提醒、不动订单账务）、幂等 receipt、`propertyRole()==='admin'` 鉴权（含门店级角色覆盖）、按门店隔离、`read()` 暴露 `noticeRules`/`noticeRulesAudit`。
+
+共享来源：`pms/src/demo-store.js` 新增 `noticeRuleKinds`、`cleanNoticeRules`、`escalateSeverity`，`seed()` 带 `noticeRules: []`，`apply()` 接受 `notice_rule_save` 并用同一组常量重算级别；`pms/web/workspace-ui.js` 第三个面板（规则表单、升级标记、审计表、三语词条）、`pms/web/app.js` 表单提交、`pms/web/workspace.css` 数字输入样式。改动 7 个既有文件，无新增运行时模块。
+
+验证：Node 348/348、Python 5/5、16 个 DOM 脚本、38 个运行时 JS 语法检查全通过。线上外部实见：`/healthz` 200、`web/workspace-ui.js` 含 `notice-rule-form` / `noticeRuleTitle` / `data-notice-rule-at-least` / `noticeRuleEscalated`、`web/app.js` 含 `notice_rule_save` / `noticeRules`、`src/demo-store.js` 含 `noticeRuleKinds` / `cleanNoticeRules` / `escalateSeverity`、12 个 `app.js` 导入模块与 2 个 `workspace-ui.js` 的 `src/` 导入全 200、公开站点 CSP 仍 `default-src 'none'`。`/server/store.js` 404，后端新表/命令/magnitude 属**部署重启推断**，需主机 `grep -c notice_rules_audit /opt/jovian-pms-test/current/server/store.js` 佐证。
 
 ## 本批新增（2026-11-04，d879ec1）
 
