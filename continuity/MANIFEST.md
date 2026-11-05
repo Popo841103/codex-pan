@@ -134,7 +134,7 @@
 
 GitHub 对应提交：代码 `546e331`、交接文档 `d9cc9df`，分支 `jovian-pms-test`；已部署并线上核验。`/workspace/JOVIAN-PMS-archive-2026-11-04-P6.zip` 是同一份快照的本地副本（排除 `.git`、依赖目录、数据库导出与凭据）。
 
-## 八、上一批镜像（2026-11-04，代码 `b4754fc`，待第九节镜像完成后取代）
+## 八、上一批镜像（2026-11-04，代码 `b4754fc`，已被第九节取代）
 
 父文件夹「JOVIAN PMS 续写档案」：https://www.workbuddy.cn/space/d/gNlfjv1toVvAtB2qSIvW7k
 
@@ -156,3 +156,26 @@ GitHub 对应提交：代码 `546e331`、交接文档 `d9cc9df`，分支 `jovian
 | 完整源码快照 zip（最新 b4754fc，944 KB / 203 文件） | https://www.workbuddy.cn/space/d/YuwBtUqz2DuH3gXwALjLer |
 
 GitHub 对应提交：代码 `b4754fc`、交接与归档文档 `1226c81`，分支 `jovian-pms-test`；代码已部署并线上核验。`/workspace/JOVIAN-PMS-archive-2026-11-04-P8.zip` 是同一份快照的本地副本（`git archive` 导出，排除 `.git`、依赖目录、数据库导出与凭据）。
+
+## 九、当前最新镜像（2026-11-04，代码 `4baad16`）
+
+父文件夹「JOVIAN PMS 续写档案」：https://www.workbuddy.cn/space/d/gNlfjv1toVvAtB2qSIvW7k
+
+**本批最新镜像子文件夹「最新状态 · 代码 4baad16（2026-11-04）」：https://www.workbuddy.cn/space/d/apccLn3bY6tRyHaB3g3lwv**
+
+第八节与更早的同名文档是历史快照，不要用来判断当前进度；以本节镜像或 GitHub `git log -1` 为准。该子文件夹共 10 个节点（9 份文档 + 1 份源码快照 zip）：
+
+| 文档 | 链接 |
+|---|---|
+| 资料库最新镜像导航（最新 4baad16） | https://www.workbuddy.cn/space/d/0N8MAJCSuHfQbgazzQBM3m |
+| 续写入口（最新 4baad16） | https://www.workbuddy.cn/space/d/o0Ya67epAVnlp1X40cHl4d |
+| 项目状态与续写地图（最新 4baad16） | https://www.workbuddy.cn/space/d/BlDORcuTYnZURct1ue3r4t |
+| 自主连续推进记录（最新 4baad16） | https://www.workbuddy.cn/space/d/XkQvc6ShwKLzTV2XzaRdvy |
+| 会话上下文重建（最新 4baad16） | https://www.workbuddy.cn/space/d/AhCaD9rn0Y34Gentau8CsQ |
+| 验证与发布核验清单（最新 4baad16） | https://www.workbuddy.cn/space/d/yfPgW4sq7BbecIo6JLheRg |
+| 归档内容清单（最新 4baad16） | https://www.workbuddy.cn/space/d/dBwcHztGwanm4u1UvsuFsg |
+| WORKBUDDY-HANDOFF 逐批交接（最新 4baad16） | https://www.workbuddy.cn/space/d/ARqRhsRaHTst62nxkgl5N1 |
+| 当前状态索引（最新 4baad16） | https://www.workbuddy.cn/space/d/9sZI1m9pwL9874KdspW3DK |
+| 完整源码快照 zip（最新 4baad16，962 KB / 207 文件） | https://www.workbuddy.cn/space/d/tvS8tkQ2BgI2bWA78X8bEy |
+
+GitHub 对应提交：代码 `4baad16`、交接与归档文档 `b5f1a5e`，分支 `jovian-pms-test`；代码已部署并线上核验。`/workspace/JOVIAN-PMS-archive-2026-11-04-P10.zip` 是同一份快照的本地副本（`git archive` 导出，排除 `.git`、依赖目录、数据库导出与凭据）。

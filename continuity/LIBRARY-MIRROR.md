@@ -35,11 +35,13 @@
 
 **开放试用注册**：用户要求「做一版本任何人都能试用的，可以对外的系统」。公开无脚本 `/signup` 页（三语、蜜罐、每 IP 5 次/15 分钟限流）让任何人一步创建账号 + 一个真正空白的门店（延续 P8「零库存手填」）；trial 账号被服务端封锁在单一门店内——不能再建店、受邀成员继承同样限制、全局上限 500 个试用账号保护共享测试库。页面明示数据在测试服务上、勿录真实客人资料。全量回归 Node 402/402、Python 5/5、18 DOM。
 
-**注意：本文件所在镜像子文件夹对应代码 `b4754fc`，尚未包含 P10。** `b4754fc` 的镜像链接表见 `continuity/MANIFEST.md` 第八节；P10 的镜像上传后，MANIFEST 会新增第九节。旧镜像（`w1TNESL6MOHTBlX5eqC8vb` 对应 `546e331`、`pusBqavOwyeJ6buww4QxKe` 对应 `0ad964c`、以及更早停在 `2792aec` 的同名文档）均为历史快照。
+`b4754fc` 一批（新建门店零库存 + 佣金历史）的镜像链接表见 `continuity/MANIFEST.md` 第八节。旧镜像（`w1TNESL6MOHTBlX5eqC8vb` 对应 `546e331`、`pusBqavOwyeJ6buww4QxKe` 对应 `0ad964c`、以及更早停在 `2792aec` 的同名文档）均为历史快照。
 
 ## 上一批（P7 / P8，`b4754fc`）
 
-**当前最新镜像子文件夹「最新状态 · 代码 b4754fc（2026-11-04）」：https://www.workbuddy.cn/space/d/CEBUQhP3DroIVyimPVKomD**（共 10 个节点：9 份文档 + 1 份源码快照 zip）。完整节点链接表见 `continuity/MANIFEST.md` 第八节。旧镜像（`w1TNESL6MOHTBlX5eqC8vb` 对应 `546e331`、`pusBqavOwyeJ6buww4QxKe` 对应 `0ad964c`、以及更早停在 `2792aec` 的同名文档）均为历史快照，不要用来判断当前进度。
+**当前最新镜像子文件夹「最新状态 · 代码 4baad16（2026-11-04）」：https://www.workbuddy.cn/space/d/apccLn3bY6tRyHaB3g3lwv**（共 10 个节点：9 份文档 + 1 份源码快照 zip）。完整节点链接表见 `continuity/MANIFEST.md` 第九节。旧镜像（`CEBUQhP3DroIVyimPVKomD` 对应 `b4754fc`、`w1TNESL6MOHTBlX5eqC8vb` 对应 `546e331`、`pusBqavOwyeJ6buww4QxKe` 对应 `0ad964c`、以及更早停在 `2792aec` 的同名文档）均为历史快照，不要用来判断当前进度。
+
+本文件夹内的「资料库最新镜像导航」「归档内容清单」两份正是指向这个 `4baad16` 子文件夹的说明页。
 
 本文件夹内的「资料库最新镜像导航」「归档内容清单」两份正是指向这个 `b4754fc` 子文件夹的说明页。
 
