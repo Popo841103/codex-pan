@@ -52,6 +52,9 @@ const nextDay = d => new Date(Date.parse(`${d}T00:00:00Z`)+86400000).toISOString
 function errorText(error) { const map = { dirty:'dirtyError', date:'dateError', guest:'guestError', amount:'amountError', refund:'refundError' }; return t(map[error.message] || (words[lang][error.message] ? error.message : 'conflict')); }
 async function refreshShared(){
   state=await backend.state();
+  // The catalog page hides its create-property panel for a trial account; the server
+  // refuses the command for that origin anyway, so this is display only.
+  try{window.__pmsUserOrigin=backend.user?.origin||'staff';}catch{}
   // A fresh installation has no property at all. That is a state to show, not an
   // access failure: throwing here would leave the administrator unable to reach the
   // control that creates the first property.
@@ -425,9 +428,9 @@ $('#content').addEventListener('click',e=>{
 });
 
 for(const [language,values] of Object.entries({
-zh:{login:'登录 JOVIAN',username:'账号',password:'密码',loginButton:'登录',logout:'退出登录',refresh:'刷新共享数据',shared:'共享开发模式',sharedFooter:'测试数据库保存 · 未连接生产渠道或门锁',credentials:'账号或密码不正确。',forbidden:'没有此门店或操作的权限。',login_required:'会话已过期，请重新登录。',stale_revision:'其他操作员已更新数据，已刷新，请核对后重新操作。',inventory_conflict:'库存冲突：无法满足分区、同房或连续住宿要求。',rate_limited:'登录尝试过多，请15分钟后重试。',csrf:'会话校验失败，请重新登录。',connection:'服务连接失败，请检查服务后重试。',busy:'正在保存，请稍候。',emptyAccess:'账号未分配门店，请联系管理员。',uncertain:'上次保存结果待确认，请保持原内容重试或核对记录，勿重复录入收付款。',date_range:'住宿或停用日期需有效，且每次不超过366晚。'},
-en:{login:'Sign in to JOVIAN',username:'Username',password:'Password',loginButton:'Sign in',logout:'Sign out',refresh:'Refresh shared data',shared:'Shared development mode',sharedFooter:'Test database · No live channels or locks',credentials:'Invalid username or password.',forbidden:'Property or action not permitted.',login_required:'Session expired. Sign in again.',stale_revision:'Another operator updated this property. Refreshed; review and retry.',inventory_conflict:'Inventory constraints cannot be satisfied.',rate_limited:'Too many attempts. Retry in 15 minutes.',csrf:'Session check failed. Sign in again.',connection:'Connection failed. Check the server and retry.',busy:'Saving. Please wait.',emptyAccess:'No assigned property. Contact the administrator.',uncertain:'Previous save is uncertain. Retry unchanged or verify records before recording another payment.',date_range:'Use valid dates, up to 366 nights per operation.'},
-ms:{login:'Log masuk JOVIAN',username:'Nama pengguna',password:'Kata laluan',loginButton:'Log masuk',logout:'Log keluar',refresh:'Muat semula data kongsi',shared:'Mod pembangunan berkongsi',sharedFooter:'Pangkalan data ujian · Tiada saluran atau kunci sebenar',credentials:'Nama pengguna atau kata laluan salah.',forbidden:'Hartanah atau tindakan tidak dibenarkan.',login_required:'Sesi tamat. Log masuk semula.',stale_revision:'Data dikemas kini oleh staf lain. Semak dan cuba semula.',inventory_conflict:'Syarat inventori tidak dapat dipenuhi.',rate_limited:'Terlalu banyak cubaan. Cuba selepas 15 minit.',csrf:'Semakan sesi gagal. Log masuk semula.',connection:'Sambungan gagal. Semak pelayan dan cuba semula.',busy:'Sedang menyimpan. Sila tunggu.',emptyAccess:'Tiada hartanah ditetapkan. Hubungi pentadbir.',uncertain:'Simpanan belum pasti. Cuba semula tanpa ubah atau semak rekod sebelum bayaran lain.',date_range:'Gunakan tarikh sah sehingga 366 malam setiap tindakan.'}
+zh:{login:'登录 JOVIAN',username:'账号',password:'密码',loginButton:'登录',logout:'退出登录',refresh:'刷新共享数据',shared:'共享开发模式',sharedFooter:'测试数据库保存 · 未连接生产渠道或门锁',credentials:'账号或密码不正确。',forbidden:'没有此门店或操作的权限。',login_required:'会话已过期，请重新登录。',stale_revision:'其他操作员已更新数据，已刷新，请核对后重新操作。',inventory_conflict:'库存冲突：无法满足分区、同房或连续住宿要求。',rate_limited:'登录尝试过多，请15分钟后重试。',csrf:'会话校验失败，请重新登录。',connection:'服务连接失败，请检查服务后重试。',busy:'正在保存，请稍候。',emptyAccess:'账号未分配门店，请联系管理员。',signupDone:'注册成功，请登录试用账号：',signupDoneStore:'注册成功，请登录；你的门店代码是：',uncertain:'上次保存结果待确认，请保持原内容重试或核对记录，勿重复录入收付款。',date_range:'住宿或停用日期需有效，且每次不超过366晚。'},
+en:{login:'Sign in to JOVIAN',username:'Username',password:'Password',loginButton:'Sign in',logout:'Sign out',refresh:'Refresh shared data',shared:'Shared development mode',sharedFooter:'Test database · No live channels or locks',credentials:'Invalid username or password.',forbidden:'Property or action not permitted.',login_required:'Session expired. Sign in again.',stale_revision:'Another operator updated this property. Refreshed; review and retry.',inventory_conflict:'Inventory constraints cannot be satisfied.',rate_limited:'Too many attempts. Retry in 15 minutes.',csrf:'Session check failed. Sign in again.',connection:'Connection failed. Check the server and retry.',busy:'Saving. Please wait.',emptyAccess:'No assigned property. Contact the administrator.',signupDone:'Signed up. Sign in with your trial account:',signupDoneStore:'Signed up. Sign in; your store code is:',uncertain:'Previous save is uncertain. Retry unchanged or verify records before recording another payment.',date_range:'Use valid dates, up to 366 nights per operation.'},
+ms:{login:'Log masuk JOVIAN',username:'Nama pengguna',password:'Kata laluan',loginButton:'Log masuk',logout:'Log keluar',refresh:'Muat semula data kongsi',shared:'Mod pembangunan berkongsi',sharedFooter:'Pangkalan data ujian · Tiada saluran atau kunci sebenar',credentials:'Nama pengguna atau kata laluan salah.',forbidden:'Hartanah atau tindakan tidak dibenarkan.',login_required:'Sesi tamat. Log masuk semula.',stale_revision:'Data dikemas kini oleh staf lain. Semak dan cuba semula.',inventory_conflict:'Syarat inventori tidak dapat dipenuhi.',rate_limited:'Terlalu banyak cubaan. Cuba selepas 15 minit.',csrf:'Semakan sesi gagal. Log masuk semula.',connection:'Sambungan gagal. Semak pelayan dan cuba semula.',busy:'Sedang menyimpan. Sila tunggu.',emptyAccess:'Tiada hartanah ditetapkan. Hubungi pentadbir.',signupDone:'Berjaya daftar. Log masuk dengan akaun percubaan anda:',signupDoneStore:'Berjaya daftar. Log masuk; kod kedai anda:',uncertain:'Simpanan belum pasti. Cuba semula tanpa ubah atau semak rekod sebelum bayaran lain.',date_range:'Gunakan tarikh sah sehingga 366 malam setiap tindakan.'}
 }))Object.assign(words[language],values);
 function showLogin(){
   document.body.classList.add('auth-pending');
@@ -687,6 +690,16 @@ $('#content').addEventListener('click',event=>{const button=event.target.closest
 for(const language of Object.keys(words))Object.assign(words[language],financialWords[language]);
 async function boot(){
   calendarDate=localDay(new Date().toISOString());$('#date').value=calendarDate;
+  // A trial signup lands here after a redirect from the plain form: the account and its
+  // empty store already exist, so the login dialog just needs to say so.
+  const params=new URLSearchParams(window.location?.search||'');
+  if(params.get('signup')){
+    try{
+      const key=params.get('store')?'signupDoneStore':'signupDone';
+      $('#login-error').textContent=(words[lang]?.[key]||'')+' '+params.get('signup')+(params.get('store')?` (${params.get('store')})`:'');
+    }catch{}
+    window.history?.replaceState(null,'',window.location.pathname);
+  }
   try{
     await backend.connect();
     if(backend.shared){

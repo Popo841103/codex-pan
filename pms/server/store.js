@@ -137,6 +137,11 @@ export class Store {
     const requestColumns=this.db.prepare('PRAGMA table_info(booking_requests)').all().map(c=>c.name);
     if(!requestColumns.includes('rooms'))this.db.exec('ALTER TABLE booking_requests ADD COLUMN rooms INTEGER NOT NULL DEFAULT 1');
     if(!requestColumns.includes('withdrawn_at'))this.db.exec('ALTER TABLE booking_requests ADD COLUMN withdrawn_at TEXT');
+    // Self-serve signups must never be able to grow past one store, but they are still
+    // administrators of their own property. The origin column marks where an account
+    // came from without inventing a new role or rebuilding the users table.
+    if(!this.db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='origin'))
+      this.db.exec("ALTER TABLE users ADD COLUMN origin TEXT NOT NULL DEFAULT 'staff'");
     this.support=new SupportDesk(this);
     this.guest=new GuestMessages(this,messagesAdapter);
     this.checkin=new SelfCheckin(this,selfCheckin);
@@ -227,7 +232,7 @@ export class Store {
     const ids=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=? ORDER BY property_id').all(user.id).map(p=>p.property_id);
     const byProperty={};
     for(const id of ids)byProperty[id]=this.actionsFor(roles[id]||user.role);
-    return { id:user.id,username:user.username,role:user.role,allowedActions:this.actionsFor(user.role),
+    return { id:user.id,username:user.username,role:user.role,origin:user.origin||'staff',allowedActions:this.actionsFor(user.role),
       allowedActionsByProperty:byProperty,propertyRoles:roles,propertyIds:ids };
   }
   // Members are only visible to an administrator, and only inside the properties
@@ -262,6 +267,10 @@ export class Store {
   // many rooms a property sells.
   createProperty(actor,command,key,fingerprint){
     if(actor.role!=='admin')error(403,'forbidden');
+    // A trial account exists to try one store. Growing past it would turn the open
+    // signup into free multi-tenant hosting, so it is refused here where the session
+    // is already resolved, not merely hidden in the page.
+    if(actor.origin==='trial')error(403,'forbidden');
     const id=typeof command.newPropertyId==='string'?command.newPropertyId.trim():'';
     if(!/^[a-zA-Z0-9_-]{2,40}$/.test(id))error(400,'property_input');
     const name=typeof command.name==='string'?command.name.trim():'';
@@ -279,6 +288,35 @@ export class Store {
     const response={id,propertyId:id,revision:0};
     this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
     return response;
+  }
+  // A trial account is created by a stranger on the open internet, so it is validated
+  // here rather than by a session, and its powers stop at its own single property.
+  // The store is created with the same empty body as property_create: nothing is
+  // invented about how many rooms it has. The cap keeps the shared test database from
+  // being filled by a loop; reaching it is a service decision, not a user error.
+  static trialStoreCap = 500;
+  signup({username,password,propertyId,name}){
+    if(typeof username!=='string'||!/^[a-zA-Z0-9._-]{3,64}$/.test(username))error(400,'signup_input');
+    if(typeof password!=='string'||password.length<12||password.length>256)error(400,'password_length');
+    if(typeof propertyId!=='string'||!/^[a-zA-Z0-9_-]{2,40}$/.test(propertyId))error(400,'signup_input');
+    if(typeof name!=='string'||!name.trim()||name.trim().length>80)error(400,'signup_input');
+    const storeId=propertyId.trim(),storeName=name.trim();
+    if(this.db.prepare("SELECT COUNT(*) n FROM users WHERE origin='trial'").get().n>=Store.trialStoreCap)error(403,'signup_closed');
+    return this.transaction(()=>{
+      if(this.db.prepare('SELECT 1 FROM users WHERE username=?').get(username))error(409,'username_taken');
+      if(this.db.prepare('SELECT 1 FROM properties WHERE id=?').get(storeId))error(409,'property_exists');
+      const salt=randomBytes(16).toString('hex'),passwordHash=scryptSync(password,salt,64).toString('hex');
+      const userId=randomUUID();
+      this.db.prepare("INSERT INTO users (id,username,salt,password_hash,role,active,origin) VALUES(?,?,?,?,'admin',1,'trial')").run(userId,username,salt,passwordHash);
+      const body={version:1,properties:[{id:storeId,name:storeName}],resources:[],roomTypes:[],physicalRooms:[],ratePlans:[],rateCells:[],
+        orders:[],blocks:[],audit:[],notifications:[],noticeSettings:[],noticeRules:[],businessDate:null,
+        nightAudits:[],shiftTypes:[],handovers:[]};
+      this.db.prepare('INSERT INTO properties VALUES(?,0,?)').run(storeId,JSON.stringify(body));
+      this.db.prepare('INSERT INTO user_properties (user_id,property_id) VALUES(?,?)').run(userId,storeId);
+      this.db.prepare('INSERT INTO audit VALUES(?,?,?,?,?,?,?)').run(randomUUID(),storeId,userId,'property_create',new Date().toISOString(),0,
+        JSON.stringify({propertyId:storeId,name:storeName,createdBy:username,starterInventory:'empty',origin:'trial'}));
+      return {username,propertyId:storeId};
+    });
   }
   // Team access. This writes the user tables, not a property body, so it is handled
   // before the property reducer and never advances a property revision.
@@ -336,7 +374,9 @@ export class Store {
     if(!target){
       const salt=randomBytes(16).toString('hex'),passwordHash=scryptSync(password,salt,64).toString('hex');
       userId=randomUUID();
-      this.db.prepare('INSERT INTO users (id,username,salt,password_hash,role,active) VALUES(?,?,?,?,?,?)').run(userId,username,salt,passwordHash,role,active===false?0:1);
+      // A member created by a trial administrator inherits the trial origin, otherwise
+      // an invited "admin" could simply create a second property and defeat the cap.
+      this.db.prepare('INSERT INTO users (id,username,salt,password_hash,role,active,origin) VALUES(?,?,?,?,?,?,?)').run(userId,username,salt,passwordHash,role,active===false?0:1,actor.origin||'staff');
       for(const p of propertyIds)this.db.prepare('INSERT INTO user_properties (user_id,property_id) VALUES(?,?)').run(userId,p);
     }else{
       if(role!==null)this.db.prepare('UPDATE users SET role=? WHERE id=?').run(role,userId);

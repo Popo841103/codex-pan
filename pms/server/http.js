@@ -215,6 +215,46 @@ export function renderPropertySite({ site, availability, language, requested, er
    <footer><p>${escapeHtml(c.disclaimer)}</p><p class="muted">${escapeHtml(c.updated)} ${escapeHtml(String(site.updatedAt||'').slice(0,10))}</p></footer>
   </main></body></html>`;
 }
+// The trial signup page carries no script and posts an ordinary form, exactly like the
+// public property site. Its text lives here rather than in a new web/ file because the
+// release installer only refreshes files that already exist on the host.
+const signupCopy = {
+  zh:{title:'注册试用 JOVIAN PMS',intro:'注册即创建你自己的空白门店：房型、房号与床位全部由你自己录入，系统不预设任何房间。试用期数据保存在测试服务上，请勿录入真实客人资料。',username:'账号（字母、数字、点、下划线、连字符）',password:'密码（至少 12 位）',confirm:'再输一次密码',storeName:'门店名称',store:'门店代码（英文或数字，将用于系统内标识）',submit:'创建账号与门店',done:'账号已创建，请返回工作台登录：',back:'去登录',errors:{password_mismatch:'两次输入的密码不一致。',password_length:'密码至少需要 12 位。',signup_input:'请检查账号、门店代码或门店名称的格式。',username_taken:'该账号已被使用，请换一个。',property_exists:'该门店代码已存在，请换一个。',signup_closed:'试用名额已满，暂时停止注册。',signup_failed:'注册失败，请稍后重试。'}},
+  en:{title:'Sign up for a JOVIAN PMS trial',intro:'Signing up creates your own empty store: room types, room numbers and beds are all entered by you, and the system presets no count. Trial data lives on a test service; do not enter real guest data.',username:'Username (letters, digits, dot, underscore, hyphen)',password:'Password (at least 12 characters)',confirm:'Type the password again',storeName:'Store name',store:'Store code (letters or digits, used as its identifier)',submit:'Create account and store',done:'Account created. Sign in at the workspace:',back:'Go to sign in',errors:{password_mismatch:'The two passwords do not match.',password_length:'The password needs at least 12 characters.',signup_input:'Check the format of the username, store code or store name.',username_taken:'That username is taken. Choose another.',property_exists:'That store code exists. Choose another.',signup_closed:'The trial quota is full; registration is paused.',signup_failed:'Sign-up failed. Try again later.'}},
+  ms:{title:'Daftar percubaan JOVIAN PMS',intro:'Pendaftaran mencipta kedai kosong anda sendiri: jenis bilik, nombor bilik dan katil dimasukkan oleh anda, dan sistem tidak menetapkan sebarang bilangan. Data percubaan berada pada perkhidmatan ujian; jangan masukkan data tetamu sebenar.',username:'Nama pengguna (huruf, digit, titik, garis bawah, sempang)',password:'Kata laluan (sekurang-kurangnya 12 aksara)',confirm:'Taip kata laluan sekali lagi',storeName:'Nama kedai',store:'Kod kedai (huruf atau digit, menjadi pengecamnya)',submit:'Cipta akaun dan kedai',done:'Akaun dicipta. Log masuk di ruang kerja:',back:'Log masuk',errors:{password_mismatch:'Dua kata laluan tidak sepadan.',password_length:'Kata laluan memerlukan sekurang-kurangnya 12 aksara.',signup_input:'Semak format nama pengguna, kod kedai atau nama kedai.',username_taken:'Nama pengguna itu sudah diambil. Pilih yang lain.',property_exists:'Kod kedai itu sudah wujud. Pilih yang lain.',signup_closed:'Kuota percubaan penuh; pendaftaran dihentikan buat sementara.',signup_failed:'Pendaftaran gagal. Cuba lagi nanti.'}}
+};
+export function renderSignupPage({language='zh',error=null,done=false,values={}}={}) {
+  const lang=siteLanguages.includes(language)?language:'zh';
+  const c=signupCopy[lang];
+  const switcher=siteLanguages.map(l=>`<a href="/signup?lang=${l}"${l===lang?' class="on"':''}>${l==='zh'?'中文':l==='en'?'English':'Bahasa Melayu'}</a>`).join(' · ');
+  const message=done?`<p role="status" class="done">${c.done} <a href="/web/">${c.back}</a></p>`
+    :error&&c.errors[error]?`<p role="alert" class="error">${c.errors[error]}</p>`:'';
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${escapeHtml(c.title)}</title>
+  <style>body{font-family:system-ui,sans-serif;margin:0;background:#f4f6f9;color:#1c2733}
+  main{max-width:560px;margin:40px auto;padding:0 16px}
+  header h1{font-size:22px;margin:0 0 4px}.lang a{color:#123a5e;margin-right:4px}.lang a.on{font-weight:700;text-decoration:none}
+  section{background:#fff;border:1px solid #d8dee7;border-radius:8px;padding:20px;margin:16px 0}
+  label{display:block;margin:12px 0;font-size:14px}
+  input{display:block;width:100%;box-sizing:border-box;padding:9px;margin-top:4px;border:1px solid #c9d0da;border-radius:6px;font:inherit}
+  button{margin-top:8px;padding:10px 18px;background:#123a5e;color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
+  p{font-size:14px;line-height:1.5}.muted{color:#5a6675}.done{color:#1c5e2a;font-weight:600}.error{color:#8f2b2b;font-weight:600}
+  .hp{position:absolute;left:-9999px}</style></head><body><main>
+  <header><h1>${escapeHtml(c.title)}</h1><p class="lang">${switcher}</p></header>
+  ${message}
+  <section><p>${c.intro}</p>
+  <form method="post" action="/signup">
+   <label>${escapeHtml(c.username)}<input name="username" required maxlength="64" value="${escapeHtml(values.username||'')}"></label>
+   <label>${escapeHtml(c.password)}<input name="password" type="password" required minlength="12" maxlength="256" autocomplete="new-password"></label>
+   <label>${escapeHtml(c.confirm)}<input name="confirm" type="password" required minlength="12" maxlength="256" autocomplete="new-password"></label>
+   <label>${escapeHtml(c.storeName)}<input name="storeName" required maxlength="80" value="${escapeHtml(values.name||'')}"></label>
+   <label>${escapeHtml(c.store)}<input name="store" required maxlength="40" pattern="[A-Za-z0-9_-]{2,40}" value="${escapeHtml(values.propertyId||'')}"></label>
+   <p class="hp" aria-hidden="true"><label>Company<input name="company" tabindex="-1" autocomplete="off"></label></p>
+   <button type="submit">${escapeHtml(c.submit)}</button>
+  </form></section>
+  <p class="muted">JOVIAN PMS · TEST SERVICE</p>
+  </main></body></html>`;
+}
 export function validatePublicOrigin(value) {
   if(!value)return null;
   let parsed;try{parsed=new URL(value);}catch{throw new Error('PMS_PUBLIC_ORIGIN must be an HTTPS origin');}
@@ -254,6 +294,47 @@ export function makeServer(store, { publicOrigin, recovery = null } = {}) {
       if(req.method!=='GET'&&(req.headers.origin!==origin||req.headers['sec-fetch-site']==='cross-site'))throw new ServiceError(403,'origin');
       const url=new URL(req.url,origin), path=url.pathname;
       if(path==='/api/mode'&&req.method==='GET')return json(res,200,{mode:'shared-development',version:'0.10.0'});
+      // Open trial signup. The page is served from a template inside this module on
+      // purpose: the release installer only refreshes existing files, so a new runtime
+      // file would never reach the deployed host. Like the public site, the form posts
+      // with no script and no session, answers by redirect, and is rate limited per IP.
+      if(path==='/signup'&&req.method==='GET'){
+        res.setHeader('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+        res.setHeader('X-Robots-Tag','noindex');
+        const language=pickSiteLanguage(url.searchParams.get('lang'),req.headers['accept-language']);
+        res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
+        return res.end(renderSignupPage({language,error:url.searchParams.get('signupError'),done:url.searchParams.get('done')!==null,values:{username:url.searchParams.get('username')||'',propertyId:url.searchParams.get('store')||'',name:url.searchParams.get('storeName')||''}}));
+      }
+      if(path==='/signup'&&req.method==='POST'){
+        const now=Date.now();
+        for(const [key,value] of attempts)if(value.until<=now)attempts.delete(key);
+        const attemptKey='signup|'+req.socket.remoteAddress;
+        if(attempts.size>=10000&&!attempts.has(attemptKey))throw new ServiceError(429,'rate_limited');
+        const limit=attempts.get(attemptKey)||{count:0,until:now+15*60*1000};
+        if(limit.count>=5)throw new ServiceError(429,'rate_limited');
+        limit.count++;attempts.set(attemptKey,limit);
+        const language=pickSiteLanguage(url.searchParams.get('lang'),req.headers['accept-language']);
+        const data=await form(req);
+        const values={username:String(data.username||'').trim(),propertyId:String(data.store||'').trim(),name:String(data.storeName||'').trim()};
+        const back=extra=>`/signup?lang=${encodeURIComponent(language)}${extra}`;
+        // A filled honeypot is dropped without writing anything, exactly like the
+        // public booking form: the answer never reveals which check decided it.
+        if(String(data.company||'').trim())throw new ServiceError(429,'rate_limited');
+        let code=null;
+        if(String(data.password||'')!==String(data.confirm||''))code='password_mismatch';
+        else try{
+          const created=store.signup({username:values.username,password:String(data.password||''),propertyId:values.propertyId,name:values.name});
+          res.writeHead(303,{'Location':`/web/?signup=${encodeURIComponent(created.username)}&store=${encodeURIComponent(created.propertyId)}`,'Cache-Control':'no-store'});
+          return res.end();
+        }catch(e){
+          if(!(e instanceof ServiceError))throw e;
+          code=['signup_input','password_length','signup_closed','username_taken','property_exists'].includes(e.message)?e.message:'signup_failed';
+        }
+        res.writeHead(303,{'Location':back(`&signupError=${encodeURIComponent(code)}`+
+          `&username=${encodeURIComponent(values.username)}&store=${encodeURIComponent(values.propertyId)}`+
+          `&storeName=${encodeURIComponent(values.name)}`),'Cache-Control':'no-store'});
+        return res.end();
+      }
       if(path==='/api/account-recovery'&&req.method==='POST'){
         const attemptKey='recovery|'+req.socket.remoteAddress,now=Date.now();
         for(const [key,value] of attempts)if(value.until<=now)attempts.delete(key);

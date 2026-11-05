@@ -16,7 +16,10 @@ export function catalogPage(state, propertyId, language, t, can) {
   // plainly instead of showing three empty tables and leaving the operator to guess
   // whether something failed to load.
   const empty = !types.length && !rooms.length && !units.length;
-  const createPanel = `<section class="panel"><div class="panel-head"><h2>${t('newProperty')}</h2></div>
+  // A trial account exists to try one store, so the panel that creates another is
+  // not merely hidden: the server refuses the command for that origin anyway.
+  const trial = typeof window!=='undefined' && window.__pmsUserOrigin==='trial';
+  const createPanel = trial ? '' : `<section class="panel"><div class="panel-head"><h2>${t('newProperty')}</h2></div>
     <p class="muted">${t('newPropertyNote')}</p>
     <div class="form-row"><label>${t('newPropertyName')}<input id="new-property-name" maxlength="80" placeholder="${t('newPropertyNamePlaceholder')}"></label>
     <label>${t('newPropertyId')}<input id="new-property-id" maxlength="40" pattern="[A-Za-z0-9_-]{2,40}" placeholder="${t('newPropertyIdPlaceholder')}"></label></div>
