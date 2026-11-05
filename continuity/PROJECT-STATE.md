@@ -1,6 +1,6 @@
 # JOVIAN PMS · 项目状态与续写地图
 
-截至 2026-11-04，代码 `b4754fc`（佣金更正保留前后金额、新建门店从零开始、三处空门店 UI 缺陷修复），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **397/397**、Python **5/5**、DOM 流程 **17/17**、37 个运行时 JS 语法检查与部署 shell `bash -n` 通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。**自主推进队列 P1–P9 已收敛**，详见 `continuity/AUTONOMOUS-RUN.md`。
+截至 2026-11-04，代码 `4baad16`（开放试用注册：任何人可自建一个空白门店，严格隔离），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **402/402**、Python **5/5**、DOM 流程 **18/18**、37 个运行时 JS 语法检查与部署 shell `bash -n` 通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。**自主推进队列 P1–P10 已收敛**，详见 `continuity/AUTONOMOUS-RUN.md`。
 
 ## 系统是什么
 
@@ -47,6 +47,7 @@
 | 18 | `0ad964c` | **身份资料保存期限与显式清除**：门店保留天数、服务端 cut-off、仅管理员二次确认后清除、append-only 审计；`self-checkin.key` 纳入发布备份 |
 | 19 | `546e331` | **交班现金盘点与差异审批**：期望现金（收款减退款、押金单列）、可选实点、差异仅管理员带原因审批且原数不改 |
 | 20 | `b4754fc` | **佣金更正历史**（页面可见前后金额）+ **新建门店零库存**（`property_create`，仅 admin，全新门店无房型/房间/床位）+ 三处空门店 UI 缺陷修复 |
+| 21 | `4baad16` | **开放试用注册**：公开无脚本 `/signup` 页（三语、蜜罐、每 IP 5 次/15 分钟），一步创建账号+空白门店；trial origin 服务端封锁（不能再建店、受邀成员继承限制、全局上限 500） |
 
 每个批次通常伴随一条 `Record ... in the handoff` 文档提交，细节见 `WORKBUDDY-HANDOFF.md`。
 
@@ -139,6 +140,21 @@
 改动 4 个既有运行时文件（`pms/server/store.js`、`pms/web/app.js`、`pms/web/catalog-ui.js`、`pms/web/financial-ui.js`）与 `pms/src/demo-store.js`；新增 `pms/test/property-create.test.js`（10 例）与 `pms/verification/dom-empty-property.mjs`。Node 397/397、Python 5/5、17 个 DOM 脚本、37 个运行时 JS 语法、部署 shell 语法全通过。
 
 线上外部实见：`/healthz` 200；`web/catalog-ui.js` 含 `newPropertySave` / `catalogEmptyNote` / 新 `catalogNote`，`web/app.js` 含 `property_create` / `new-property-save` / `const noScope`，`web/financial-ui.js` 含 `commissionHistory` / `commissionHistoryNote`；14 个 `/web/*` 模块全 200；公开站点 CSP 不变；`/server/store.js` 仍 404。后端命令、`noPropertyYet` 与 `starterInventory` 属**部署重启推断**，需主机 `grep -c property_create /opt/jovian-pms-test/current/server/store.js` 等佐证。
+
+## 本批新增（2026-11-04，4baad16）
+
+开放试用注册（用户指令：「门店要自己添加的，就是做一版本任何人都能试用的，可以对外的系统」，并经确认卡选定为：开放注册即时可用、严格隔离、先上测试站、基础防护）。实现要点：
+
+- **`GET /signup`**：公开无脚本 HTML 表单（用户名、密码两次、门店名称、门店代码、蜜罐字段），CSP 与公开站点一致（`default-src 'none'`、`form-action 'self'`、`noindex`），三语页面文案写在 `server/http.js` 内（发布器不安装新运行时文件）。`POST /signup` 无会话收表单、PRG 重定向，成功落 `/web/?signup=<名>&store=<代码>`，登录弹层三语提示注册成功。
+- **`Store.signup()`**：校验用户名/密码（12–256）/门店代码/名称，重名 409 `username_taken`、重码 409 `property_exists`；事务内写用户（`role:'admin'`、scrypt、`origin:'trial'`）+ `revision 0` 空门店 body + 授权 + append-only `property_create` 审计（`starterInventory:'empty'`、`origin:'trial'`）。
+- **隔离靠 origin 列**：守卫式 `ALTER TABLE users ADD COLUMN origin DEFAULT 'staff'`（不重建表）。`createProperty()` 对 `origin==='trial'` 直接 403；`saveMember()` 新建成员继承 actor 的 origin（受邀「admin」不能绕过上限）；全局上限 `Store.trialStoreCap=500`，超出 403 `signup_closed`。员工账号完全不受影响（既有 property_create 测试原样通过）。
+- **隔离走常规授权链**：trial 的 `user_properties` 只有自己门店，`authorize()` / `visibleMembers()` / 全部 scope 检查原样生效。
+- **防滥用沿用公开站点模式**：每 IP 15 分钟 5 次（成功、蜜罐、密码不一致都计数）、蜜罐命中按 `rate_limited` 应答不泄露判定原因、密码不一致带 `signupError=password_mismatch` 回显已填字段；无第三方验证码、无邮件验证（无邮件通道，不伪造）。
+- 页面对 trial 隐藏建店面板（`catalog-ui.js` 读 `window.__pmsUserOrigin`），服务端反正会拒绝——展示层只是礼貌。
+
+改动 4 个既有运行时文件（`server/store.js`、`server/http.js`、`web/app.js`、`web/catalog-ui.js`）；新增 `pms/test/trial-signup.test.js`（5 例）与 `pms/verification/dom-trial-signup.mjs`。Node 402/402、Python 5/5、18 DOM、37 运行时 JS 语法、部署 shell 语法全通过。
+
+线上外部实见：`/healthz` 200；`GET /signup` 200、CSP `default-src 'none'`、`X-Robots-Tag: noindex`、含 username/store/company 字段且零 `<script>`；`web/app.js` 含 `signupDone`/`signupDoneStore`/`window.__pmsUserOrigin`，`web/catalog-ui.js` 含 `__pmsUserOrigin`；`/api/signup` 不存在（403，注册走表单路由）；`/server/store.js` 仍 404。**刻意没有在线上真实注册试用账号**——不向共享测试库写未被要求的垃圾数据。后端 `Store.signup()`、origin 迁移、trial 拒绝、成员继承与 500 上限属**部署重启推断**，需主机 `grep -c signup_closed /opt/jovian-pms-test/current/server/store.js` 等佐证。踩坑：`app.js` boot 里裸用 `location`/`history` 让其余 17 个 DOM 脚本全崩（jsdom outside-only 无此全局），改为 `window.location`/`window.history` 可选链后恢复。
 
 ## 部署与证据边界
 

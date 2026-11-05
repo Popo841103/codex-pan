@@ -6,7 +6,7 @@
 
 - 仓库：`Popo841103/codex-pan`（私有）
 - 分支：`jovian-pms-test`
-- 本清单写于 `ba64db0` 时期，只记录当时的归档快照；**后续批次不改写本行**，以仓库 `git log -1` 与 `continuity/PROJECT-STATE.md` / `WORKBUDDY-HANDOFF.md` 为准（截至 2026-11-04 代码为 `b4754fc`，Node 397/397）。
+- 本清单写于 `ba64db0` 时期，只记录当时的归档快照；**后续批次不改写本行**，以仓库 `git log -1` 与 `continuity/PROJECT-STATE.md` / `WORKBUDDY-HANDOFF.md` 为准（截至 2026-11-04 代码为 `4baad16`，Node 402/402）。
 - 归档目录：`continuity/`
 - 线上测试服务：`https://pms.jovianhome.com`
 
@@ -134,7 +134,7 @@
 
 GitHub 对应提交：代码 `546e331`、交接文档 `d9cc9df`，分支 `jovian-pms-test`；已部署并线上核验。`/workspace/JOVIAN-PMS-archive-2026-11-04-P6.zip` 是同一份快照的本地副本（排除 `.git`、依赖目录、数据库导出与凭据）。
 
-## 八、当前最新镜像（2026-11-04，代码 `b4754fc`）
+## 八、上一批镜像（2026-11-04，代码 `b4754fc`，待第九节镜像完成后取代）
 
 父文件夹「JOVIAN PMS 续写档案」：https://www.workbuddy.cn/space/d/gNlfjv1toVvAtB2qSIvW7k
 

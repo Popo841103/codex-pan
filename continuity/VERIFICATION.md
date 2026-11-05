@@ -13,7 +13,7 @@ bash -n deploy/ci/setup-server.sh
 bash -n deploy/ci/receive-release.sh
 ```
 
-当前基线（2026-11-04，`b4754fc`）：Node **397/397**，Python **5/5**，**17** 个 DOM 脚本，37 个运行时 JS 语法检查，部署 shell `bash -n`。改 `deploy/update-vultr-test.sh` 后必须同步 `deploy/ci/BOOTSTRAP.txt` 内嵌的 base64+gzip 副本与 SHA-256（`test_release_archive.py` 会拦截不同步，否则新服务器会装回旧脚本）；重生成用确定性 gzip：`gzip.compress(data, compresslevel=9, mtime=0)`。
+当前基线（2026-11-04，`4baad16`）：Node **402/402**，Python **5/5**，**18** 个 DOM 脚本，37 个运行时 JS 语法检查，部署 shell `bash -n`。改 `deploy/update-vultr-test.sh` 后必须同步 `deploy/ci/BOOTSTRAP.txt` 内嵌的 base64+gzip 副本与 SHA-256（`test_release_archive.py` 会拦截不同步，否则新服务器会装回旧脚本）；重生成用确定性 gzip：`gzip.compress(data, compresslevel=9, mtime=0)`。
 
 ## 可选的 DOM 流程验证
 
@@ -30,7 +30,7 @@ dom-workflows.mjs  dom-financial.mjs  dom-comparison.mjs  dom-settlement.mjs
 dom-rates.mjs  dom-night-audit.mjs  dom-manager-report.mjs  dom-accommodation.mjs
 dom-extra-penalty.mjs  dom-occupancy.mjs  dom-team-access.mjs  dom-property-site.mjs
 dom-data-cleanup.mjs  dom-booking-requests.mjs  dom-notifications.mjs
-dom-empty-property.mjs  communications-dom.mjs
+dom-empty-property.mjs  dom-trial-signup.mjs  communications-dom.mjs
 ```
 
 DOM 脚本是**进程内 jsdom + 合成 provider / 合成设备**，不等于真机 Edge、手机扫码、真实门锁或与供应商的联调验收。
@@ -146,3 +146,27 @@ grep -c noPropertyYet /opt/jovian-pms-test/current/server/store.js
 ```
 
 页面行为由 `verification/dom-empty-property.mjs` 在进程内 jsdom + 真实 in-process HTTP 驱动：全新安装 → 打开设置 → 页上创建 `COHUB-KL` → 切换门店 → 手填两个房型、一间大床房与一间三床宿舍 → 断言 4 个销售单位与待清洁状态。**不是公网浏览器验收**，也没有在线上新建过真实门店。
+
+## P10 外部核验清单（2026-11-04，`4baad16`）
+
+推送后轮询 `web/app.js` 出现 `signupDone` 即视为部署完成，以下为实见结果：
+
+| 检查 | 结果 | 等级 |
+|---|---|---|
+| `GET /healthz` | 200 `{"ok":true,"service":"jovian-pms","data":"test-only"}` | 外部实见 |
+| `GET /signup` | 200；CSP `default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`；`X-Robots-Tag: noindex`；含 `name="username"` / `name="store"` / `name="company"` 字段；零 `<script>` 标签 | 外部实见 |
+| `web/app.js` | `signupDone` / `signupDoneStore` / `window.__pmsUserOrigin` 等命中 | 外部实见 |
+| `web/catalog-ui.js` | `__pmsUserOrigin` 命中 | 外部实见 |
+| `POST /api/signup` | 403（注册走 `/signup` 表单路由，无 `/api/signup`） | 外部实见 |
+| `GET /server/store.js` | 404（后端文件不对外提供） | 外部实见 |
+| `Store.signup()`、`origin` 迁移、trial 拒绝、成员继承、500 上限 | 只能靠发布重启推断 | 推断 |
+
+主机佐证命令：
+
+```bash
+grep -c "origin='trial'" /opt/jovian-pms-test/current/server/store.js
+grep -c signup_closed /opt/jovian-pms-test/current/server/store.js
+grep -c renderSignupPage /opt/jovian-pms-test/current/server/http.js
+```
+
+页面行为由 `verification/dom-trial-signup.mjs` 在进程内 jsdom + 真实 in-process HTTP 驱动：公开页 → 无脚本表单注册 → 登录 → 空白设置页 → 服务端以 403 拒绝第二家门店。**刻意没有在线上服务真实注册试用账号**——不向共享测试库写入未被要求的账号。
