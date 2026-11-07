@@ -3,7 +3,7 @@ import {rateAvailability} from '../src/rate-availability.js';
 import {previewCancellation} from '../src/cancellation-policy.js';
 import {rateCalendar} from './rate-calendar.js';
 import {countryOptions,languageOptions} from './guest-locales.js';
-import {financialPage,financialWords,renderFolioHistory,comparisonPage,managerReportPage,guestLedgerPage,roomChargePage,roomBusinessPage,roomMovementPage,extraChargePage,cancellationPenaltyPage,roomOccupantPage,registrationRecordPage,commissionPage,arLedgerPage,arPostForm} from './financial-ui.js';
+import {financialPage,financialWords,renderFolioHistory,comparisonPage,managerReportPage,guestLedgerPage,roomChargePage,roomBusinessPage,roomMovementPage,extraChargePage,cancellationPenaltyPage,roomOccupantPage,registrationRecordPage,commissionPage,arLedgerPage,arPostForm,arReportsPage} from './financial-ui.js';
 import {filterOrders,orderTabs} from '../src/order-filters.js';
 import {settlementStatus,columns,columnsWords,defaultColumns,loadColumns,saveColumns,columnLabel,renderOrderTable} from './order-columns.js';
 import {icon,shellWords,navigation,customersPage,channelsPage,nightAuditWords,nightAuditPage,handoverWindow,teamAccessPage,teamWords,propertySitePage,siteWords,bookingRequestsPage,requestWords,notificationsPage,noticeWords,dataMaintenancePage,cleanupWords} from './workspace-ui.js';
@@ -146,7 +146,7 @@ function render() {
   const stat = (label,n,sub) => `<div class="stat"><span>${t(label)}</span><strong>${n}</strong><small>${escape(sub)}</small></div>`;
   const stats = `<div class="stats">${stat('total',resources.length,t('salesAlternatives'))}${stat('booked',active.length,date)}${stat('available',available,t('salesAlternatives'))}${stat('unassigned',orders.filter(o=>o.status==='confirmed'&&!isBoxed(o)&&!o.resourceId).length,t('allocation'))}</div>`;
   if(view==='home') { const scoped=nightAuditState();$('#content').innerHTML=dashboardPage(state,propertyId,date,lang,t,currency,can,{items:homeShortcuts(),memoText:memoDrafts.get(propertyId),businessDate:scoped.businessDate,lastAudit:(scoped.nightAudits||[]).slice().sort((a,b)=>b.at.localeCompare(a.at))[0]||null}); }
-  else if(['business','cashflow','comparison','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission','arLedger'].includes(view)) { $('#content').innerHTML=financialSummary(view); }
+  else if(['business','cashflow','comparison','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission','arLedger','arReports'].includes(view)) { $('#content').innerHTML=financialSummary(view); }
   else if(view==='nightAudit') { $('#content').innerHTML=nightAuditPage(nightAuditState(),propertyId,{t,escape,currency,can,lang}); }
   else if(view==='customers') { $('#content').innerHTML=customersPage(state,propertyId,t,escape,customerQuery); }
   else if(view==='channels') { $('#content').innerHTML=channelsPage(t,escape,channelProperty===propertyId?channelProvider:null,can)+`<button data-rates-open>${rateLabel('房价管理','Rate management','Pengurusan kadar')}</button>`; }
@@ -526,6 +526,10 @@ function reservationList(){
 const financeFilters=new Map();
 const arSelection=new Map();
 function financialSummary(kind){
+ if(kind==='arReports'){
+  const date=state.businessDates?.[propertyId]||businessDate();
+  return arReportsPage(state,{propertyId,from:date.slice(0,7)+'-01',to:date,...financeFilters.get(propertyId+'|'+kind),t,currency,can});
+ }
  if(kind==='arLedger')return arLedgerPage(state,{propertyId,selected:arSelection.get(propertyId),t,currency,can});
  const key=propertyId+'|'+kind;
  if(kind==='managerDaily'||kind==='guestLedger'){
@@ -554,7 +558,7 @@ function financialSummary(kind){
  return financialPage(state,{kind,propertyId,...filters,sources:sourceValues,lang,t,currency});
 }
 $('#content').addEventListener('change',event=>{const field=event.target.dataset.financeFilter;
-if(!field||!['from','to','date','source','dimension','movement','basis','transactionKind','method','operator','currentFrom','currentTo','monthFrom','monthTo','yearFrom','yearTo'].includes(field))return;const key=propertyId+'|'+view;const filters=financeFilters.get(key)||{from:businessDate(),to:businessDate(),source:'all'};financeFilters.set(key,{...filters,[field]:event.target.value});render();});
+if(!field||!['from','to','date','source','dimension','movement','basis','transactionKind','method','operator','arReport','currentFrom','currentTo','monthFrom','monthTo','yearFrom','yearTo'].includes(field))return;const key=propertyId+'|'+view;const date=view==='arReports'?(state.businessDates?.[propertyId]||businessDate()):businessDate();const filters=financeFilters.get(key)||{from:view==='arReports'?date.slice(0,7)+'-01':date,to:date,source:'all'};financeFilters.set(key,{...filters,[field]:event.target.value});render();});
 
 
 // Team access. A new member and a change to an existing one go through the same

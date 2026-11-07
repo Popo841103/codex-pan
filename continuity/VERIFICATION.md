@@ -208,3 +208,7 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 ### AR 应收核验
 
 运行 `node --test test/ar-ledger.test.js` 及 `node verification/dom-ar-ledger.mjs node_modules/jsdom/lib/api.js`。部署后检查 `curl -fsS https://pms.jovianhome.com/healthz`、`curl -fsS https://pms.jovianhome.com/web/financial-ui.js | grep arLedgerPage`。主机佐证 `grep -n arEventId /opt/jovian-pms-test/current/server/store.js` 与 `grep -n changeReceivables /opt/jovian-pms-test/current/src/demo-store.js`。
+
+### AR 八张报表
+
+运行 `node --test test/ar-reports.test.js` 和 `node verification/dom-ar-ledger.mjs node_modules/jsdom/lib/api.js`。公网核验 `curl -fsS https://pms.jovianhome.com/healthz`、`curl -fsS https://pms.jovianhome.com/web/financial-ui.js | grep arReportsPage` 和 `curl -fsS https://pms.jovianhome.com/src/financial-reports.js | grep receivableReports`。本批未修改 server/store.js，底账部署可在主机 `grep -n arEventId /opt/jovian-pms-test/current/server/store.js` 佐证。

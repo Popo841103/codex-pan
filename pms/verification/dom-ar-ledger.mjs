@@ -53,6 +53,20 @@ try {
  set('[data-ar-command="ar_undo_write_off"] [name="reason"]','TEST receipt reversal');
  $('[data-ar-command="ar_undo_write_off"] button').click();
  await until(()=>store.read(operator).arItems[0].open===10000&&!document.querySelector('[data-ar-command="ar_undo_write_off"]'),'allocation reversed');
+ $('#nav [data-view="arReports"]').click();
+ assert.equal(document.querySelectorAll('[data-finance-filter="arReport"] option').length,8);
+ assert.match($('#content tbody').textContent,/TEST Company/);
+ assert.match($('#content tbody').textContent,/100.00/);
+ for(const kind of ['balances','postings','allocations','receipts','adjustments','guest','accrual']){
+   set('[data-finance-filter="arReport"]',kind);
+   assert(!document.querySelector('#content [role="alert"]'),kind);
+ }
+ set('[data-finance-filter="arReport"]','receipts');
+ assert.equal(document.querySelectorAll('#content tbody tr').length,2);
+ assert.match($('#content tbody').textContent,/-|−/);
+ set('[data-finance-filter="from"]','2027-01-10');
+ set('[data-finance-filter="to"]','2027-01-09');
+ assert($('#content [role="alert"]'));
  console.log('AR ledger DOM passed: account, folio posting, receipt allocation and reversal');
 }finally {
   global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();dom.window.close();

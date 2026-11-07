@@ -1,3 +1,4 @@
+import {receivableReports} from '../src/financial-reports.js';
 import {accommodationReport,accommodationBreakdown,cashflowReport,financialComparison,managerDailyReport,guestLedger,roomChargeDetail,roomBusinessSummary,roomMovementLog,extraChargeDetail,cancellationPenaltyDetail,roomOccupantDetail,registrationRecord,commissionDetail} from '../src/financial-reports.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const financialWords={
@@ -483,3 +484,44 @@ export function arLedgerPage(state,{propertyId,selected,t,currency,can}) {
 Object.assign(financialWords.zh,{"arLedger":"应收账款","ar_account_save":"保存应收账户","ar_post":"转应收","ar_write_off":"登记收款并核销","ar_undo_write_off":"撤销核销","ar_transfer":"转移应收","ar_undo_post":"撤销挂账","ar_report_view":"查看应收账款","arAccountName":"账户名称","arDueDate":"到期日","arTarget":"目标账户","arManual":"手工分配（默认按到期日）","arPostNote":"将选中账单的未收金额转入应收。押金须先结清。","arConfirm":"确认将未收金额转入应收","arLedgerNote":"按门店核算。应收收款及冲销单列，转应收不计现金。","ar_input":"应收账户或金额有误。","ar_state":"当前账务状态不允许此操作。","ar_total":"核销分配之和必须等于收款金额。","ar_business_date":"请先初始化本门店营业日。"});
 Object.assign(financialWords.en,{"arLedger":"Accounts receivable","ar_account_save":"Save AR account","ar_post":"Post to AR","ar_write_off":"Record receipt and allocate","ar_undo_write_off":"Reverse allocation","ar_transfer":"Transfer receivable","ar_undo_post":"Reverse AR posting","ar_report_view":"View receivables","arAccountName":"Account name","arDueDate":"Due date","arTarget":"Destination account","arManual":"Manual allocation (default: earliest due date)","arPostNote":"Post the selected unpaid balance to AR. Clear the deposit first.","arConfirm":"Confirm transfer of the unpaid balance to AR","arLedgerNote":"Property ledger. AR receipts and reversals are separate. Posting to AR is a non-cash transfer.","ar_input":"Check the AR account or amount.","ar_state":"The current ledger state does not allow this action.","ar_total":"Allocations must equal the receipt amount.","ar_business_date":"Initialize the property business date first."});
 Object.assign(financialWords.ms,{"arLedger":"Akaun belum terima","ar_account_save":"Simpan akaun AR","ar_post":"Pindah ke AR","ar_write_off":"Rekod dan padankan terimaan","ar_undo_write_off":"Balikkan padanan","ar_transfer":"Pindah baki belum terima","ar_undo_post":"Balikkan catatan AR","ar_report_view":"Lihat akaun belum terima","arAccountName":"Nama akaun","arDueDate":"Tarikh matang","arTarget":"Akaun destinasi","arManual":"Agihan manual (lalai: tarikh matang terawal)","arPostNote":"Pindah baki belum bayar ke AR. Selesaikan deposit dahulu.","arConfirm":"Sahkan pindahan baki belum bayar ke AR","arLedgerNote":"Lejar hartanah. Terimaan dan pembalikan AR diasingkan. Pindahan ke AR tidak melibatkan tunai.","ar_input":"Semak akaun atau amaun AR.","ar_state":"Status lejar semasa tidak membenarkan tindakan ini.","ar_total":"Jumlah agihan mesti sama dengan terimaan.","ar_business_date":"Mulakan tarikh operasi hartanah dahulu."});
+export function arReportsPage(state,{propertyId,from,to,arReport='aging',t,currency,can}) {
+  const e=esc, label=k=>e(t(k)), money=n=>e(currency(n));
+  if(!can('ar_report_view'))return '<section class="panel"><p>'+label('forbidden')+'</p></section>';
+  const kinds=['aging','balances','postings','allocations','receipts','adjustments','guest','accrual'];
+  if(!kinds.includes(arReport))arReport='aging';
+  const filters='<div class="order-filters">'+['from','to'].map(k=>'<label>'+label(k==='from'?'reportFrom':'reportTo')+
+    '<input type="date" data-finance-filter="'+k+'" value="'+e(k==='from'?from:to)+'"></label>').join('')+
+    '<label>'+label('arReports')+'<select data-finance-filter="arReport">'+kinds.map(k=>'<option value="'+k+'" '+(k===arReport?'selected':'')+'>'+label('arReport_'+k)+'</option>').join('')+'</select></label></div>';
+  const panel=html=>'<section class="panel"><h2>'+label('arReports')+'</h2>'+filters+html+'</section>';
+  try{
+    const report=receivableReports(state,{propertyId,from,to});
+    const account=id=>e(report.accounts.get(id)||id||'—');
+    const order=id=>id?'<button data-open-stay="'+e(id)+'">'+e(report.orderName(id))+'</button>':'—';
+    const rows=report[arReport];
+    const eventHeaders=['date','arAccountName','action','createdBy','reference','amount'];
+    const eventCells=r=>[e(r.date),account(r.accountId),label(r.type),e(r.actor||'—'),e(r.reference||r.reverses||'—'),money(r.amount)];
+    const definitions={
+      aging:[['arAccountName','guest','arDueDate','arAgeBand','due'],r=>[account(r.accountId),order(r.orderId),e(r.dueDate),label(r.band),money(r.open)]],
+      balances:[['arAccountName','mdrOpening','arMovement','mdrClosing'],r=>[e(r.name),money(r.opening),money(r.change),money(r.closing)]],
+      postings:[['date','arAccountName','guest','arDueDate','createdBy','amount'],r=>[e(r.date),account(r.accountId),order(r.orderId),e(r.dueDate),e(r.actor||'—'),money(r.amount)]],
+      allocations:[[...eventHeaders,'guest','id'],r=>[...eventCells(r),order(r.orderId),e(r.itemId)]],
+      receipts:[eventHeaders,r=>eventCells(r)],
+      adjustments:[[...eventHeaders,'arTarget','notes','id'],r=>[...eventCells(r),account(r.targetId),e(r.reason),e(r.itemId)]],
+      guest:[['guest','charge','paid','due','deposit'],r=>[order(r.orderId),money(r.charge),money(r.paid),money(r.due),money(r.depositHeld)]],
+      accrual:[['date','guest','source','kind','amount'],r=>[e(r.date),order(r.orderId),label(r.source),e(r.name||t(r.kind)),money(r.amount)]]
+    };
+    const [headers,cells]=definitions[arReport];
+    const totalField={aging:'open',balances:'closing',guest:'due'}[arReport]||'amount';
+    const total=arReport==='adjustments'?0:rows.reduce((sum,r)=>sum+r[totalField],0);
+    const note=arReport==='aging'||arReport==='guest'?'arAsOfNote':arReport==='accrual'?'reportBusinessNote':'arPeriodNote';
+    const unallocated=arReport==='accrual'&&report.unallocated.length?'<p>'+label('reportUnallocated')+' · '+report.unallocated.length+'</p>':'';
+    return panel('<h3>'+label('arReport_'+arReport)+'</h3><p>'+label(note)+'</p>'+unallocated+
+      (arReport==='adjustments'?'':'<p>'+label('reportTotal')+' · '+money(total)+'</p>')+
+      '<div class="table-wrap"><table><thead><tr>'+headers.map(k=>'<th>'+label(k)+'</th>').join('')+
+      '</tr></thead><tbody>'+rows.map(r=>'<tr>'+cells(r).map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>');
+  }catch(error){return panel('<p role="alert">'+label(error.message)+'</p>');}
+}
+
+Object.assign(financialWords.zh,{"arReports":"应收与财务报表","arReport_aging":"AR 账龄表","arReport_balances":"AR 账户余额表","arReport_postings":"AR 挂账明细表","arReport_allocations":"AR 核销明细表","arReport_receipts":"AR 核销流水表","arReport_adjustments":"AR 调账明细表","arReport_guest":"宾客账结余明细表","arReport_accrual":"权责制营业报表","arAgeBand":"账龄","arCurrent":"未逾期","arDays30":"逾期 1–30 天","arDays60":"逾期 31–60 天","arDays90":"逾期 61–90 天","arDaysOver90":"逾期 90 天以上","arMovement":"期间净变动","arAsOfNote":"按结束日期的营业日截点列示。","arPeriodNote":"按营业日范围（含首尾）列示。冲销单列。"});
+Object.assign(financialWords.en,{"arReports":"AR and financial reports","arReport_aging":"AR aging","arReport_balances":"AR account balances","arReport_postings":"AR postings","arReport_allocations":"AR allocation details","arReport_receipts":"AR receipt ledger","arReport_adjustments":"AR adjustments","arReport_guest":"Guest ledger balances","arReport_accrual":"Accrual revenue","arAgeBand":"Age band","arCurrent":"Current","arDays30":"1–30 overdue","arDays60":"31–60 overdue","arDays90":"61–90 overdue","arDaysOver90":"Over 90 overdue","arMovement":"Net movement","arAsOfNote":"Snapshot at the end business date.","arPeriodNote":"Inclusive business dates. Reversals appear separately."});
+Object.assign(financialWords.ms,{"arReports":"Laporan AR dan kewangan","arReport_aging":"Usia AR","arReport_balances":"Baki akaun AR","arReport_postings":"Catatan AR","arReport_allocations":"Butiran agihan AR","arReport_receipts":"Lejar terimaan AR","arReport_adjustments":"Pelarasan AR","arReport_guest":"Baki lejar tetamu","arReport_accrual":"Hasil akruan","arAgeBand":"Julat usia","arCurrent":"Semasa","arDays30":"Lewat 1–30 hari","arDays60":"Lewat 31–60 hari","arDays90":"Lewat 61–90 hari","arDaysOver90":"Lewat lebih 90 hari","arMovement":"Pergerakan bersih","arAsOfNote":"Baki pada tarikh operasi akhir.","arPeriodNote":"Tarikh operasi termasuk kedua-dua hujung. Pembalikan ditunjukkan berasingan."});
