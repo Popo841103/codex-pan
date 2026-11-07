@@ -48,7 +48,7 @@
 | 19 | `546e331` | **交班现金盘点与差异审批**：期望现金（收款减退款、押金单列）、可选实点、差异仅管理员带原因审批且原数不改 |
 | 20 | `b4754fc` | **佣金更正历史**（页面可见前后金额）+ **新建门店零库存**（`property_create`，仅 admin，全新门店无房型/房间/床位）+ 三处空门店 UI 缺陷修复 |
 | 21 | `4baad16` | **开放试用注册**：公开无脚本 `/signup` 页（三语、蜜罐、每 IP 5 次/15 分钟），一步创建账号+空白门店；trial origin 服务端封锁（不能再建店、受邀成员继承限制、全局上限 500） |
-| — | 调研 | **参考产品权限目录实读**：其后台是公开可读的 Vue 前端，提取 307 个 `auth.*` 权限点全清单（`docs/pms/smartorder-permission-catalog-2026-11-07.md`）；纠正「银行对账」假设——其财务域是 AR 挂账+核销+报表，无银行流水对账 |
+| — | 调研 | **参考产品取证**：①权限目录实读（307 个 `auth.*`，`docs/pms/smartorder-permission-catalog-2026-11-07.md`），纠正「银行对账」假设——其财务域是 AR 挂账+核销+报表；②取证手册（`docs/pms/smartorder-forensics-playbook-2026-11-07.md`）：三条路径（登录态 HAR / 公开前端 / 客户端逆向）、工具命令、合规红线；③客户端形态实见：桌面端 Electron 壳（`isDdllDesktopRuntime`/`getDdllBusBridge`）、App Store `id6502392484`、Play `com.ddll.smart_order` |
 | 22 | `9a15aed` + `da81383` | **门店自定义角色**：`role_definitions` + `member_permissions`，`permissionsFor()` 为唯一权限来源；工单/客人消息/自助入住改按动作判定；团队页三语权限矩阵（13 模块 × 全部动作）+ 每位成员的「附加动作」编辑（整体替换式）；角色保存/删除/附加授权全走幂等 + member_audit；内置四角色行为不变 |
 
 每个批次通常伴随一条 `Record ... in the handoff` 文档提交，细节见 `WORKBUDDY-HANDOFF.md`。
