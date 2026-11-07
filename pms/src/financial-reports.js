@@ -1,3 +1,4 @@
+import {replayReceivables} from './demo-store.js';
 import {localDay,comparisonDay} from './dashboard.js';
 import {stayDays} from './reservations.js';
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d+'T00:00:00Z'))&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
@@ -541,66 +542,13 @@ export function accommodationBreakdown(state,q,dimension='date'){if(!['date','so
 export function defaultComparisonPeriods(from,to){if(!validDate(from)||!validDate(to)||from>to)throw Error('report_input');return {current:{from,to},month:{from:comparisonDay(from,-1),to:comparisonDay(to,-1)},year:{from:comparisonDay(from,0,-1),to:comparisonDay(to,0,-1)}};}
 export function financialComparison(state,{propertyId,source='all',periods}={}){if(!periods||!['current','month','year'].every(k=>periods[k]))throw Error('report_input');const results={};for(const key of ['current','month','year']){const q={...periods[key],propertyId,source},business=accommodationReport(state,q),cash=cashflowReport(state,q);results[key]={from:q.from,to:q.to,unallocatedCharges:business.unallocatedCharges,values:{revenue:business.total,roomFee:business.rows.filter(r=>r.kind==='room').reduce((s,r)=>s+r.amount,0),extras:business.rows.filter(r=>r.kind!=='room').reduce((s,r)=>s+r.amount,0),unitNights:business.rows.filter(r=>r.kind==='room').length,...cash.totals}};}const changes={};for(const key of ['month','year']){changes[key]={};for(const metric of Object.keys(results.current.values)){const now=results.current.values[metric],before=results[key].values[metric];changes[key][metric]={delta:now-before,percent:before===0?null:(now-before)/Math.abs(before)*100};}}return {periods:results,changes};}
 
-export function receivableReports(state,q) {
+export function receivableReports(state,q){
   scope(state,q);
-  const accounts=new Map(), items=new Map(), opening=new Map();
-  const postings=[], allocations=[], receipts=[], adjustments=[];
-  const events=(state.arEvents||[]).filter(e=>e.propertyId===q.propertyId);
-  const add=(map,key,value)=>map.set(key,(map.get(key)||0)+value);
-  for(const event of events){
-    const date=event.businessDate||localDay(event.at);
-    if(date>q.to)continue;
-    const {type,accountId,itemId,orderId,amount:value}=event;
-    if(type==='ar_account_save'){accounts.set(accountId,event.name);continue;}
-    if(!validDate(date))throw Error('report_input');
-    const row={...event,date};
-    const inPeriod=date>=q.from;
-    const movement=(account,delta)=>{if(!inPeriod)add(opening,account,delta);};
-    if(type==='ar_post'){
-      items.set(itemId,{itemId,accountId,orderId,dueDate:event.dueDate,open:amount(value)});
-      movement(accountId,value);
-      if(inPeriod)postings.push(row);
-    }else if(type==='ar_transfer'){
-      const item=items.get(itemId);
-      if(!item||item.accountId!==accountId||item.open!==value)throw Error('report_amount');
-      item.accountId=event.targetId;
-      movement(accountId,-value);
-      movement(event.targetId,value);
-      if(inPeriod)adjustments.push(row);
-    }else if(type==='ar_undo_post'){
-      const item=items.get(itemId);
-      if(!item||item.accountId!==accountId||item.open!==value)throw Error('report_amount');
-      item.open=0;
-      movement(accountId,-value);
-      if(inPeriod)adjustments.push({...row,amount:-value});
-    }else if(type==='ar_write_off'||type==='ar_undo_write_off'){
-      const sign=type==='ar_write_off'?1:-1;
-      movement(accountId,-sign*amount(value));
-      if(inPeriod)receipts.push({...row,amount:sign*value});
-      for(const allocation of event.allocations||[]){
-        const item=items.get(allocation.itemId);
-        if(!item||item.accountId!==accountId)throw Error('report_amount');
-        item.open-=sign*amount(allocation.amount);
-        if(item.open<0)throw Error('report_amount');
-        if(inPeriod)allocations.push({...row,itemId:item.itemId,orderId:item.orderId,amount:sign*allocation.amount});
-      }
-    }
-  }
-  const balances=[...accounts].map(([accountId,name])=>{
-    const closing=[...items.values()].filter(i=>i.accountId===accountId).reduce((sum,i)=>sum+i.open,0);
-    const initial=opening.get(accountId)||0;
-    return {accountId,name,opening:initial,change:closing-initial,closing};
-  });
-  const aging=[...items.values()].filter(i=>i.open>0).map(i=>{
-    if(!validDate(i.dueDate))throw Error('report_input');
-    const days=Math.round((Date.parse(q.to)-Date.parse(i.dueDate))/86400000);
-    const band=days<=0?'arCurrent':days<=30?'arDays30':days<=60?'arDays60':days<=90?'arDays90':'arDaysOver90';
-    return {...i,days,band};
-  }).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)||a.itemId.localeCompare(b.itemId));
+  const ar=replayReceivables(state,q);
   const guest=guestLedger(state,{propertyId:q.propertyId,date:q.to}).rows;
   const accrual=accommodationReport(state,q);
   const orders=new Map(state.orders.filter(o=>o.propertyId===q.propertyId).map(o=>[o.id,o]));
-  return {accounts,balances,aging,postings,allocations,receipts,adjustments,guest,
+  return {...ar,guest,
     accrual:accrual.rows,unallocated:accrual.unallocatedCharges,
     orderName:id=>orders.get(id)?.guest||id};
 }

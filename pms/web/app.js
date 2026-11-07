@@ -897,7 +897,7 @@ $('#content').addEventListener('change',e=>{
 });
 $('#content').addEventListener('submit',async e=>{
   const type=e.target.dataset.arCommand;
-  if(view!=='arLedger'||!type)return;
+  if(!type || (view==='arReports'?type!=='ar_close_month':view!=='arLedger'))return;
   e.preventDefault();
   try {
     const data=new FormData(e.target);

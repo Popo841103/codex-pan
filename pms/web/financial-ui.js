@@ -492,7 +492,7 @@ export function arReportsPage(state,{propertyId,from,to,arReport='aging',t,curre
   const filters='<div class="order-filters">'+['from','to'].map(k=>'<label>'+label(k==='from'?'reportFrom':'reportTo')+
     '<input type="date" data-finance-filter="'+k+'" value="'+e(k==='from'?from:to)+'"></label>').join('')+
     '<label>'+label('arReports')+'<select data-finance-filter="arReport">'+kinds.map(k=>'<option value="'+k+'" '+(k===arReport?'selected':'')+'>'+label('arReport_'+k)+'</option>').join('')+'</select></label></div>';
-  const panel=html=>'<section class="panel"><h2>'+label('arReports')+'</h2>'+filters+html+'</section>';
+  const panel=html=>'<section class="panel"><h2>'+label('arReports')+'</h2><p id="ar-error" aria-live="polite"></p>'+filters+arPeriodPanel(state,{propertyId,t,currency,can})+html+'</section>';
   try{
     const report=receivableReports(state,{propertyId,from,to});
     const account=id=>e(report.accounts.get(id)||id||'—');
@@ -525,3 +525,18 @@ export function arReportsPage(state,{propertyId,from,to,arReport='aging',t,curre
 Object.assign(financialWords.zh,{"arReports":"应收与财务报表","arReport_aging":"AR 账龄表","arReport_balances":"AR 账户余额表","arReport_postings":"AR 挂账明细表","arReport_allocations":"AR 核销明细表","arReport_receipts":"AR 核销流水表","arReport_adjustments":"AR 调账明细表","arReport_guest":"宾客账结余明细表","arReport_accrual":"权责制营业报表","arAgeBand":"账龄","arCurrent":"未逾期","arDays30":"逾期 1–30 天","arDays60":"逾期 31–60 天","arDays90":"逾期 61–90 天","arDaysOver90":"逾期 90 天以上","arMovement":"期间净变动","arAsOfNote":"按结束日期的营业日截点列示。","arPeriodNote":"按营业日范围（含首尾）列示。冲销单列。"});
 Object.assign(financialWords.en,{"arReports":"AR and financial reports","arReport_aging":"AR aging","arReport_balances":"AR account balances","arReport_postings":"AR postings","arReport_allocations":"AR allocation details","arReport_receipts":"AR receipt ledger","arReport_adjustments":"AR adjustments","arReport_guest":"Guest ledger balances","arReport_accrual":"Accrual revenue","arAgeBand":"Age band","arCurrent":"Current","arDays30":"1–30 overdue","arDays60":"31–60 overdue","arDays90":"61–90 overdue","arDaysOver90":"Over 90 overdue","arMovement":"Net movement","arAsOfNote":"Snapshot at the end business date.","arPeriodNote":"Inclusive business dates. Reversals appear separately."});
 Object.assign(financialWords.ms,{"arReports":"Laporan AR dan kewangan","arReport_aging":"Usia AR","arReport_balances":"Baki akaun AR","arReport_postings":"Catatan AR","arReport_allocations":"Butiran agihan AR","arReport_receipts":"Lejar terimaan AR","arReport_adjustments":"Pelarasan AR","arReport_guest":"Baki lejar tetamu","arReport_accrual":"Hasil akruan","arAgeBand":"Julat usia","arCurrent":"Semasa","arDays30":"Lewat 1–30 hari","arDays60":"Lewat 31–60 hari","arDays90":"Lewat 61–90 hari","arDaysOver90":"Lewat lebih 90 hari","arMovement":"Pergerakan bersih","arAsOfNote":"Baki pada tarikh operasi akhir.","arPeriodNote":"Tarikh operasi termasuk kedua-dua hujung. Pembalikan ditunjukkan berasingan."});
+function arPeriodPanel(state,{propertyId,t,currency,can}) {
+  const label=k=>esc(t(k));
+  const money=v=>esc(currency(v));
+  const periods=(state.arPeriods||[]).filter(row=>row.propertyId===propertyId);
+  const history=[...periods].reverse().map(period=>'<details><summary>'+esc(period.month)+' · '+money(period.totals.closing)+' · '+esc(period.actor)+' · '+esc(period.at)+'</summary>'+
+    '<div class="table-wrap"><table><thead><tr>'+['arAccountName','mdrOpening','arMovement','mdrClosing'].map(k=>'<th>'+label(k)+'</th>').join('')+'</tr></thead><tbody>'+
+    period.balances.map(row=>'<tr><td>'+esc(row.name)+'</td><td>'+money(row.opening)+'</td><td>'+money(row.change)+'</td><td>'+money(row.closing)+'</td></tr>').join('')+
+    '</tbody></table></div></details>').join('');
+  const form=can('ar_close_month')?'<form data-ar-command="ar_close_month"><label>'+label('arMonth')+'<input name="month" type="month" required></label><label><input type="checkbox" required> '+label('arCloseConfirm')+'</label><button>'+label('ar_close_month')+'</button></form>':'';
+  return '<details><summary>'+label('arPeriods')+'</summary><p>'+label('arPeriodRule')+'</p>'+form+history+'</details>';
+}
+
+Object.assign(financialWords.zh,{"arPeriods":"AR 月结记录","arMonth":"应收月份","ar_close_month":"关闭应收账期","arCloseConfirm":"确认保存期末快照并关闭该月","arPeriodRule":"只能关闭已结束的月份。首次月结后须按月连续关闭。","ar_period":"月份无效、仍在营业、已经关闭或不连续。"});
+Object.assign(financialWords.en,{"arPeriods":"AR month-end records","arMonth":"Receivable month","ar_close_month":"Close AR month","arCloseConfirm":"Confirm snapshot and close month","arPeriodRule":"Only elapsed months can be closed. After the first close, months must be consecutive.","ar_period":"The month is invalid, active, already closed or out of sequence."});
+Object.assign(financialWords.ms,{"arPeriods":"Rekod tutup bulan AR","arMonth":"Bulan AR","ar_close_month":"Tutup bulan AR","arCloseConfirm":"Sahkan baki dan tutup bulan","arPeriodRule":"Hanya bulan yang telah tamat boleh ditutup. Selepas penutupan pertama, bulan mesti berturutan.","ar_period":"Bulan tidak sah, aktif, sudah ditutup atau tidak berturutan."});

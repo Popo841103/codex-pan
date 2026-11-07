@@ -67,6 +67,21 @@ try {
  set('[data-finance-filter="from"]','2027-01-10');
  set('[data-finance-filter="to"]','2027-01-09');
  assert($('#content [role="alert"]'));
+
+ const close='[data-ar-command="ar_close_month"]';
+ set(close+' [name="month"]','2027-01');
+ $(close+' [type="checkbox"]').checked=true;
+ $(close+' button').click();
+ await until(()=>$('#ar-error').textContent.length>0,'active month rejected');
+ assert.equal(store.read(operator).arPeriods.length,0);
+ for(let i=0;i<22;i++)send({type:'night_audit',force:true,reason:'TEST month close'});
+ assert.equal(store.read(operator).businessDates['TEST-KL'],'2027-02-01');
+ await $('#refresh').onclick();
+ set(close+' [name="month"]','2027-01');
+ $(close+' [type="checkbox"]').checked=true;
+ $(close+' button').click();
+ await until(()=>store.read(operator).arPeriods.length===1&&$('#content').textContent.includes('2027-01 ·'),'frozen balance rendered');
+ assert.equal(store.read(operator).arPeriods[0].totals.closing,10000);
  console.log('AR ledger DOM passed: account, folio posting, receipt allocation and reversal');
 }finally {
   global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();dom.window.close();

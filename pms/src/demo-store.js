@@ -613,6 +613,9 @@ function changeSplitBills(order, command) {
 function changeReceivables(state, order, command) {
   const {type,id,propertyId,accountId,at} = command;
   const businessDate = state.businessDate;
+  if(type==='ar_close_month'){closeReceivableMonth(state,command);return;}
+  const last=(state.arPeriods||[]).filter(row=>row.propertyId===propertyId).at(-1);
+  if(last && type!=='ar_account_save' && businessDate<=last.to)reject('ar_period');
   const accounts = state.arAccounts ??= [];
   const items = state.arItems ??= [];
   const events = state.arEvents ??= [];
@@ -710,4 +713,82 @@ function changeReceivables(state, order, command) {
     } else reject('input');
   }
   events.push(event);
+}
+
+export function replayReceivables(state,q) {
+  if (!q || !isDate(q.from) || !isDate(q.to) || q.from>q.to) reject('report_input');
+  const amount=value=>{if(!Number.isSafeInteger(value))reject('report_amount');return value;};
+  const localDay=value=>{const time=Date.parse(value);return Number.isFinite(time)?new Date(time+8*3600000).toISOString().slice(0,10):'';};
+  const accounts=new Map(), items=new Map(), opening=new Map();
+  const postings=[], allocations=[], receipts=[], adjustments=[];
+  const events=(state.arEvents||[]).filter(e=>e.propertyId===q.propertyId);
+  const add=(map,key,value)=>map.set(key,(map.get(key)||0)+value);
+  for(const event of events){
+    const date=event.businessDate||localDay(event.at);
+    if(date>q.to)continue;
+    const {type,accountId,itemId,orderId,amount:value}=event;
+    if(type==='ar_account_save'){accounts.set(accountId,event.name);continue;}
+    if(!isDate(date))throw Error('report_input');
+    const row={...event,date};
+    const inPeriod=date>=q.from;
+    const movement=(account,delta)=>{if(!inPeriod)add(opening,account,delta);};
+    if(type==='ar_post'){
+      items.set(itemId,{itemId,accountId,orderId,dueDate:event.dueDate,open:amount(value)});
+      movement(accountId,value);
+      if(inPeriod)postings.push(row);
+    }else if(type==='ar_transfer'){
+      const item=items.get(itemId);
+      if(!item||item.accountId!==accountId||item.open!==value)throw Error('report_amount');
+      item.accountId=event.targetId;
+      movement(accountId,-value);
+      movement(event.targetId,value);
+      if(inPeriod)adjustments.push(row);
+    }else if(type==='ar_undo_post'){
+      const item=items.get(itemId);
+      if(!item||item.accountId!==accountId||item.open!==value)throw Error('report_amount');
+      item.open=0;
+      movement(accountId,-value);
+      if(inPeriod)adjustments.push({...row,amount:-value});
+    }else if(type==='ar_write_off'||type==='ar_undo_write_off'){
+      const sign=type==='ar_write_off'?1:-1;
+      movement(accountId,-sign*amount(value));
+      if(inPeriod)receipts.push({...row,amount:sign*value});
+      for(const allocation of event.allocations||[]){
+        const item=items.get(allocation.itemId);
+        if(!item||item.accountId!==accountId)throw Error('report_amount');
+        item.open-=sign*amount(allocation.amount);
+        if(item.open<0)throw Error('report_amount');
+        if(inPeriod)allocations.push({...row,itemId:item.itemId,orderId:item.orderId,amount:sign*allocation.amount});
+      }
+    }
+  }
+  const balances=[...accounts].map(([accountId,name])=>{
+    const closing=[...items.values()].filter(i=>i.accountId===accountId).reduce((sum,i)=>sum+i.open,0);
+    const initial=opening.get(accountId)||0;
+    return {accountId,name,opening:initial,change:closing-initial,closing};
+  });
+  const aging=[...items.values()].filter(i=>i.open>0).map(i=>{
+    if(!isDate(i.dueDate))throw Error('report_input');
+    const days=Math.round((Date.parse(q.to)-Date.parse(i.dueDate))/86400000);
+    const band=days<=0?'arCurrent':days<=30?'arDays30':days<=60?'arDays60':days<=90?'arDays90':'arDaysOver90';
+    return {...i,days,band};
+  }).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)||a.itemId.localeCompare(b.itemId));
+  return {accounts,balances,aging,postings,allocations,receipts,adjustments};
+}
+
+function closeReceivableMonth(state,command){
+  const {id,propertyId,month,at}=command;
+  const from=typeof month==='string'?month+'-01':'';
+  if(!isDate(from)||!isDate(state.businessDate))reject('ar_period');
+  const end=new Date(from+'T00:00:00Z');
+  end.setUTCMonth(end.getUTCMonth()+1,0);
+  const to=end.toISOString().slice(0,10);
+  const periods=state.arPeriods??=[];
+  const prior=periods.filter(row=>row.propertyId===propertyId).at(-1);
+  if(to>=state.businessDate||prior&&nextDay(prior.to)!==from)reject('ar_period');
+  const report=replayReceivables(state,{propertyId,from,to});
+  const balances=report.balances;
+  const totals={opening:0,change:0,closing:0};
+  for(const row of balances)for(const key of Object.keys(totals))totals[key]+=row[key];
+  periods.push({id,propertyId,month,from,to,at,actor:command.actor||'local',balances,totals});
 }

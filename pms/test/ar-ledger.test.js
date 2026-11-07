@@ -81,3 +81,36 @@ test('cash AR receipts and reversals enter the drawer separately from accommodat
  assert.equal(shiftSummary(s,window).cashExpectedTotal,0);
  assert.equal(shiftSummary(s,window).arNet,3000);
 });
+
+test('month close snapshots open AR, rejects an active month and never rewrites a prior close',()=>{
+ let s=fixture();
+ s=send(s,'post','ar_post',{orderId:'stay1',accountId:'a',dueDate:'2027-01-20'});
+ assert.throws(()=>send(s,'early','ar_close_month',{month:'2027-01'}),/ar_period/);
+ s={...s,businessDate:'2027-02-01'};
+ s=send(s,'close','ar_close_month',{month:'2027-01'});
+ const frozen=JSON.stringify(s.arPeriods[0]);
+ assert.equal(s.arPeriods[0].balances.find(a=>a.accountId==='a').closing,10000);
+ assert.throws(()=>send(s,'again','ar_close_month',{month:'2027-01'}),/ar_period/);
+ assert.throws(()=>send({...s,businessDate:'2027-01-31'},'late','ar_write_off',{accountId:'a',method:'cash',amount:1000}),/ar_period/);
+ s=send(s,'later','ar_write_off',{accountId:'a',method:'cash',amount:1000});
+ assert.equal(JSON.stringify(s.arPeriods[0]),frozen);
+ assert.equal(s.arItems[0].open,9000);
+});
+
+test('shared month close is authorized, scoped and idempotent',()=>{
+ const store=new Store(':memory:');
+ try{
+   store.seedTestProperties();
+   const user=(role,propertyIds)=>store.createUser({username:'close-month-'+role,password:'TEST-only-password',role,propertyIds});
+   const admin=user('admin',[propertyId]),finance=user('finance',[propertyId]),viewer=user('viewer',[propertyId]);
+   const run=(u,key,expectedRevision,command)=>store.command(u,{key,expectedRevision,command:{...command,propertyId}});
+   run(admin,'ar-close-init',0,{type:'business_date_init',date:'2027-02-01'});
+   const close={type:'ar_close_month',month:'2027-01'};
+   assert.throws(()=>run(finance,'ar-close-no',1,close),/forbidden/);
+   run(admin,'ar-close-one',1,close);
+   assert.equal(run(admin,'ar-close-one',1,close).replayed,true);
+   assert.equal(store.read(finance).arPeriods.length,1);
+   assert.equal(store.read(viewer).arPeriods.length,0);
+   assert.equal(store.read(admin).audit[0].arPeriod.month,'2027-01');
+ }finally{store.close();}
+});

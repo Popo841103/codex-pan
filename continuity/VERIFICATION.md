@@ -212,3 +212,7 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 ### AR 八张报表
 
 运行 `node --test test/ar-reports.test.js` 和 `node verification/dom-ar-ledger.mjs node_modules/jsdom/lib/api.js`。公网核验 `curl -fsS https://pms.jovianhome.com/healthz`、`curl -fsS https://pms.jovianhome.com/web/financial-ui.js | grep arReportsPage` 和 `curl -fsS https://pms.jovianhome.com/src/financial-reports.js | grep receivableReports`。本批未修改 server/store.js，底账部署可在主机 `grep -n arEventId /opt/jovian-pms-test/current/server/store.js` 佐证。
+
+### AR 月结快照
+
+运行 `node --test test/ar-ledger.test.js test/ar-reports.test.js test/role-permissions.test.js` 与 `node verification/dom-ar-ledger.mjs node_modules/jsdom/lib/api.js`。部署后核验 `curl -fsS https://pms.jovianhome.com/healthz`、公开 `web/financial-ui.js` 的 `arPeriodPanel` 及公开 `src/demo-store.js` 的 `closeReceivableMonth`。主机佐证 `grep -n ar_close_month /opt/jovian-pms-test/current/server/store.js`。
