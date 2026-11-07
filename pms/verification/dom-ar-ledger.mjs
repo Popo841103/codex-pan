@@ -82,6 +82,33 @@ try {
  $(close+' button').click();
  await until(()=>store.read(operator).arPeriods.length===1&&$('#content').textContent.includes('2027-01 ·'),'frozen balance rendered');
  assert.equal(store.read(operator).arPeriods[0].totals.closing,10000);
+
+ $('#nav [data-view="arLedger"]').click();
+ const debit='[data-ar-command="ar_adjust"]:has([value="debit"])';
+ set(debit+' [name="amount"]','30');
+ set(debit+' [name="dueDate"]','2027-02-10');
+ set(debit+' [name="reason"]','TEST debit adjustment');
+ $(debit+' [type="checkbox"]').checked=true;
+ $(debit+' button').click();
+ await until(()=>store.read(operator).arItems.some(i=>i.origin==='adjustment')&&document.querySelector('[data-ar-command="ar_undo_adjust"]'),'debit adjustment');
+ const item=store.read(operator).arItems.find(i=>i.origin==='adjustment');
+ const credit='[data-ar-command="ar_adjust"]:has([value="credit"])';
+ set(credit+' [name="itemId"]',item.id);
+ set(credit+' [name="amount"]','10');
+ set(credit+' [name="reason"]','TEST credit adjustment');
+ $(credit+' [type="checkbox"]').checked=true;
+ $(credit+' button').click();
+ await until(()=>store.read(operator).arItems.find(i=>i.id===item.id).open===2000&&document.querySelectorAll('[data-ar-command="ar_undo_adjust"]').length===2,'credit adjustment');
+ const reverse='[data-ar-command="ar_undo_adjust"]';
+ set(reverse+' [name="reason"]','TEST reverse credit');
+ $(reverse+' button').click();
+ await until(()=>store.read(operator).arItems.find(i=>i.id===item.id).open===3000&&document.querySelectorAll(reverse).length===1,'credit reversal');
+ $('#nav [data-view="arReports"]').click();
+ set('[data-finance-filter="from"]','2027-02-01');
+ set('[data-finance-filter="to"]','2027-02-01');
+ set('[data-finance-filter="arReport"]','adjustments');
+ assert.match($('#content').textContent,/TEST reverse credit/);
+ assert.equal(store.read(operator).arPeriods[0].totals.closing,10000);
  console.log('AR ledger DOM passed: account, folio posting, receipt allocation and reversal');
 }finally {
   global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();dom.window.close();

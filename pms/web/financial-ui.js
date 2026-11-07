@@ -461,22 +461,29 @@ export function arLedgerPage(state,{propertyId,selected,t,currency,can}) {
     '<details><summary>'+label('arManual')+'</summary><label><input type="checkbox" name="manual"> '+label('arManual')+'</label>'+
     items.filter(i=>i.open>0).map(i=>input('allocation:'+esc(i.id),'amount','type="number" step=".01" min="0" max="'+i.open/100+'"')+
       '<small>'+esc(i.dueDate)+' · '+money(i.open)+' · '+esc(i.id)+'</small>').join('')+'</details>');
+  const amountField=()=>input('amount','amount','type="number" min=".01" step=".01" required');
+  const confirm=()=>'<label><input type="checkbox" required> '+label('arAdjustConfirm')+'</label>';
+  const openItems=items.filter(i=>i.open>0);
+  const adjustmentForms='<details><summary>'+label('ar_adjust')+'</summary><p>'+label('arAdjustNote')+'</p>'+
+    '<h4>'+label('arDebit')+'</h4>'+form('ar_adjust',id+hidden('direction','debit')+amountField()+input('dueDate','arDueDate','type="date" required')+note()+confirm())+
+    (openItems.length?'<h4>'+label('arCredit')+'</h4>'+form('ar_adjust',id+hidden('direction','credit')+select('itemId','id',openItems.map(i=>[i.id,i.dueDate+' · '+currency(i.open)+' · '+i.id]))+amountField()+note()+confirm()):'')+'</details>';
   const rows=items.map(i=>{
     const key=id+hidden('itemId',i.id);
-    const actions=i.open!==i.amount?'':form('ar_undo_post',key+note())+(others.length?form('ar_transfer',key+select('targetId','arTarget',others)+note()):'');
-    return '<tr><td><button data-open-stay="'+esc(i.orderId)+'">'+esc(i.orderId)+'</button></td><td>'+esc(i.dueDate)+'</td><td>'+money(i.amount)+'</td><td>'+money(i.open)+'</td><td>'+actions+'</td></tr>';
+    const actions=i.open!==i.amount||i.origin==='adjustment'?'':form('ar_undo_post',key+note())+(others.length?form('ar_transfer',key+select('targetId','arTarget',others)+note()):'');
+    return '<tr><td>'+(i.orderId?'<button data-open-stay="'+esc(i.orderId)+'">'+esc(i.orderId)+'</button>':label('ar_adjust')+' · '+esc(i.id))+'</td><td>'+esc(i.dueDate)+'</td><td>'+money(i.amount)+'</td><td>'+money(i.open)+'</td><td>'+actions+'</td></tr>';
   });
   const history=[...events].reverse().map(e=>{
-    const reversible=e.type==='ar_write_off'&&!events.some(x=>x.reverses===e.id);
+    const reversible=!events.some(x=>x.reverses===e.id);
+    const reverse=e.type==='ar_write_off'?form('ar_undo_write_off',id+hidden('receiptId',e.id)+note()):e.type==='ar_adjust'?form('ar_undo_adjust',id+hidden('adjustmentId',e.id)+note()):'';
     const allocation=(e.allocations||[]).map(a=>esc(a.itemId)+' · '+money(a.amount)).join('<br>');
     return '<tr><td>'+esc(e.businessDate||'—')+'</td><td>'+label(e.type)+'</td><td>'+esc(e.actor)+'</td><td>'+esc(e.reference||e.reason||'')+
       (e.targetId?' · '+esc(accounts.find(a=>a.id===e.targetId)?.name||e.targetId):'')+(allocation?'<br>'+allocation:'')+
-      '</td><td>'+(e.amount===undefined?'—':money(e.amount))+'</td><td>'+(reversible?form('ar_undo_write_off',id+hidden('receiptId',e.id)+note()):'')+'</td></tr>';
+      '</td><td>'+(e.amount===undefined?'—':money(e.amount))+'</td><td>'+(reversible?reverse:'')+'</td></tr>';
   });
   return '<section class="panel"><h2>'+label('arLedger')+'</h2><div id="ar-error" role="alert"></div><p>'+label('arLedgerNote')+'</p>'+
     select('accountId','arLedger',choice,account.id,'ar-select')+accountForm+
     form('ar_account_save',id+input('name','arAccountName','required maxlength="120" value="'+esc(account.name)+'"'))+
-    '<h3>'+label('ar_write_off')+'</h3>'+receipt+
+    '<h3>'+label('ar_write_off')+'</h3>'+receipt+adjustmentForms+
     table(['id','arDueDate','charge','due','action'],rows)+
     '<h3>'+label('audit')+'</h3>'+table(['date','action','createdBy','notes','amount','action'],history)+'</section>';
 }
@@ -501,7 +508,7 @@ export function arReportsPage(state,{propertyId,from,to,arReport='aging',t,curre
     const eventHeaders=['date','arAccountName','action','createdBy','reference','amount'];
     const eventCells=r=>[e(r.date),account(r.accountId),label(r.type),e(r.actor||'—'),e(r.reference||r.reverses||'—'),money(r.amount)];
     const definitions={
-      aging:[['arAccountName','guest','arDueDate','arAgeBand','due'],r=>[account(r.accountId),order(r.orderId),e(r.dueDate),label(r.band),money(r.open)]],
+      aging:[['arAccountName','guest','arDueDate','arAgeBand','due'],r=>[account(r.accountId),r.orderId?order(r.orderId):label('ar_adjust')+' · '+e(r.itemId),e(r.dueDate),label(r.band),money(r.open)]],
       balances:[['arAccountName','mdrOpening','arMovement','mdrClosing'],r=>[e(r.name),money(r.opening),money(r.change),money(r.closing)]],
       postings:[['date','arAccountName','guest','arDueDate','createdBy','amount'],r=>[e(r.date),account(r.accountId),order(r.orderId),e(r.dueDate),e(r.actor||'—'),money(r.amount)]],
       allocations:[[...eventHeaders,'guest','id'],r=>[...eventCells(r),order(r.orderId),e(r.itemId)]],
@@ -540,3 +547,6 @@ function arPeriodPanel(state,{propertyId,t,currency,can}) {
 Object.assign(financialWords.zh,{"arPeriods":"AR 月结记录","arMonth":"应收月份","ar_close_month":"关闭应收账期","arCloseConfirm":"确认保存期末快照并关闭该月","arPeriodRule":"只能关闭已结束的月份。首次月结后须按月连续关闭。","ar_period":"月份无效、仍在营业、已经关闭或不连续。"});
 Object.assign(financialWords.en,{"arPeriods":"AR month-end records","arMonth":"Receivable month","ar_close_month":"Close AR month","arCloseConfirm":"Confirm snapshot and close month","arPeriodRule":"Only elapsed months can be closed. After the first close, months must be consecutive.","ar_period":"The month is invalid, active, already closed or out of sequence."});
 Object.assign(financialWords.ms,{"arPeriods":"Rekod tutup bulan AR","arMonth":"Bulan AR","ar_close_month":"Tutup bulan AR","arCloseConfirm":"Sahkan baki dan tutup bulan","arPeriodRule":"Hanya bulan yang telah tamat boleh ditutup. Selepas penutupan pertama, bulan mesti berturutan.","ar_period":"Bulan tidak sah, aktif, sudah ditutup atau tidak berturutan."});
+Object.assign(financialWords.zh,{"ar_adjust":"新增应收调账","ar_undo_adjust":"冲销应收调账","arDebit":"加记应收","arCredit":"减记应收","arAdjustConfirm":"确认按本营业日登记此分录","arAdjustNote":"加记生成独立应收。减记抵减指定开放应收。两者均不产生现金或住宿收入。"});
+Object.assign(financialWords.en,{"ar_adjust":"Post AR adjustment","ar_undo_adjust":"Reverse AR adjustment","arDebit":"Increase receivable","arCredit":"Decrease receivable","arAdjustConfirm":"Confirm posting on this business date","arAdjustNote":"An increase creates a standalone receivable. A decrease reduces the selected open item. Neither changes cash or accommodation revenue."});
+Object.assign(financialWords.ms,{"ar_adjust":"Catat pelarasan AR","ar_undo_adjust":"Balikkan pelarasan AR","arDebit":"Tambah belum terima","arCredit":"Kurangkan belum terima","arAdjustConfirm":"Sahkan catatan pada tarikh operasi ini","arAdjustNote":"Tambahan mencipta baki berasingan. Pengurangan mengurangkan baki dipilih. Tiada perubahan tunai atau hasil penginapan."});

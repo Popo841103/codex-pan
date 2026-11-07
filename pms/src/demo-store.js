@@ -655,6 +655,36 @@ function changeReceivables(state, order, command) {
       (order.folioEvents ??= []).push({id,type,at,actor:event.actor,billId:bill?.id,amount});
       items.push({id,propertyId,accountId,orderId:order.id,billId:bill?.id||null,dueDate:command.dueDate,businessDate,amount,open:amount});
       Object.assign(event,{itemId:id,orderId:order.id,billId:bill?.id,amount,dueDate:command.dueDate});
+    } else if (type === 'ar_adjust') {
+      const amount=money(command.amount);
+      const direction=command.direction;
+      if(!amount||!['debit','credit'].includes(direction))reject('ar_input');
+      Object.assign(event,{direction,reason:reason(),amount:direction==='debit'?amount:-amount});
+      if(direction==='debit'){
+        if(!isDate(command.dueDate)||command.dueDate<businessDate)reject('ar_input');
+        const row={id,propertyId,accountId,orderId:null,origin:'adjustment',businessDate,dueDate:command.dueDate,amount,open:amount};
+        items.push(row);
+        Object.assign(event,{itemId:id,dueDate:row.dueDate});
+      }else{
+        if(!item||amount>item.open)reject('ar_state');
+        item.open-=amount;
+        event.itemId=item.id;
+      }
+    } else if (type === 'ar_undo_adjust') {
+      const original=events.find(e=>e.id===command.adjustmentId&&e.type==='ar_adjust'&&e.accountId===accountId&&e.propertyId===propertyId);
+      if(!original||events.some(e=>e.type===type&&e.reverses===original.id))reject('ar_state');
+      const target=items.find(x=>x.id===original.itemId&&x.accountId===accountId&&x.propertyId===propertyId&&!x.reversedBy);
+      if(!target)reject('ar_state');
+      event.reason=reason();
+      if(original.direction==='debit'){
+        if(target.open!==target.amount)reject('ar_state');
+        target.open=0;
+        target.reversedBy=id;
+      }else{
+        if(target.open-original.amount>target.amount)reject('ar_state');
+        target.open-=original.amount;
+      }
+      Object.assign(event,{itemId:target.id,direction:original.direction,amount:-original.amount,reverses:original.id});
     } else if (type === 'ar_write_off') {
       const amount = money(command.amount);
       if (!amount || !['cash','bank','card','ota'].includes(command.method)) reject('ar_input');
@@ -689,7 +719,7 @@ function changeReceivables(state, order, command) {
       }
       Object.assign(event,{reverses:receipt.id,amount:receipt.amount,method:receipt.method,allocations:receipt.allocations});
     } else if (type === 'ar_transfer' || type === 'ar_undo_post') {
-      if (!item || item.open!==item.amount) reject('ar_state');
+      if (!item || item.origin==='adjustment' || item.open!==item.amount) reject('ar_state');
       Object.assign(event,{itemId:item.id,amount:item.amount,reason:reason()});
       if (type === 'ar_transfer') {
         const target=accounts.find(a=>a.id===command.targetId&&a.propertyId===propertyId&&a.id!==accountId);
@@ -736,6 +766,17 @@ export function replayReceivables(state,q) {
       items.set(itemId,{itemId,accountId,orderId,dueDate:event.dueDate,open:amount(value)});
       movement(accountId,value);
       if(inPeriod)postings.push(row);
+    }else if(type==='ar_adjust'||type==='ar_undo_adjust'){
+      const delta=amount(value);
+      if(type==='ar_adjust'&&event.direction==='debit'){
+        items.set(itemId,{itemId,accountId,orderId:null,dueDate:event.dueDate,open:delta});
+      }else{
+        const item=items.get(itemId);
+        if(!item||item.accountId!==accountId||item.open+delta<0)throw Error('report_amount');
+        item.open+=delta;
+      }
+      movement(accountId,delta);
+      if(inPeriod)adjustments.push(row);
     }else if(type==='ar_transfer'){
       const item=items.get(itemId);
       if(!item||item.accountId!==accountId||item.open!==value)throw Error('report_amount');

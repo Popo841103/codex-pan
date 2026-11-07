@@ -114,3 +114,18 @@ test('shared month close is authorized, scoped and idempotent',()=>{
    assert.equal(store.read(admin).audit[0].arPeriod.month,'2027-01');
  }finally{store.close();}
 });
+
+test('standalone debit, credit and their reversals conserve AR without cash movement',()=>{
+ let s=fixture();
+ s=send(s,'debit','ar_adjust',{accountId:'a',direction:'debit',amount:10000,dueDate:'2027-02-01',reason:'TEST correction'});
+ s=send(s,'credit','ar_adjust',{accountId:'a',direction:'credit',itemId:'debit',amount:3000,reason:'TEST allowance'});
+ assert.equal(s.arItems[0].open,7000);
+ assert.equal(shiftSummary(s,{from:'2027-01-02T00:00:00Z',to:'2027-01-03T00:00:00Z',propertyId}).cashExpectedTotal,0);
+ assert.throws(()=>send(s,'bad','ar_undo_adjust',{accountId:'a',adjustmentId:'debit',reason:'TEST'}),/ar_state/);
+ s=send(s,'undo-credit','ar_undo_adjust',{accountId:'a',adjustmentId:'credit',reason:'TEST'});
+ assert.equal(s.arItems[0].open,10000);
+ s=send(s,'undo-debit','ar_undo_adjust',{accountId:'a',adjustmentId:'debit',reason:'TEST'});
+ assert.equal(s.arItems[0].open,0);
+ assert.equal(s.arEvents.find(e=>e.id==='credit').amount,-3000);
+ assert.throws(()=>send(s,'repeat','ar_undo_adjust',{accountId:'a',adjustmentId:'credit',reason:'TEST'}),/ar_state/);
+});

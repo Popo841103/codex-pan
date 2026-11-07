@@ -902,6 +902,7 @@ $('#content').addEventListener('submit',async e=>{
   try {
     const data=new FormData(e.target);
     const command={type,...Object.fromEntries([...data].filter(([key])=>!key.startsWith('allocation:')&&key!=='manual'))};
+    if(type==='ar_adjust')command.amount=toMinor(command.amount);
     if(type==='ar_write_off'){
       command.amount=toMinor(command.amount);
       if(data.has('manual'))command.allocations=[...data]
