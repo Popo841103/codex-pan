@@ -139,7 +139,7 @@ test('one trial never reads or writes another trial, or a staff store', () => {
 // The signup page itself is plain HTML with no script, served like the public site,
 // and the POST is rate limited per caller with a honeypot that answers like the limit.
 test('the signup page and route work over real HTTP, and abuse answers without writing', async t => {
-  const { store, dir } = install(t);
+  const { store } = install(t);
   const server = makeServer(store);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(async () => { server.closeAllConnections(); await new Promise(r => server.close(r)); });
@@ -186,5 +186,4 @@ test('the signup page and route work over real HTTP, and abuse answers without w
   const sixth = await post('/signup', { ...fields, username: 'rl-owner-99', store: 'RL-99' });
   assert.equal(sixth.status, 429, 'the sixth counted attempt from one address is refused');
   assert.ok(!store.db.prepare("SELECT 1 FROM users WHERE username='rl-owner-99'").get());
-  rmSync(dir, { recursive: true, force: true });
 });

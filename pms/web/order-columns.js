@@ -13,7 +13,7 @@ export function loadColumns(storage,userId,propertyId){try{return normalizeColum
 export function saveColumns(storage,userId,propertyId,value){const selected=normalizeColumns(value);storage.setItem(preferenceKey(userId,propertyId),JSON.stringify(selected));return selected;}
 export function columnLabel(id,lang='en'){const c=columns.find(c=>c.id===id);return c?.[lang]||c?.en||id;}
 const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function settlementStatus(group){const stays=group.stays||[];const closed=stays.filter(o=>o.folioClosed===true).length;return closed&&closed===stays.length?'folioClosed':closed?'folioPartial':'folioOpen';}
+export function settlementStatus(group){const stays=group.stays||[];const closed=stays.filter(o=>o.folioClosed===true).length;return closed&&closed===stays.length?'folioClosed':closed||stays.some(o=>o.splitBills?.some(b=>b.closedBy))?'folioPartial':'folioOpen';}
 export function renderColumn(id,group,{folio,currency=n=>String(n),t=k=>k,resources=[]}={}){
  const stays=group.stays||[],first=stays[0]||{},unique=key=>[...new Set(stays.map(o=>o[key]).filter(v=>v!==undefined&&v!==null&&v!==''))];
  if(id==='settlement')return escape(t(settlementStatus(group)));

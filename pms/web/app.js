@@ -360,7 +360,7 @@ function openDetail(id) {
   const allocation=!finished&&!isBoxed(o)?`<section class="calendar-allocation"><h3>${t('allocation')}</h3><select id="detail-resource" aria-label="${t('allocation')}"><option value="">${t('noResource')}</option>${saleResources(state,propertyId).filter(r=>r.productId===o.productId&&(!o.roomTypeId||r.roomTypeId===o.roomTypeId)).map(r=>`<option value="${escape(r.id)}" ${r.id===o.resourceId?'selected':''}>${escape(r.label)} · ${t(r.gender)} · ${t(r.cleaning)}</option>`).join('')}</select><button id="detail-assign" ${can('assign')&&!o.locked?'':'disabled'}>${t('assign')}</button><button id="toggle-lock" ${can('lock')&&o.resourceId?'':'disabled'}>${t(o.locked?'unlockRoom':'lockRoom')}</button></section>`:'';
   const basic=`<section><div class="panel-head"><h2>${escape(o.guest)}</h2><span class="badge">${t(o.source||'direct')} · ${t(o.status)} · ${t(inventoryState(o))}</span></div><dl class="guest-info">${['email','phone','country','guestLanguage'].map(name=>`<div><dt>${t(name)}</dt><dd>${escape(o[name]||'—')}</dd></div>`).join('')}</dl><div class="folio-grid">${[['charge',f.charge],['paid',f.paid],['due',f.due],['deposit',f.deposit]].map(([k,v])=>`<div><span>${t(k)}</span><strong>${currency(v)}</strong></div>`).join('')}</div><section class="stay-card"><h3>${t('stayInfo')}</h3><strong>${escape(resource?.label||t('unassigned'))}</strong><p>${o.start} → ${o.end} · ${f.nights} ${t('nights')}</p><p>${t('nightly')}: ${currency(o.nightly||0)} · ${t(o.status)}</p></section>${allocation}<h3>${t('channelNotes')}</h3><p class="text-block">${escape(o.channelNotes||'—')}</p><h3>${t('notes')}</h3><p class="text-block">${escape(o.notes||'—')}</p>${o.reservationId?`<button id="back-reservation">${t('backReservation')}</button><h3>${t('occupants')}</h3><p>${(o.occupants||[]).map(p=>escape(p.name||'—')+' · '+t(p.gender)).join(' / ')}</p><details><summary>${t('dailyRates')}</summary><div class="table-wrap"><table><tbody>${(o.nightlyRates||[]).map(r=>`<tr><td>${r.date}</td><td>${currency(r.amount)}</td></tr>`).join('')}</tbody></table></div></details><h3>${t('extraCharge')}</h3>${(o.extraCharges||[]).map(r=>`<p>${escape(r.name)} · ${r.quantity} × ${currency(r.unitAmount)} ${r.kind==='discount'?'−':'+'}</p>`).join('')}`:''}${editForm}<dl class="order-meta"><dt>ID</dt><dd>${escape(o.id)}</dd><dt>${t('createdAt')}</dt><dd>${escape(o.createdAt||'—')}</dd><dt>${t('createdBy')}</dt><dd>${escape(o.createdBy||'—')}</dd></dl></section>`;
   const closing='<section><h3>'+t(o.folioClosed?'folioClosed':'folioOpen')+'</h3>'+ (o.folioClosed?'<form id="reopen-folio-form"><label>'+t('folioReopenReason')+'<input name="reason" required maxlength="500"></label><label><input name="confirmed" type="checkbox" required>'+t('reopenConfirm')+'</label><button '+(can('reopen_folio')?'':'disabled')+'>'+t('reopenFolio')+'</button></form>':'<form id="settle-form"><p>'+t('settleNote')+'</p><label><input name="confirmed" type="checkbox" required>'+t('settleConfirm')+'</label><button '+(can('settle')&&f.due===0&&f.deposit===0?'':'disabled')+'>'+t('settle')+'</button></form>')+'</section>';
-  const bill=`${closing}<div class="folio-grid">${[['charge',f.charge],['paid',f.paid],['due',f.due],['deposit',f.deposit]].map(([k,v])=>`<div><span>${t(k)}</span><strong>${currency(v)}</strong></div>`).join('')}</div><p class="muted">${t('billExplanation')}</p><form id="payment-form"><h3>${t('transactions')}</h3><p class="muted">${t('financialNote')}</p><div class="form-row"><label>${t('kind')}<select name="kind">${opts(['payment','refund','deposit_in','deposit_out'])}</select></label><label>${t('amount')}<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required></label></div><div class="form-row"><label>${t('method')}<select name="method">${opts(['cash','bank','card','ota'])}</select></label><label>${t('notes')}<input name="note" maxlength="500"></label></div><label>${t('reference')}<input name="reference" maxlength="100"></label><button class="primary" ${can('payment')&&!o.folioClosed?'':'disabled'}>${t('record')}</button></form><div class="table-wrap"><table><thead><tr>${['time','kind','amount','method','notes'].map(k=>`<th>${t(k)}</th>`).join('')}</tr></thead><tbody>${(o.transactions||[]).map(p=>`<tr><td>${escape(p.at.slice(0,16))} UTC</td><td>${t(p.kind)}</td><td>${currency(p.amount)}</td><td>${t(p.method)}</td><td>${escape(p.note||'')}<small>${escape(p.reference||'')}</small></td></tr>`).join('')}</tbody></table></div>`;
+  const bill=`${o.splitBills||(!o.folioClosed&&can("settle_split"))?splitBillPanel(o,f):""}${o.splitBills?"":closing}<div class="folio-grid">${[['charge',f.charge],['paid',f.paid],['due',f.due],['deposit',f.deposit]].map(([k,v])=>`<div><span>${t(k)}</span><strong>${currency(v)}</strong></div>`).join('')}</div><p class="muted">${t('billExplanation')}</p><form id="payment-form">${o.splitBills?`<label>${t("splitBill")}<select name="billId"><option value="">—</option>${o.splitBills.filter(b=>!b.closedBy).map(b=>`<option value="${escape(b.id)}">${escape(b.label)}</option>`).join("")}</select></label>`:""}<h3>${t('transactions')}</h3><p class="muted">${t('financialNote')}</p><div class="form-row"><label>${t('kind')}<select name="kind">${opts(['payment','refund','deposit_in','deposit_out'])}</select></label><label>${t('amount')}<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required></label></div><div class="form-row"><label>${t('method')}<select name="method">${opts(['cash','bank','card','ota'])}</select></label><label>${t('notes')}<input name="note" maxlength="500"></label></div><label>${t('reference')}<input name="reference" maxlength="100"></label><button class="primary" ${can('payment')&&!o.folioClosed?'':'disabled'}>${t('record')}</button></form><div class="table-wrap"><table><thead><tr>${['time','kind','amount','method','notes'].map(k=>`<th>${t(k)}</th>`).join('')}</tr></thead><tbody>${(o.transactions||[]).map(p=>`<tr><td>${escape(p.at.slice(0,16))} UTC</td><td>${t(p.kind)}</td><td>${currency(p.amount)}</td><td>${t(p.method)}</td><td>${escape(p.note||'')}<small>${escape(p.reference||'')}</small></td></tr>`).join('')}</tbody></table></div>`;
   const logs=state.audit.filter(a=>a.propertyId===propertyId&&(a.orderId===id||a.stayIds?.includes(id)));
   const audit=`${renderFolioHistory(o,{t,currency})}<p class="muted">${t('auditLimit')}</p><div class="table-wrap"><table><thead><tr><th>${t('time')}</th><th>${t('action')}</th><th>${t('createdBy')}</th></tr></thead><tbody>${logs.map(a=>`<tr><td>${escape(a.at)}</td><td>${escape(t(a.type))}</td><td>${escape(a.actor||'local')}</td></tr>`).join('')}</tbody></table></div><h3>${t('inventoryHistory')}</h3><ul>${(o.inventoryHistory||[]).map(h=>`<li>${escape(h.at)} · ${t(h.action==='boxed'?'boxed':'reserved')} · ${escape(h.actor)} · ${escape(h.reason)}</li>`).join('')}</ul><h3>${t('assign')}</h3><ul>${(o.history||[]).map(h=>`<li>${escape(h.from||'—')} → ${escape(h.to)} · ${escape(h.at||'')}</li>`).join('')}</ul>`;
   const channel=`<h3>${t('channelInfo')}</h3><dl class="order-meta"><dt>${t('source')}</dt><dd>${escape(t(o.source||'direct'))}</dd><dt>${t('channelOrderId')}</dt><dd>${escape(o.channelOrderId||'—')}</dd></dl><p class="muted">${t('channelNotConnected')}</p><h3>${t('channelNotes')}</h3><p class="text-block">${escape(o.channelNotes||'—')}</p>`;
@@ -382,6 +382,29 @@ function openDetail(id) {
   if($('#edit-form'))$('#edit-form').onsubmit=e=>{e.preventDefault();try{const values=Object.fromEntries(new FormData(e.target));act({type:'edit',...values,nightly:toMinor(values.nightly),...(o.occupants?{occupants:o.occupants.map((p,i)=>({...p,name:values['occupant_'+i]}))}:{})});}catch(e){$('#detail-error').textContent=errorText(e);}};
   if($('#payment-form'))$('#payment-form').onsubmit=e=>{e.preventDefault();try{const values=Object.fromEntries(new FormData(e.target));act({type:'payment',...values,amount:toMinor(values.amount)});}catch(e){$('#detail-error').textContent=errorText(e);}};
   if($('#toggle-lock'))$('#toggle-lock').onclick=()=>act({type:'lock'});
+  if ($('#split-form')) {
+    const form = $('#split-form');
+    $('#split-add').onclick = () => {
+      if (form.querySelectorAll('[data-split-row]').length < 20) $('#split-rows').insertAdjacentHTML('beforeend', splitBillRow());
+    };
+    form.onsubmit = e => {
+      e.preventDefault();
+      try {
+        const bills = [...form.querySelectorAll('[data-split-row]')].map(row => ({
+          label:row.querySelector('[name="label"]').value,
+          charge:toMinor(row.querySelector('[name="charge"]').value),
+          paid:toMinor(row.querySelector('[name="paid"]').value)
+        }));
+        act({type:'settle_split',bills});
+      } catch (error) { $('#detail-error').textContent=errorText(error); }
+    };
+  }
+  $('#detail-body').querySelectorAll('[data-split-command]').forEach(form => {
+    form.onsubmit = e => {
+      e.preventDefault();
+      act({type:form.dataset.splitCommand,billId:form.dataset.billId,reason:new FormData(form).get('reason')});
+    };
+  });
   if($('#settle-form'))$('#settle-form').onsubmit=e=>{e.preventDefault();act({type:'settle'});};
   if($('#reopen-folio-form'))$('#reopen-folio-form').onsubmit=e=>{e.preventDefault();act({type:'reopen_folio',reason:new FormData(e.target).get('reason')});};
   if($('#cancel-form'))$('#cancel-form').onsubmit=e=>{e.preventDefault();try{const values=Object.fromEntries(new FormData(e.target));act({type:'cancel',...values,finalCharge:toMinor(values.finalCharge)});}catch(e){$('#detail-error').textContent=errorText(e);}};
@@ -835,3 +858,24 @@ const noticePoll=setInterval(async ()=>{
 // Outside a browser this timer would keep the process alive; in a browser it is a plain
 // number and this does nothing.
 noticePoll?.unref?.();
+
+function splitBillRow() {
+  return '<div data-split-row class="form-row">'+
+    '<label>'+t('splitBill')+'<input name="label" required maxlength="120"></label>'+
+    '<label>'+t('charge')+'<input name="charge" type="number" step=".01" min="0" required></label>'+
+    '<label>'+t('paid')+'<input name="paid" type="number" step=".01" min="0" value="0" required></label></div>';
+}
+function splitBillPanel(order, totals) {
+  if (!order.splitBills) return '<details><summary>'+t('settle_split')+'</summary><form id="split-form"><p>'+t('splitNote')+'</p><div id="split-rows">'+splitBillRow()+splitBillRow()+'</div><button id="split-add" type="button">+ '+t('splitBill')+'</button> <button>'+t('settle_split')+'</button></form></details>';
+  const action = (type,billId,enabled,reason=false) => '<form data-split-command="'+type+'" data-bill-id="'+escape(billId||'')+'">'+
+    (reason?'<label>'+t('folioReopenReason')+'<input name="reason" required maxlength="500"></label>':'')+
+    '<button '+(enabled&&can(type)?'':'disabled')+'>'+t(type)+'</button></form>';
+  const rows=order.splitBills.map(bill=>'<tr><td>'+escape(bill.label)+'</td><td>'+currency(bill.charge)+'</td><td>'+currency(bill.paid)+'</td><td>'+currency(bill.charge-bill.paid)+'</td><td>'+t(bill.closedBy?'folioClosed':'folioOpen')+'</td><td>'+
+    (bill.closedBy?action('settle_undo',bill.id,true,true):action('settle_bill',bill.id,bill.charge===bill.paid&&totals.deposit===0))+'</td></tr>').join('');
+  return '<section><h3>'+t('splitBill')+'</h3><div class="table-wrap"><table><thead><tr>'+['splitBill','charge','paid','due','status','action'].map(key=>'<th>'+t(key)+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    action('settle_unsplit',null,order.splitBills.every(b=>!b.closedBy),true)+'</section>';
+}
+
+Object.assign(words.zh,{"settle_split":"拆账","settle_bill":"子账单结账","settle_undo":"撤销子账单结账","settle_unsplit":"撤销拆账","splitBill":"子账单","splitNote":"各账单的费用和已收款分别加总为当前账页金额。押金仍单独核算。","bill_total":"分配金额与账页总额不符。","bill_state":"当前账单状态不允许此操作。"});
+Object.assign(words.en,{"settle_split":"Split bills","settle_bill":"Settle bill","settle_undo":"Reverse bill settlement","settle_unsplit":"Undo split","splitBill":"Bill","splitNote":"Allocate the full charge and receipts across bills. Deposits remain separate.","bill_total":"Allocations must match the folio totals.","bill_state":"This bill state does not allow the action."});
+Object.assign(words.ms,{"settle_split":"Pecah bil","settle_bill":"Selesaikan bil","settle_undo":"Balikkan penyelesaian bil","settle_unsplit":"Batal pecahan","splitBill":"Bil","splitNote":"Agihkan semua caj dan terimaan. Deposit kekal berasingan.","bill_total":"Agihan mesti sepadan dengan jumlah folio.","bill_state":"Status bil tidak membenarkan tindakan ini."});

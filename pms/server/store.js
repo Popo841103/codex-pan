@@ -28,9 +28,9 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','cash_variance_approve','member_save','role_save','role_delete','member_permission_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
+  admin: ['settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','cash_variance_approve','member_save','role_save','role_delete','member_permission_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
   operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover','booking_request_decision'],
-  finance: ['settle','payment','commission_save'], viewer: []
+  finance: ['settle_split','settle_bill','settle_undo','settle_unsplit','settle','payment','commission_save'], viewer: []
 };
 // A role is a set of actions, exactly like the reference product's Account Role page:
 // an operator ticks what the role may do, then hands the role to an account. The
@@ -40,7 +40,7 @@ export const actionModules = {
   reservations: ['create_reservation','create','edit','assign','lock','memo_save','cancel','box_stays','restore_stays','booking_request_decision'],
   frontDesk: ['checkin','checkout'],
   housekeeping: ['clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
-  money: ['settle','reopen_folio','payment','cash_variance_approve','commission_save'],
+  money: ['settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','payment','cash_variance_approve','commission_save'],
   catalog: ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
   operationsDay: ['business_date_init','night_audit','shift_save','shift_delete','shift_handover'],
   access: ['member_save','role_save','role_delete','member_permission_save'],
@@ -1241,6 +1241,7 @@ export class Store {
         ...(['block','unblock','bulk_block','bulk_unblock'].includes(cmd.type)?{blockChange:changedBlocks(before.blocks,next.blocks)}:{}),
         fields:Object.keys(command).filter(k=>!['type','propertyId'].includes(k)),
         ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{}),
+        ...(['settle_split','settle_bill','settle_undo','settle_unsplit'].includes(cmd.type)?{billEvent:next.orders.find(o=>o.id===cmd.orderId)?.folioEvents?.at(-1)}:{}),
         ...(cmd.type==='commission_save'?{commissionChange:{before:before.orders.find(o=>o.id===cmd.orderId)?.commission||null,after:next.orders.find(o=>o.id===cmd.orderId)?.commission||null}}:{}),
         // A handover's cash count and a variance approval are business facts, so the
         // durable audit keeps the figures and the reason. It never carries a guest name.

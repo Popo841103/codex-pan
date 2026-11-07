@@ -460,3 +460,12 @@ The operator asked for the reference product's permission model to be carried ov
 Tests: Node **408** (was 402). A new `pms/test/role-permissions.test.js` adds six cases: the catalogue check (every enforced action sits in exactly one module and the matrix covers them all — the page can never drift from the server), a role carrying exactly its ticks with validation and the duplicate-name refusal, a member doing the ticked actions and nothing else (including the property-role/account-role boundary), the in-use deletion guard with audit rows, extra grants riding on top of a role but never above the giver, and the built-in roles unchanged. A new `verification/dom-role-permissions.mjs` drives the page end to end: it asserts the rendered matrix equals the enforced action list, creates a role by ticking two actions and confirms the server stored exactly those, assigns it to a member, tries the deletion (refused while the member holds it), signs the member in, and checks the session's `allowedActionsByProperty` equals the ticks. All **19 DOM** scripts, Python **5/5** pass.
 
 **Carried over, and what deliberately was not.** The mechanism — property-defined roles, module ticks, extra grants, batch assignment through the member row — is the reference product's model. The reference product's own action names, module list and help screenshots were **not** copied: they were never observed first-hand beyond the public help page, and this codebase's action catalogue already maps one-to-one to what the server enforces. When the finance work (statement closing, bank reconciliation, difference posting) is built, its actions join the same catalogue and the same matrix, which is the practical payoff of this batch.
+
+
+## 子账单拆账与结账冲销（2026-11-07）
+
+现有住宿账页支持按自定义项目或付款人标签拆成 2–20 张子账单。费用和已收款分别与原账页守恒，后续住宿收退款必须指向未结账子账单。押金继续按住宿项单独核算。全部子账单结账后住宿项才显示已结账，订单列表可显示部分结账。撤销保留原收付，追加含原结账 ID、操作者、时间和原因的记录。全部子账单开启后才可撤销拆账。活跃拆账期间拒绝改期、改价及取消；退房拒绝相互抵消的子账单差额。
+
+新动作 settle_split、settle_bill、settle_undo、settle_unsplit 已加入共享权限目录、finance/admin 及三语界面。使用既有事务、revision、幂等回执和追加审计。现阶段按住宿项分账，项目与付款人用人工标签和金额分配，未做按消费明细自动划分或跨住宿项合并。SmartOrder 权限来自已入库实见目录。字段与枚举未独立复验，本实现使用 JOVIAN 自身契约。
+
+本机 Windows Node 410 项 408 通过，余下两项为已知私有文件权限用例。修复旧试用注册测试在关闭 SQLite 前重复删除临时目录的问题，保留业务断言。Python 5/5，DOM 20/20，含 dom-folio-split.mjs。

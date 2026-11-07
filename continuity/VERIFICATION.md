@@ -199,3 +199,8 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 ```
 
 未做且刻意不做：没有在线上真实创建自定义角色或改动任何线上账号的权限——线上是共享测试库，核验只读前端资产与 `/healthz`；角色机制由 408 条 Node 测试与 19 条 DOM 流程在进程内真实验证。
+
+
+### 子账单核验
+
+运行 `node verification/dom-folio-split.mjs node_modules/jsdom/lib/api.js`，覆盖拆账、押金退回、分账收款、逐账结账和冲销。部署后验证 `curl -fsS https://pms.jovianhome.com/healthz`，以及 `curl -fsS https://pms.jovianhome.com/web/app.js | grep splitBillPanel`。后端主机使用 `grep -n billEvent /opt/jovian-pms-test/current/server/store.js` 佐证。

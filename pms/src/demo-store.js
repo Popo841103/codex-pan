@@ -314,7 +314,7 @@ export function apply(state, command) {
     status:o.status, productId:o.productId, finalCharge:o.finalCharge ?? null } : null;
   const stayBefore = ['edit','assign','checkin','checkout','cancel','lock'].includes(type) ? staySnapshot(order) : null;
   const catalogActions = ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'];
-  const needsOrder = ['settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock','commission_save'].includes(type);
+  const needsOrder = ['settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock','commission_save'].includes(type);
   if (needsOrder && !order) reject('scope');
   if(order?.folioClosed&&['edit','payment','cancel'].includes(type))reject('folio_closed');
   // Clearing test bookings removes them outright rather than cancelling them, so a
@@ -366,7 +366,11 @@ export function apply(state, command) {
   if (order && ['edit','cancel'].includes(type) && command.auditOverride !== true &&
       (isAudited(next, order.start) || isAudited(next, order.end))) reject('audited');
   if (order && isBoxed(order) && ['assign','checkin','checkout','lock'].includes(type)) reject('box_state');
-  if(type==='settle'){const f=folio(order);if(order.folioClosed)reject('folio_closed');if(f.due!==0||f.deposit!==0)reject('balance');order.folioClosed=true;(order.folioEvents??=[]).push({type:'settle',at:command.at,actor:command.actor||'local',charge:f.charge,paid:f.paid,deposit:f.deposit});}
+  if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
+  if (['settle_split','settle_bill','settle_undo','settle_unsplit'].includes(type)) {
+    changeSplitBills(order, command);
+  }
+  else if(type==='settle'){const f=folio(order);if(order.folioClosed)reject('folio_closed');if(f.due!==0||f.deposit!==0)reject('balance');order.folioClosed=true;(order.folioEvents??=[]).push({type:'settle',at:command.at,actor:command.actor||'local',charge:f.charge,paid:f.paid,deposit:f.deposit});}
   else if(type==='reopen_folio'){if(!order.folioClosed)reject('state');const reason=text(command.reason||'',500).trim();if(!reason)reject('reason');order.folioClosed=false;(order.folioEvents??=[]).push({type:'reopen',at:command.at,actor:command.actor||'local',reason});}
   else if(['rate_plan_save','rate_plan_archive','rates_bulk_update'].includes(type)){changeRates(next,command);}
   else if (['box_stays','restore_stays'].includes(type)) {
@@ -417,7 +421,16 @@ export function apply(state, command) {
     const balance = folio(order);
     if (command.kind === 'refund' && amount > balance.paid) reject('refund');
     if (command.kind === 'deposit_out' && amount > balance.deposit) reject('refund');
-    order.transactions.push({ id:command.id, actor:command.actor||'local', kind:command.kind, amount, method:command.method, reference:text(command.reference||'',100),note:text(command.note||'',500), at:command.at });
+    let bill;
+    if (command.kind === 'payment' || command.kind === 'refund') {
+      if (order.splitBills) {
+        bill = order.splitBills.find(b => b.id === command.billId);
+        if (!bill || bill.closedBy) reject('bill_state');
+        if (command.kind === 'refund' && amount > bill.paid) reject('refund');
+        bill.paid += command.kind === 'payment' ? amount : -amount;
+      } else if (command.billId) reject('bill_state');
+    }
+    order.transactions.push({ ...(bill ? {billId:bill.id} : {}), id:command.id, actor:command.actor||'local', kind:command.kind, amount, method:command.method, reference:text(command.reference||'',100),note:text(command.note||'',500), at:command.at });
   } else if (type === 'commission_save') {
     // A channel commission is the amount the channel actually billed, entered by
     // finance from that invoice. No rate is configured and none is ever inferred.
@@ -449,7 +462,7 @@ export function apply(state, command) {
   } else if (type === 'checkout') {
     if (order.status !== 'checked_in' || command.date !== order.end) reject('date');
     const balance = folio(order);
-    if (balance.due !== 0 || balance.deposit !== 0) reject('balance');
+    if (balance.due !== 0 || balance.deposit !== 0 || order.splitBills?.some(b=>b.charge!==b.paid)) reject('balance');
     order.status = 'checked_out';
     setCleaning(next, next.resources.find(r => r.id === order.resourceId), 'dirty');
   } else if (['bulk_clean','bulk_block','bulk_unblock'].includes(type)) {
@@ -534,4 +547,51 @@ function guestFields(command,prior={}){
   fields.color=command.color??prior.color??'';
   if(!['','peach','blue','green','violet'].includes(fields.color))reject('input');
   return fields;
+}
+
+function changeSplitBills(order, command) {
+  const {type,id,at,billId} = command;
+  const event = {type,id,at,actor:command.actor || 'local'};
+  const totals = folio(order);
+  if (type === 'settle_split') {
+    if (order.splitBills || order.folioClosed) reject('bill_state');
+    if (!Array.isArray(command.bills) || command.bills.length < 2 || command.bills.length > 20) reject('bill_total');
+    const bills = command.bills.map((row, index) => {
+      const label = text(row?.label,120).trim();
+      if (!label) reject('bill_total');
+      return {id:id+':'+index,label,charge:money(row.charge),paid:money(row.paid),closedBy:null};
+    });
+    if (bills.reduce((sum,b) => sum+b.charge,0) !== totals.charge ||
+        bills.reduce((sum,b) => sum+b.paid,0) !== totals.paid) reject('bill_total');
+    order.splitBills = bills;
+    event.bills = structuredClone(bills);
+  } else {
+    if (!order.splitBills) reject('bill_state');
+    if (type === 'settle_unsplit') {
+      if (order.splitBills.some(b => b.closedBy)) reject('bill_state');
+      event.reason = text(command.reason || '',500).trim();
+      if (!event.reason) reject('reason');
+      event.bills = order.splitBills;
+      delete order.splitBills;
+    } else {
+      const bill = order.splitBills.find(b => b.id === billId);
+      if (!bill) reject('bill_state');
+      event.billId = bill.id;
+      if (type === 'settle_bill') {
+        if (bill.closedBy) reject('bill_state');
+        if (bill.charge !== bill.paid || totals.deposit !== 0) reject('balance');
+        bill.closedBy = id;
+        event.charge = bill.charge;
+        event.paid = bill.paid;
+      } else {
+        if (!bill.closedBy) reject('bill_state');
+        event.reason = text(command.reason || '',500).trim();
+        if (!event.reason) reject('reason');
+        event.reverses = bill.closedBy;
+        bill.closedBy = null;
+      }
+    }
+  }
+  order.folioClosed = Boolean(order.splitBills?.every(b => b.closedBy));
+  (order.folioEvents ??= []).push(event);
 }
