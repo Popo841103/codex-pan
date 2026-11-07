@@ -181,6 +181,8 @@ curl -s https://pms.jovianhome.com/healthz
 curl -s https://pms.jovianhome.com/web/workspace-ui.js | grep -o "permissionModules\|roleDefinitions\|mod_selfCheckin\|act_commission_save\|role_in_use\|data-role-delete" | sort -u
 curl -s https://pms.jovianhome.com/web/app.js | grep -o "role_save\|role_delete\|member_permission_save\|state.roles" | sort -u
 curl -s https://pms.jovianhome.com/web/workspace.css | grep -o "perm-matrix\|role-editor" | sort -u
+curl -s https://pms.jovianhome.com/web/workspace-ui.js | grep -o "data-perms-form\|memberExtraTitle" | sort -u
+curl -s https://pms.jovianhome.com/web/app.js | grep -o "permsForm\|member_permission_save" | sort -u
 
 # 工单 / 消息 / 自助入住按动作判定（旧的角色名判断应已消失）
 curl -s https://pms.jovianhome.com/server/support.js 2>/dev/null  # 仍应 404（/server/ 不对外）
