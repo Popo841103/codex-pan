@@ -63,12 +63,13 @@ export function managerReportPage(state,{propertyId,date,source='all',sources=[]
    ['mdrOpening',c.opening.due,t('mdrOpeningNote')],
    ['mdrCharges',c.charges.total,t('mdrChargesNote')],
    ['mdrReceipts',-c.settlements.net,t('mdrReceiptsNote')],
+   ...(c.arNet?[['ar_post',-c.arNet,'']]:[]),
    ['mdrClosing',c.closing.due,t('mdrClosingNote')]]);
   const breakdown=lines('reportChargeBreakdown',[
    ['mdrRoom',c.charges.room,''],['mdrExtras',c.charges.extras,''],['mdrCancellation',c.charges.cancellation,'']]);
   const cash=lines('reportReceiptBreakdown',[
    ['payment',c.settlements.payment,''],['refund',c.settlements.refund,''],['deposit_in',c.settlements.deposit_in,''],['deposit_out',c.settlements.deposit_out,'']]);
-  const formula=`<h3>${esc(t('reportFormula'))}</h3><p>${esc(t('reportFormulaText'))}</p><p class="ledger-formula">${esc(currency(c.opening.due))} + ${esc(currency(c.charges.total))} − ${esc(currency(c.settlements.net))} = <strong>${esc(currency(c.expected.charge-c.expected.paid))}</strong>${c.balanced?'':' · '+esc(t('reportUnreconciled'))}</p>`;
+  const formula=`<h3>${esc(t('reportFormula'))}</h3><p>${esc(t('reportFormulaText'))}</p><p class="ledger-formula">${esc(currency(c.opening.due))} + ${esc(currency(c.charges.total))} − ${esc(currency(c.settlements.net))}${c.arNet?' − '+esc(currency(c.arNet))+' ('+esc(t('ar_post'))+')':''} = <strong>${esc(currency(c.opening.due+c.charges.total-c.settlements.net-c.arNet))}</strong>${c.balanced?'':' · '+esc(t('reportUnreconciled'))}</p>`;
   const percent=v=>v===null?'—':esc(v.toFixed(2))+'%';
   const comparison=`<h3>${esc(t('reportComparison'))}</h3><div class="table-wrap"><table><thead><tr><th>${esc(t('compareMetricLabel'))}</th><th>${esc(t('comparecurrent'))}</th><th>${esc(t('comparemonth'))}<br><small>${esc(report.periods.month.date)}</small></th><th>${esc(t('reportMonthChange'))}</th><th>${esc(t('compareyear'))}<br><small>${esc(report.periods.year.date)}</small></th><th>${esc(t('reportYearChange'))}</th></tr></thead><tbody>${['charges','receipts','due'].map(metric=>`<tr><th>${esc(t({charges:'mdrMetricCharges',receipts:'mdrMetricReceipts',due:'mdrMetricDue'}[metric]))}</th><td>${esc(currency(report.changes.month[metric].now))}</td><td>${esc(currency(report.changes.month[metric].was))}</td><td>${esc(currency(report.changes.month[metric].delta))}<small>${percent(report.changes.month[metric].percent)}</small></td><td>${esc(currency(report.changes.year[metric].was))}</td><td>${esc(currency(report.changes.year[metric].delta))}<small>${percent(report.changes.year[metric].percent)}</small></td></tr>`).join('')}</tbody></table></div>`;
   const metrics=`<h3>${esc(t('reportMetrics'))}</h3><div class="table-wrap"><table><tbody>${[['mdrArrivals',c.metrics.arrivals],['mdrDepartures',c.metrics.departures],['mdrInHouse',c.metrics.inHouse]].map(([k,v])=>`<tr><th>${esc(t(k))}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table></div>`;
@@ -419,3 +420,66 @@ const occupantWords={
 };
 for(const language of Object.keys(occupantWords))Object.assign(financialWords[language],occupantWords[language]);
 for(const language of Object.keys(penaltyWords))Object.assign(financialWords[language],penaltyWords[language]);
+
+export function arPostForm(state,order,{t,currency,totals}) {
+  const accounts=(state.arAccounts||[]).filter(a=>a.propertyId===order.propertyId);
+  if (!accounts.length||order.folioClosed||totals.deposit!==0||(!order.splitBills&&totals.due<=0)) return '';
+  const due=order.splitBills?.filter(b=>!b.closedBy&&b.charge>b.paid).map(b=>({id:b.id,label:b.label,amount:b.charge-b.paid}));
+  if (due && !due.length) return '';
+  const date=state.businessDates?.[order.propertyId]||state.businessDate||'';
+  const choices=(rows)=>rows.map(row=>'<option value="'+esc(row.id)+'">'+esc(row.label)+'</option>').join('');
+  return '<details><summary>'+esc(t('ar_post'))+'</summary><form id="ar-post-form"><p>'+esc(t('arPostNote'))+'</p>'+
+    '<label>'+esc(t('arLedger'))+'<select name="accountId" required>'+choices(accounts.map(a=>({...a,label:a.name})))+'</select></label>'+
+    (due?'<label>'+esc(t('splitBill'))+'<select name="billId" required>'+choices(due.map(b=>({...b,label:b.label+' · '+currency(b.amount)})))+'</select></label>':'')+
+    '<label>'+esc(t('arDueDate'))+'<input name="dueDate" type="date" min="'+esc(date)+'" value="'+esc(date)+'" required></label>'+
+    '<label><input type="checkbox" required> '+esc(t('arConfirm'))+'</label><button>'+esc(t('ar_post'))+'</button></form></details>';
+}
+
+export function arLedgerPage(state,{propertyId,selected,t,currency,can}) {
+  if(!can('ar_report_view'))return '<section class="panel"><p>'+esc(t('forbidden'))+'</p></section>';
+  const accounts=(state.arAccounts||[]).filter(a=>a.propertyId===propertyId);
+  const ledger=(state.arItems||[]).filter(i=>i.propertyId===propertyId);
+  const account=accounts.find(a=>a.id===selected)||accounts[0];
+  const items=ledger.filter(i=>i.accountId===account?.id&&!i.reversedBy);
+  const events=(state.arEvents||[]).filter(e=>e.propertyId===propertyId&&(e.accountId===account?.id||e.targetId===account?.id));
+  const label=key=>esc(t(key)),money=value=>esc(currency(value));
+  const hidden=(name,value)=>'<input type="hidden" name="'+name+'" value="'+esc(value)+'">';
+  const input=(name,key,attributes)=>'<label>'+label(key)+'<input name="'+name+'" '+attributes+'></label>';
+  const select=(name,key,choices,value,id='')=>'<label>'+label(key)+'<select '+(id?'id="'+id+'" ':'')+'name="'+name+'" required>'+
+    choices.map(([v,l])=>'<option value="'+esc(v)+'" '+(v===value?'selected':'')+'>'+esc(l)+'</option>').join('')+'</select></label>';
+  const form=(type,fields)=>can(type)?'<form data-ar-command="'+type+'">'+fields+'<button>'+label(type)+'</button></form>':'';
+  const note=()=>input('reason','folioReopenReason','required maxlength="500"');
+  const table=(headers,rows)=>'<div class="table-wrap"><table><thead><tr>'+headers.map(k=>'<th>'+label(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';
+  const choice=accounts.map(a=>[a.id,a.name+' · '+currency(ledger.filter(i=>i.accountId===a.id).reduce((n,i)=>n+i.open,0))]);
+  const accountForm=form('ar_account_save',input('name','arAccountName','required maxlength="120"'));
+  if(!account)return '<section class="panel"><h2>'+label('arLedger')+'</h2><div id="ar-error" role="alert"></div>'+accountForm+'</section>';
+  const id=hidden('accountId',account.id);
+  const others=accounts.filter(a=>a.id!==account.id).map(a=>[a.id,a.name]);
+  const receipt=form('ar_write_off',id+input('amount','amount','type="number" min=".01" step=".01" required')+
+    select('method','method',['cash','bank','card','ota'].map(k=>[k,t(k)]),'cash')+input('reference','reference','maxlength="120"')+
+    '<details><summary>'+label('arManual')+'</summary><label><input type="checkbox" name="manual"> '+label('arManual')+'</label>'+
+    items.filter(i=>i.open>0).map(i=>input('allocation:'+esc(i.id),'amount','type="number" step=".01" min="0" max="'+i.open/100+'"')+
+      '<small>'+esc(i.dueDate)+' · '+money(i.open)+' · '+esc(i.id)+'</small>').join('')+'</details>');
+  const rows=items.map(i=>{
+    const key=id+hidden('itemId',i.id);
+    const actions=i.open!==i.amount?'':form('ar_undo_post',key+note())+(others.length?form('ar_transfer',key+select('targetId','arTarget',others)+note()):'');
+    return '<tr><td><button data-open-stay="'+esc(i.orderId)+'">'+esc(i.orderId)+'</button></td><td>'+esc(i.dueDate)+'</td><td>'+money(i.amount)+'</td><td>'+money(i.open)+'</td><td>'+actions+'</td></tr>';
+  });
+  const history=[...events].reverse().map(e=>{
+    const reversible=e.type==='ar_write_off'&&!events.some(x=>x.reverses===e.id);
+    const allocation=(e.allocations||[]).map(a=>esc(a.itemId)+' · '+money(a.amount)).join('<br>');
+    return '<tr><td>'+esc(e.businessDate||'—')+'</td><td>'+label(e.type)+'</td><td>'+esc(e.actor)+'</td><td>'+esc(e.reference||e.reason||'')+
+      (e.targetId?' · '+esc(accounts.find(a=>a.id===e.targetId)?.name||e.targetId):'')+(allocation?'<br>'+allocation:'')+
+      '</td><td>'+(e.amount===undefined?'—':money(e.amount))+'</td><td>'+(reversible?form('ar_undo_write_off',id+hidden('receiptId',e.id)+note()):'')+'</td></tr>';
+  });
+  return '<section class="panel"><h2>'+label('arLedger')+'</h2><div id="ar-error" role="alert"></div><p>'+label('arLedgerNote')+'</p>'+
+    select('accountId','arLedger',choice,account.id,'ar-select')+accountForm+
+    form('ar_account_save',id+input('name','arAccountName','required maxlength="120" value="'+esc(account.name)+'"'))+
+    '<h3>'+label('ar_write_off')+'</h3>'+receipt+
+    table(['id','arDueDate','charge','due','action'],rows)+
+    '<h3>'+label('audit')+'</h3>'+table(['date','action','createdBy','notes','amount','action'],history)+'</section>';
+}
+
+Object.assign(financialWords.zh,{"arLedger":"应收账款","ar_account_save":"保存应收账户","ar_post":"转应收","ar_write_off":"登记收款并核销","ar_undo_write_off":"撤销核销","ar_transfer":"转移应收","ar_undo_post":"撤销挂账","ar_report_view":"查看应收账款","arAccountName":"账户名称","arDueDate":"到期日","arTarget":"目标账户","arManual":"手工分配（默认按到期日）","arPostNote":"将选中账单的未收金额转入应收。押金须先结清。","arConfirm":"确认将未收金额转入应收","arLedgerNote":"按门店核算。应收收款及冲销单列，转应收不计现金。","ar_input":"应收账户或金额有误。","ar_state":"当前账务状态不允许此操作。","ar_total":"核销分配之和必须等于收款金额。","ar_business_date":"请先初始化本门店营业日。"});
+Object.assign(financialWords.en,{"arLedger":"Accounts receivable","ar_account_save":"Save AR account","ar_post":"Post to AR","ar_write_off":"Record receipt and allocate","ar_undo_write_off":"Reverse allocation","ar_transfer":"Transfer receivable","ar_undo_post":"Reverse AR posting","ar_report_view":"View receivables","arAccountName":"Account name","arDueDate":"Due date","arTarget":"Destination account","arManual":"Manual allocation (default: earliest due date)","arPostNote":"Post the selected unpaid balance to AR. Clear the deposit first.","arConfirm":"Confirm transfer of the unpaid balance to AR","arLedgerNote":"Property ledger. AR receipts and reversals are separate. Posting to AR is a non-cash transfer.","ar_input":"Check the AR account or amount.","ar_state":"The current ledger state does not allow this action.","ar_total":"Allocations must equal the receipt amount.","ar_business_date":"Initialize the property business date first."});
+Object.assign(financialWords.ms,{"arLedger":"Akaun belum terima","ar_account_save":"Simpan akaun AR","ar_post":"Pindah ke AR","ar_write_off":"Rekod dan padankan terimaan","ar_undo_write_off":"Balikkan padanan","ar_transfer":"Pindah baki belum terima","ar_undo_post":"Balikkan catatan AR","ar_report_view":"Lihat akaun belum terima","arAccountName":"Nama akaun","arDueDate":"Tarikh matang","arTarget":"Akaun destinasi","arManual":"Agihan manual (lalai: tarikh matang terawal)","arPostNote":"Pindah baki belum bayar ke AR. Selesaikan deposit dahulu.","arConfirm":"Sahkan pindahan baki belum bayar ke AR","arLedgerNote":"Lejar hartanah. Terimaan dan pembalikan AR diasingkan. Pindahan ke AR tidak melibatkan tunai.","ar_input":"Semak akaun atau amaun AR.","ar_state":"Status lejar semasa tidak membenarkan tindakan ini.","ar_total":"Jumlah agihan mesti sama dengan terimaan.","ar_business_date":"Mulakan tarikh operasi hartanah dahulu."});

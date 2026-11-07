@@ -204,3 +204,7 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 ### 子账单核验
 
 运行 `node verification/dom-folio-split.mjs node_modules/jsdom/lib/api.js`，覆盖拆账、押金退回、分账收款、逐账结账和冲销。部署后验证 `curl -fsS https://pms.jovianhome.com/healthz`，以及 `curl -fsS https://pms.jovianhome.com/web/app.js | grep splitBillPanel`。后端主机使用 `grep -n billEvent /opt/jovian-pms-test/current/server/store.js` 佐证。
+
+### AR 应收核验
+
+运行 `node --test test/ar-ledger.test.js` 及 `node verification/dom-ar-ledger.mjs node_modules/jsdom/lib/api.js`。部署后检查 `curl -fsS https://pms.jovianhome.com/healthz`、`curl -fsS https://pms.jovianhome.com/web/financial-ui.js | grep arLedgerPage`。主机佐证 `grep -n arEventId /opt/jovian-pms-test/current/server/store.js` 与 `grep -n changeReceivables /opt/jovian-pms-test/current/src/demo-store.js`。

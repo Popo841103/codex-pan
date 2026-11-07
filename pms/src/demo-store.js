@@ -83,7 +83,7 @@ export function nightAuditExceptions(state, businessDate, isBoxed) {
   return exceptions.sort((a, b) => rank[a.severity] - rank[b.severity] || a.date.localeCompare(b.date) || a.orderId.localeCompare(b.orderId));
 }
 
-export function shiftSummary(state, { from, to }) {
+export function shiftSummary(state, { from, to, propertyId }) {
   if (typeof from !== 'string' || typeof to !== 'string' || !from || !to || from >= to) fail('shift_window');
   const kinds = ['payment', 'refund', 'deposit_in', 'deposit_out'];
   const byKind = Object.fromEntries(kinds.map(kind => [kind, { count: 0, amount: 0 }]));
@@ -107,7 +107,16 @@ export function shiftSummary(state, { from, to }) {
     }
     count += 1;
   }
-  return { from, to, count, byKind, byMethod,
+  let arNet=0, arCash=0;
+  for (const entry of state.arEvents || []) {
+    if (propertyId && entry.propertyId!==propertyId || entry.at<from || entry.at>=to) continue;
+    if (!['ar_write_off','ar_undo_write_off'].includes(entry.type)) continue;
+    const movement=entry.type==='ar_write_off'?entry.amount:-entry.amount;
+    arNet+=movement;
+    if (entry.method==='cash') arCash+=movement;
+  }
+  if (arCash) cashByMethod.cash=(cashByMethod.cash||0)+arCash;
+  return { from, to, count, byKind, byMethod, ...(arNet||arCash?{arNet,arCash}:{}),
     net: byKind.payment.amount - byKind.refund.amount,
     depositNet: byKind.deposit_in.amount - byKind.deposit_out.amount,
     cashExpectedByMethod: cashByMethod,
@@ -179,7 +188,7 @@ export function applyBusinessDay(next, command, reject, { isBoxed } = {}) {
     if (!from || !to || from >= to) reject('shift_window');
     const note = typeof command.note === 'string' ? command.note.trim() : '';
     if (note.length > 500) reject('input');
-    const summary = shiftSummary(state, { from, to });
+    const summary = shiftSummary(state, { from, to, propertyId:command.propertyId });
     // A cash count is optional. Omitting it leaves an old-style handover exactly as
     // it was: no cashCount field at all, never a guessed zero. The till total is
     // one whole number of minor units, the figure a person actually counts. The
@@ -314,7 +323,7 @@ export function apply(state, command) {
     status:o.status, productId:o.productId, finalCharge:o.finalCharge ?? null } : null;
   const stayBefore = ['edit','assign','checkin','checkout','cancel','lock'].includes(type) ? staySnapshot(order) : null;
   const catalogActions = ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'];
-  const needsOrder = ['settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock','commission_save'].includes(type);
+  const needsOrder = ['ar_post','settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock','commission_save'].includes(type);
   if (needsOrder && !order) reject('scope');
   if(order?.folioClosed&&['edit','payment','cancel'].includes(type))reject('folio_closed');
   // Clearing test bookings removes them outright rather than cancelling them, so a
@@ -327,6 +336,7 @@ export function apply(state, command) {
     const match = prefix.toUpperCase();
     const doomed = next.orders.filter(o => o.propertyId === propertyId && String(o.guest||'').toUpperCase().startsWith(match));
     if (!doomed.length) reject('nothing_to_purge');
+    if (doomed.some(o=>o.arMoves?.length)) reject('ar_state');
     const gone = new Set(doomed.map(o => o.id));
     next.orders = next.orders.filter(o => !gone.has(o.id));
     // A booking record exists only to hold its stays, so one left with none goes too.
@@ -367,11 +377,13 @@ export function apply(state, command) {
       (isAudited(next, order.start) || isAudited(next, order.end))) reject('audited');
   if (order && isBoxed(order) && ['assign','checkin','checkout','lock'].includes(type)) reject('box_state');
   if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
-  if (['settle_split','settle_bill','settle_undo','settle_unsplit'].includes(type)) {
+  if (type.startsWith('ar_')) {
+    changeReceivables(next,order,command);
+  } else if (['settle_split','settle_bill','settle_undo','settle_unsplit'].includes(type)) {
     changeSplitBills(order, command);
   }
   else if(type==='settle'){const f=folio(order);if(order.folioClosed)reject('folio_closed');if(f.due!==0||f.deposit!==0)reject('balance');order.folioClosed=true;(order.folioEvents??=[]).push({type:'settle',at:command.at,actor:command.actor||'local',charge:f.charge,paid:f.paid,deposit:f.deposit});}
-  else if(type==='reopen_folio'){if(!order.folioClosed)reject('state');const reason=text(command.reason||'',500).trim();if(!reason)reject('reason');order.folioClosed=false;(order.folioEvents??=[]).push({type:'reopen',at:command.at,actor:command.actor||'local',reason});}
+  else if(type==='reopen_folio'){if(order.arItemId)reject('ar_state');if(!order.folioClosed)reject('state');const reason=text(command.reason||'',500).trim();if(!reason)reject('reason');order.folioClosed=false;(order.folioEvents??=[]).push({type:'reopen',at:command.at,actor:command.actor||'local',reason});}
   else if(['rate_plan_save','rate_plan_archive','rates_bulk_update'].includes(type)){changeRates(next,command);}
   else if (['box_stays','restore_stays'].includes(type)) {
     changeOrderBox(next,command,preview);
@@ -462,7 +474,7 @@ export function apply(state, command) {
   } else if (type === 'checkout') {
     if (order.status !== 'checked_in' || command.date !== order.end) reject('date');
     const balance = folio(order);
-    if (balance.due !== 0 || balance.deposit !== 0 || order.splitBills?.some(b=>b.charge!==b.paid)) reject('balance');
+    if (balance.due !== 0 || balance.deposit !== 0 || order.splitBills?.some(b=>b.charge!==b.paid+(b.arAmount||0))) reject('balance');
     order.status = 'checked_out';
     setCleaning(next, next.resources.find(r => r.id === order.resourceId), 'dirty');
   } else if (['bulk_clean','bulk_block','bulk_unblock'].includes(type)) {
@@ -534,7 +546,8 @@ export function folio(order) {
   const transactions = order.transactions || [];
   const sum = kind => transactions.filter(t=>t.kind===kind).reduce((n,t)=>n+t.amount,0);
   const paid = sum('payment')-sum('refund');
-  return { nights, charge, paid, due: charge-paid, deposit:sum('deposit_in')-sum('deposit_out') };
+  const transferred = (order.arMoves||[]).reduce((sum,row)=>sum+row.amount,0);
+  return { nights, charge, paid, ...(transferred?{transferred}:{}), due: charge-paid-transferred, deposit:sum('deposit_in')-sum('deposit_out') };
 }
 
 function validRange(start,end){
@@ -585,6 +598,7 @@ function changeSplitBills(order, command) {
         event.paid = bill.paid;
       } else {
         if (!bill.closedBy) reject('bill_state');
+        if (bill.arItemId) reject('ar_state');
         event.reason = text(command.reason || '',500).trim();
         if (!event.reason) reject('reason');
         event.reverses = bill.closedBy;
@@ -594,4 +608,106 @@ function changeSplitBills(order, command) {
   }
   order.folioClosed = Boolean(order.splitBills?.every(b => b.closedBy));
   (order.folioEvents ??= []).push(event);
+}
+
+function changeReceivables(state, order, command) {
+  const {type,id,propertyId,accountId,at} = command;
+  const businessDate = state.businessDate;
+  const accounts = state.arAccounts ??= [];
+  const items = state.arItems ??= [];
+  const events = state.arEvents ??= [];
+  const account = accounts.find(a=>a.id===accountId&&a.propertyId===propertyId);
+  const event = {id,type,propertyId,accountId,at,businessDate,actor:command.actor||'local'};
+  const reason = () => {
+    const value = text(command.reason||'',500).trim();
+    if (!value) reject('reason');
+    return value;
+  };
+  if (type === 'ar_account_save') {
+    const name = text(command.name,120).trim();
+    if (!name || accounts.some(a=>a.propertyId===propertyId&&a.id!==accountId&&a.name.toLowerCase()===name.toLowerCase())) reject('ar_input');
+    if (accountId && !account) reject('scope');
+    event.accountId = account?.id || id;
+    event.before = account?.name ?? null;
+    event.name = name;
+    if (account) account.name = name;
+    else accounts.push({id,propertyId,name});
+  } else {
+    if (!account) reject('scope');
+    if (!isDate(businessDate)) reject('ar_business_date');
+    const item = items.find(x=>x.id===command.itemId&&x.accountId===accountId&&x.propertyId===propertyId&&!x.reversedBy);
+    if (type === 'ar_post') {
+      if (order.folioClosed || order.status!=='cancelled'&&order.end>businessDate || !isDate(command.dueDate) || command.dueDate<businessDate) reject('ar_state');
+      const totals = folio(order);
+      const bill = order.splitBills?.find(b=>b.id===command.billId);
+      if (order.splitBills ? !bill || bill.closedBy : Boolean(command.billId)) reject('bill_state');
+      const amount = bill ? bill.charge-bill.paid : totals.due;
+      if (totals.deposit!==0 || amount<=0) reject('balance');
+      money(amount);
+      const target = bill || order;
+      target.arItemId = id;
+      if (bill) { bill.closedBy=id; bill.arAmount=amount; }
+      order.folioClosed = bill ? order.splitBills.every(b=>b.closedBy) : true;
+      (order.arMoves ??= []).push({id,amount,businessDate});
+      (order.folioEvents ??= []).push({id,type,at,actor:event.actor,billId:bill?.id,amount});
+      items.push({id,propertyId,accountId,orderId:order.id,billId:bill?.id||null,dueDate:command.dueDate,businessDate,amount,open:amount});
+      Object.assign(event,{itemId:id,orderId:order.id,billId:bill?.id,amount,dueDate:command.dueDate});
+    } else if (type === 'ar_write_off') {
+      const amount = money(command.amount);
+      if (!amount || !['cash','bank','card','ota'].includes(command.method)) reject('ar_input');
+      const candidates = items.filter(x=>x.propertyId===propertyId&&x.accountId===accountId&&!x.reversedBy&&x.open>0)
+        .sort((a,b)=>a.dueDate.localeCompare(b.dueDate)||a.businessDate.localeCompare(b.businessDate)||a.id.localeCompare(b.id));
+      let remaining = amount;
+      const allocations = command.allocations ?? candidates.flatMap(x=>{
+        const used=Math.min(x.open,remaining);
+        remaining-=used;
+        return used ? [{itemId:x.id,amount:used}] : [];
+      });
+      if (!Array.isArray(allocations) || !allocations.length || new Set(allocations.map(x=>x?.itemId)).size!==allocations.length) reject('ar_input');
+      let allocated=0;
+      const resolved=allocations.map(row=>{
+        const target=candidates.find(x=>x.id===row.itemId);
+        const used=money(row.amount);
+        if (!target || !used || used>target.open) reject('ar_state');
+        allocated+=used;
+        return [target,used];
+      });
+      if (allocated!==amount) reject('ar_total');
+      for(const [target,used] of resolved) target.open-=used;
+      Object.assign(event,{amount,method:command.method,reference:text(command.reference||'',120).trim(),allocations:resolved.map(([x,used])=>({itemId:x.id,amount:used}))});
+    } else if (type === 'ar_undo_write_off') {
+      const receipt=events.find(e=>e.id===command.receiptId&&e.type==='ar_write_off'&&e.propertyId===propertyId&&e.accountId===accountId);
+      if (!receipt || events.some(e=>e.type===type&&e.reverses===receipt.id)) reject('ar_state');
+      event.reason=reason();
+      for(const row of receipt.allocations) {
+        const target=items.find(x=>x.id===row.itemId&&x.accountId===accountId&&x.propertyId===propertyId&&!x.reversedBy);
+        if (!target || target.open+row.amount>target.amount) reject('ar_state');
+        target.open+=row.amount;
+      }
+      Object.assign(event,{reverses:receipt.id,amount:receipt.amount,method:receipt.method,allocations:receipt.allocations});
+    } else if (type === 'ar_transfer' || type === 'ar_undo_post') {
+      if (!item || item.open!==item.amount) reject('ar_state');
+      Object.assign(event,{itemId:item.id,amount:item.amount,reason:reason()});
+      if (type === 'ar_transfer') {
+        const target=accounts.find(a=>a.id===command.targetId&&a.propertyId===propertyId&&a.id!==accountId);
+        if (!target) reject('scope');
+        item.accountId=target.id;
+        event.targetId=target.id;
+      } else {
+        const stay=state.orders.find(o=>o.id===item.orderId&&o.propertyId===propertyId);
+        const bill=item.billId&&stay?.splitBills?.find(b=>b.id===item.billId);
+        const target=item.billId ? bill : stay;
+        if (target?.arItemId!==item.id) reject('ar_state');
+        delete target.arItemId;
+        if (bill) { delete bill.arAmount; bill.closedBy=null; }
+        stay.folioClosed=false;
+        stay.arMoves.push({id,amount:-item.amount,businessDate});
+        stay.folioEvents.push({id,type,at,actor:event.actor,reverses:item.id,billId:item.billId,amount:-item.amount,reason:event.reason});
+        item.open=0;
+        item.reversedBy=id;
+        event.reverses=item.id;
+      }
+    } else reject('input');
+  }
+  events.push(event);
 }

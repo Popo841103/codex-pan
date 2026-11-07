@@ -469,3 +469,14 @@ Tests: Node **408** (was 402). A new `pms/test/role-permissions.test.js` adds si
 新动作 settle_split、settle_bill、settle_undo、settle_unsplit 已加入共享权限目录、finance/admin 及三语界面。使用既有事务、revision、幂等回执和追加审计。现阶段按住宿项分账，项目与付款人用人工标签和金额分配，未做按消费明细自动划分或跨住宿项合并。SmartOrder 权限来自已入库实见目录。字段与枚举未独立复验，本实现使用 JOVIAN 自身契约。
 
 本机 Windows Node 410 项 408 通过，余下两项为已知私有文件权限用例。修复旧试用注册测试在关闭 SQLite 前重复删除临时目录的问题，保留业务断言。Python 5/5，DOM 20/20，含 dom-folio-split.mjs。
+
+
+## AR 应收账户与核销（2026-11-07）
+
+- 按门店管理应收账户，从住宿账页或子账单转入当前未收金额。需初始化营业日、已到离店日或已取消、押金已结清。转入减少宾客欠款但不增加住宿现金或收入，经理日报按营业日列出转入与冲销。
+- 核销按到期日 FIFO，也可手工分配一笔收款至多笔应收。核销金额与分配守恒，重复、跨账户、超额或旧 revision 拒绝。撤销核销追加引用原记录的事件，现金核销及纠错纳入交班现金，其他方式仅计 AR 收款。
+- 支持将未被核销的整笔应收转移到同店另一账户，或退回原账页。已分配的应收必须先冲销分配。冲销为账务记录，不执行支付退款。
+- 动作 ar_report_view、ar_account_save、ar_post、ar_write_off、ar_undo_write_off、ar_transfer、ar_undo_post 已加入三处权限目录。内置 finance/admin 可操作，operations 无新增资金权限。读权限按门店隔离。
+- 参考证据：SmartOrder 权限目录实见，writeOff 路径来自既有交接，完整字段未复验。本批字段与状态属于 JOVIAN。AR 八张完整报表及月结冻结另批实现。
+
+本机验证：Node 414 项，412 通过，2 项既有 Windows 私有文件权限失败。Python 5/5，DOM 21/21（经理日报格式回归修正后复验）。本批支持独立 AR 收款明细和交班现金口径，月结冻结、账龄与其余专用报表仍待开发。

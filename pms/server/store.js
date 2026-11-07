@@ -28,9 +28,9 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','cash_variance_approve','member_save','role_save','role_delete','member_permission_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
+  admin: ['ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','cash_variance_approve','member_save','role_save','role_delete','member_permission_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
   operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover','booking_request_decision'],
-  finance: ['settle_split','settle_bill','settle_undo','settle_unsplit','settle','payment','commission_save'], viewer: []
+  finance: ['ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','settle','payment','commission_save'], viewer: []
 };
 // A role is a set of actions, exactly like the reference product's Account Role page:
 // an operator ticks what the role may do, then hands the role to an account. The
@@ -40,7 +40,7 @@ export const actionModules = {
   reservations: ['create_reservation','create','edit','assign','lock','memo_save','cancel','box_stays','restore_stays','booking_request_decision'],
   frontDesk: ['checkin','checkout'],
   housekeeping: ['clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
-  money: ['settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','payment','cash_variance_approve','commission_save'],
+  money: ['ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','payment','cash_variance_approve','commission_save'],
   catalog: ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
   operationsDay: ['business_date_init','night_audit','shift_save','shift_delete','shift_handover'],
   access: ['member_save','role_save','role_delete','member_permission_save'],
@@ -1101,10 +1101,13 @@ export class Store {
         bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[],
         noticeRules:[],noticeRulesAudit:[],noPropertyYet:true};
     const ids=this.publicUser(fresh).propertyIds;
-    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],roles:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[],noticeRules:[],noticeRulesAudit:[]};
+    const result={arAccounts:[],arItems:[],arEvents:[],ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],roles:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[],noticeRules:[],noticeRulesAudit:[]};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
+      if (this.permissionsFor(fresh,id).includes('ar_report_view')) {
+        for (const field of ['arAccounts','arItems','arEvents']) result[field].push(...(body[field]||[]).filter(item=>item.propertyId===id));
+      }
       result.businessDates[id]=body.businessDate ?? null;
       result.nightAudits.push(...(body.nightAudits||[]).map(entry=>({...entry,propertyId:id})));
       result.shiftTypes.push(...(body.shiftTypes||[]).map(entry=>({...entry,propertyId:id})));
@@ -1186,7 +1189,7 @@ export class Store {
       if(command.type==='create_reservation'&&command.mode==='checkin'&&!allowed.includes('checkin'))error(403,'forbidden');
       // Rewriting nights already closed by a night audit stays an administrator-only override.
       if(command.auditOverride===true&&rowUser.role!=='admin')error(403,'forbidden');
-      if(!allowed.includes(command.type))error(403,'forbidden');
+      if(!allowed.includes(command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
       // A request is decided once. Replaying the same key answers from the receipt above;
@@ -1241,6 +1244,7 @@ export class Store {
         ...(['block','unblock','bulk_block','bulk_unblock'].includes(cmd.type)?{blockChange:changedBlocks(before.blocks,next.blocks)}:{}),
         fields:Object.keys(command).filter(k=>!['type','propertyId'].includes(k)),
         ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{}),
+        ...(cmd.type.startsWith('ar_')?{arEventId:cmd.id}:{}),
         ...(['settle_split','settle_bill','settle_undo','settle_unsplit'].includes(cmd.type)?{billEvent:next.orders.find(o=>o.id===cmd.orderId)?.folioEvents?.at(-1)}:{}),
         ...(cmd.type==='commission_save'?{commissionChange:{before:before.orders.find(o=>o.id===cmd.orderId)?.commission||null,after:next.orders.find(o=>o.id===cmd.orderId)?.commission||null}}:{}),
         // A handover's cash count and a variance approval are business facts, so the

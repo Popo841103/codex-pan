@@ -55,7 +55,8 @@ export function orderBalanceAt(order,date,inclusive=true){
     else if(tr.kind==='deposit_in')balance.deposit+=value;
     else balance.deposit-=value;
   }
-  balance.due=balance.charge-balance.paid;
+  const transferred=(order.arMoves||[]).filter(m=>cut(m.businessDate)).reduce((sum,m)=>sum+amount(m.amount),0);
+  balance.due=balance.charge-balance.paid-transferred;
   return balance;
 }
 export function guestLedger(state,q){
@@ -92,6 +93,7 @@ export function dailyOperations(state,q){
     const value=amount(tr.amount);if(value<0)throw Error('report_amount');
     settlements[tr.kind]+=value;settlements.count++;
   }
+  const arNet=orders.flatMap(o=>o.arMoves||[]).filter(m=>m.businessDate===q.date).reduce((sum,m)=>sum+amount(m.amount),0);
   settlements.net=settlements.payment-settlements.refund;
   settlements.depositNet=settlements.deposit_in-settlements.deposit_out;
   const metrics={arrivals:orders.filter(o=>o.start===q.date).length,departures:orders.filter(o=>o.end===q.date).length,inHouse:orders.filter(o=>o.status==='checked_in').length,expectedArrivals:orders.filter(o=>o.status==='confirmed'&&o.start===q.date).length};
@@ -99,9 +101,9 @@ export function dailyOperations(state,q){
   // they do not, the page says the day is unreconciled instead of showing a total that
   // no longer ties back to the guest ledger.
   const expected={charge:opening.charge+charges.total,paid:opening.paid+settlements.net,deposit:opening.deposit+settlements.depositNet};
-  const balanced=expected.charge===closing.charge&&expected.paid===closing.paid&&expected.deposit===closing.deposit;
+  const balanced=expected.charge===closing.charge&&expected.paid===closing.paid&&expected.deposit===closing.deposit&&opening.due+charges.total-settlements.net-arNet===closing.due;
   const businessDate=state.businessDates?.[q.propertyId]??state.businessDate??null;
-  return {date:q.date,opening,closing,charges,settlements,chargeLines,unallocated,metrics,expected,balanced,orderCount:orders.length,businessDate,businessDateSet:BusinessDate(businessDate)};
+  return {date:q.date,opening,closing,charges,settlements,arNet,chargeLines,unallocated,metrics,expected,balanced,orderCount:orders.length,businessDate,businessDateSet:BusinessDate(businessDate)};
 }
 const BusinessDate=value=>typeof value==='string'&&validDate(value);
 export function managerDailyReport(state,q){
