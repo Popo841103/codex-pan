@@ -158,19 +158,46 @@ export function handoverWindow(businessDate, shift) {
 // Team access. Roles are shown as what they actually allow, and the page never
 // claims more than the server enforces: a property override is displayed per
 // property, and an account can never edit itself here.
-export function teamAccessPage({members=[],memberAudit=[],properties=[],propertyId,user,can,t,escape}) {
+// The same grouping the server uses for its own action list. The settings page draws
+// one column of ticks per module; a DOM check compares this list with what the server
+// enforces, so the page can never drift into offering an action nobody checks.
+export const permissionModules = {
+ reservations: ['create_reservation','create','edit','assign','lock','memo_save','cancel','box_stays','restore_stays','booking_request_decision'],
+ frontDesk: ['checkin','checkout'],
+ housekeeping: ['clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
+ money: ['settle','reopen_folio','payment','cash_variance_approve','commission_save'],
+ catalog: ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
+ operationsDay: ['business_date_init','night_audit','shift_save','shift_delete','shift_handover'],
+ access: ['member_save','role_save','role_delete','member_permission_save'],
+ site: ['site_save'],
+ notice: ['notice_severity_save','notice_rule_save'],
+ data: ['purge_test_orders'],
+ guest: ['guest_read','guest_sync','guest_send','guest_note','guest_handled','guest_bind','guest_reconcile'],
+ selfCheckin: ['sc_read','sc_invite','sc_revoke','sc_review','sc_document','sc_checkin','sc_policy_save','sc_purge_identity'],
+ support: ['support_create','support_reply','support_status','support_contact_save']
+};
+export function teamAccessPage({members=[],memberAudit=[],properties=[],propertyId,user,can,t,escape,roles=[]}) {
  const esc=escape||(v=>String(v??''));
  const editable=can('member_save');
- const roles=[['admin','role_admin'],['operations','role_operations'],['finance','role_finance'],['viewer','role_viewer']];
+ const builtin=[['admin','role_admin'],['operations','role_operations'],['finance','role_finance'],['viewer','role_viewer']];
+ // A role belongs to a property, so only this property's roles are offered here.
+ const custom=roles.filter(r=>r.propertyId===propertyId);
+ const roleName=id=>{
+  const hit=builtin.find(([key])=>key===id);
+  if(hit)return t(hit[1]);
+  return custom.find(r=>r.id===id)?.name||String(id??'');
+ };
+ const roleOptions=[...builtin.map(([id,word])=>[id,t(word)]),...custom.map(r=>[r.id,r.name])];
+ const canRoles=can('role_save'),canDeleteRole=can('role_delete');
  const propertyName=id=>properties.find(p=>p.id===id)?.name||id;
- const scopeCell=m=>`<td>${m.propertyIds.map(id=>`${esc(propertyName(id))}${m.propertyRoles[id]?` <small>(${esc(t('role_'+m.propertyRoles[id]))})</small>`:''}`).join(' · ')||'—'}</td>`;
+ const scopeCell=m=>`<td>${m.propertyIds.map(id=>`${esc(propertyName(id))}${m.propertyRoles[id]?` <small>(${esc(roleName(m.propertyRoles[id]))})</small>`:''}`).join(' · ')||'—'}</td>`;
  const rows=members.map(m=>{
   const self=user&&m.username===user.username;
-  if(self)return `<tr><th>${esc(m.username)}</th><td>${esc(t('role_'+m.role))}</td>${scopeCell(m)}<td>${esc(t(m.active?'memberEnabled':'memberDisabled'))}</td><td colspan="3" class="muted">${esc(t('memberSelf'))}</td></tr>`;
+  if(self)return `<tr><th>${esc(m.username)}</th><td>${esc(roleName(m.role))}</td>${scopeCell(m)}<td>${esc(t(m.active?'memberEnabled':'memberDisabled'))}</td><td colspan="3" class="muted">${esc(t('memberSelf'))}</td></tr>`;
   return `<tr><th>${esc(m.username)}</th>
-   <td><select data-member-role="${esc(m.username)}">${roles.map(([id,word])=>`<option value="${esc(id)}" ${id===m.role?'selected':''}>${esc(t(word))}</option>`).join('')}</select></td>
+   <td><select data-member-role="${esc(m.username)}">${roleOptions.map(([id,label])=>`<option value="${esc(id)}" ${id===m.role?'selected':''}>${esc(label)}</option>`).join('')}</select></td>
    ${scopeCell(m)}
-   <td><select data-member-property-role="${esc(m.username)}"><option value="" ${m.propertyRoles[propertyId]?'':'selected'}>${esc(t('role_account'))}</option>${roles.map(([id,word])=>`<option value="${esc(id)}" ${m.propertyRoles[propertyId]===id?'selected':''}>${esc(t(word))}</option>`).join('')}</select></td>
+   <td><select data-member-property-role="${esc(m.username)}"><option value="" ${m.propertyRoles[propertyId]?'':'selected'}>${esc(t('role_account'))}</option>${roleOptions.map(([id,label])=>`<option value="${esc(id)}" ${m.propertyRoles[propertyId]===id?'selected':''}>${esc(label)}</option>`).join('')}</select></td>
    <td><select data-member-active="${esc(m.username)}"><option value="true" ${m.active?'selected':''}>${esc(t('memberEnabled'))}</option><option value="false" ${m.active?'':'selected'}>${esc(t('memberDisabled'))}</option></select></td>
    <td><input type="password" data-member-password="${esc(m.username)}" autocomplete="new-password" minlength="12" placeholder="${esc(t('memberPasswordHint'))}"></td>
    <td><button data-member-apply="${esc(m.username)}">${esc(t('save'))}</button></td></tr>`;
@@ -179,17 +206,43 @@ export function teamAccessPage({members=[],memberAudit=[],properties=[],property
   <form id="member-new" class="order-filters">
    <label>${esc(t('memberUsername'))}<input name="username" required minlength="3" maxlength="64" autocomplete="off"></label>
    <label>${esc(t('memberNewPassword'))}<input name="password" type="password" required minlength="12" autocomplete="new-password"></label>
-   <label>${esc(t('memberRole'))}<select name="role">${roles.map(([id,word])=>`<option value="${esc(id)}">${esc(t(word))}</option>`).join('')}</select></label>
-   <label>${esc(t('memberProperties'))}<select name="properties" multiple required>${properties.map(p=>`<option value="${esc(p.id)}" ${p.id===propertyId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
+   <label>${esc(t('memberRole'))}<select name="role">${builtin.map(([id,word])=>`<option value="${esc(id)}">${esc(t(word))}</option>`).join('')}</select></label>
+   <label>${esc(t('memberProperties'))}<select name="properties" multiple required>${properties.map(p=>`<option value="${p.id}" ${p.id===propertyId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
    <button class="primary">${esc(t('memberCreate'))}</button>
   </form>`:'';
  const table=`<div class="table-wrap"><table><thead><tr>${['memberUsername','memberRole','memberProperties','memberPropertyRole','memberState','memberPassword','actions'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="7">${esc(t('empty'))}</td></tr>`}</tbody></table></div>`;
- const audit=memberAudit.length?`<h3>${esc(t('memberAuditTitle'))}</h3><div class="table-wrap"><table><thead><tr>${['time','createdBy','memberTarget','memberRole','memberProperties','memberState'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${memberAudit.map(a=>`<tr><td>${esc(a.at)}</td><td>${esc(a.actor)}</td><td>${esc(a.target)}</td><td>${esc(t('role_'+a.role))}</td><td>${esc((a.propertyIds||[]).map(propertyName).join(' · ')||'—')}</td><td>${esc(t(a.active?'memberEnabled':'memberDisabled'))}${a.passwordChanged?' · '+esc(t('memberPasswordChanged')):''}${a.created?' · '+esc(t('memberCreated')):''}</td></tr>`).join('')}</tbody></table></div>`:'';
- const rolesTable=`<h3>${esc(t('memberRolesTitle'))}</h3><div class="table-wrap"><table><tbody>${roles.map(([id,word])=>`<tr><th>${esc(t(word))}</th><td>${esc(t('roleDesc_'+id))}</td></tr>`).join('')}</tbody></table></div>`;
+ const audit=memberAudit.length?`<h3>${esc(t('memberAuditTitle'))}</h3><div class="table-wrap"><table><thead><tr>${['time','createdBy','memberTarget','memberRole','memberProperties','memberState'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>${memberAudit.map(a=>`<tr><td>${esc(a.at)}</td><td>${esc(a.actor)}</td><td>${esc(a.target)}</td><td>${esc(a.action==='role_save'||a.action==='role_delete'?t('memberRole'):roleName(a.role))}</td><td>${esc((a.propertyIds||[]).map(propertyName).join(' · ')||'—')}</td><td>${esc(t(a.active?'memberEnabled':'memberDisabled'))}${a.passwordChanged?' · '+esc(t('memberPasswordChanged')):''}${a.created?' · '+esc(t('memberCreated')):''}${a.action==='role_save'||a.action==='role_delete'?' · '+esc(a.name||a.roleId||''):''}</td></tr>`).join('')}</tbody></table></div>`:'';
+ // The matrix is the same list of actions the server enforces; a role is exactly what
+ // is ticked here, so the page can never offer an action the server would refuse.
+ const matrix=selected=>{
+  const has=new Set(selected);
+  return `<div class="perm-matrix">${Object.entries(permissionModules).map(([module,actions])=>`
+   <fieldset class="perm-group"><legend>${esc(t('mod_'+module))}</legend>
+    ${actions.map(action=>`<label class="perm-item"><input type="checkbox" name="actions" value="${esc(action)}" ${has.has(action)?'checked':''} ${canRoles?'':'disabled'}>
+     <span>${esc(t('act_'+action))}</span></label>`).join('')}
+   </fieldset>`).join('')}</div>`;
+ };
+ const roleSummary=r=>{
+  const names=r.actions.map(a=>t('act_'+a));
+  return `${r.actions.length} · ${esc(names.slice(0,4).join(' / '))}${names.length>4?' …':''}`;
+ };
+ const roleTable=`<div class="table-wrap"><table><thead><tr>${['roleName','roleWhatItAllows','actions'].map(h=>`<th>${esc(t(h))}</th>`).join('')}</tr></thead><tbody>
+  ${builtin.map(([id,word])=>`<tr><th>${esc(t(word))}</th><td>${esc(t('roleDesc_'+id))}</td><td class="muted">${esc(t('roleBuiltin'))}</td></tr>`).join('')}
+  ${custom.map(r=>`<tr><th>${esc(r.name)}</th><td>${roleSummary(r)}</td><td>${canDeleteRole?`<button class="danger" data-role-delete="${esc(r.id)}">${esc(t('delete'))}</button>`:`<span class="muted">${esc(t('roleReadOnly'))}</span>`}</td></tr>`).join('')}
+  ${custom.length?'':`<tr><td colspan="3" class="muted">${esc(t('roleNoneYet'))}</td></tr>`}
+ </tbody></table></div>`;
+ const newRole=canRoles?`<details class="role-editor"><summary>${esc(t('roleNew'))}</summary>
+  <form id="role-new"><label>${esc(t('roleName'))}<input name="name" required maxlength="40" autocomplete="off" placeholder="${esc(t('roleNameHint'))}"></label>
+  ${matrix([])}<button class="primary">${esc(t('roleCreate'))}</button></form></details>`:'';
+ const editors=custom.map(r=>`<details class="role-editor"><summary>${esc(t('roleEdit'))} · ${esc(r.name)}</summary>
+  <form data-role-form="${esc(r.id)}"><label>${esc(t('roleName'))}<input name="name" value="${esc(r.name)}" required maxlength="40"></label>
+  ${matrix(r.actions)}<button class="primary" ${canRoles?'':'disabled'}>${esc(t('save'))}</button></form></details>`).join('');
  return `<section class="panel"><div class="panel-head"><h2>${esc(t('teamAccess'))}</h2></div>
   <p class="muted">${esc(t('teamAccessNote'))}</p>
   ${editable?'':`<p class="muted">${esc(t('teamReadOnly'))}</p>`}
-  ${rolesTable}${newForm}<h3>${esc(t('memberList'))}</h3>${table}${audit}</section>`;
+  <h3>${esc(t('memberRolesTitle'))}</h3><p class="muted">${esc(t('roleSectionNote'))}</p>
+  ${roleTable}${newRole}${editors}
+  ${newForm}<h3>${esc(t('memberList'))}</h3>${table}${audit}</section>`;
 }
 
 export const teamWords={
@@ -205,6 +258,29 @@ export const teamWords={
   roleDesc_operations:'房态、订单、分房、入住退房、收款、清洁与关房、夜审与交班；不含房价、资源和成员设置。',
   roleDesc_finance:'结账与收款记录；不含房态、房价和成员设置。',
   roleDesc_viewer:'仅查看，不能写入任何业务数据。',
+  roleSectionNote:'角色就是一组动作：勾选这个角色能做什么，再把角色交给成员。角色只在所属门店生效；成员也可以在角色之外单独追加动作，但不能给出自己没有的动作。',
+  roleName:'角色名称',roleWhatItAllows:'可执行的动作',roleBuiltin:'内置角色，不可修改',roleReadOnly:'无权修改',
+  roleNoneYet:'还没有自定义角色。新建一个角色，勾选它能做的事。',roleNew:'新建角色',roleEdit:'编辑角色',roleCreate:'创建角色',
+  roleNameHint:'例如：夜班前台',teamSharedOnly:'角色与权限只在连接服务端时可用。',delete:'删除',roleDeleteConfirm:'删除这个角色？此操作不可撤销。',
+  role_input:'请检查角色名称与勾选的动作。',role_name_taken:'这个门店已有同名角色。',role_in_use:'还有成员在使用这个角色，先改掉他们的角色再删除。',role_limit:'一个门店最多 50 个自定义角色。',
+  mod_reservations:'预订',mod_frontDesk:'前台',mod_housekeeping:'房务',mod_money:'账务',mod_catalog:'房价与资源',
+  mod_operationsDay:'营业日',mod_access:'权限',mod_site:'官网',mod_notice:'通知',mod_data:'数据维护',
+  mod_guest:'客人消息',mod_selfCheckin:'自助入住',mod_support:'工单',
+  act_settle:'结账',act_reopen_folio:'重开账单',act_rate_plan_save:'保存房价计划',act_rate_plan_archive:'归档房价计划',
+  act_rates_bulk_update:'批量改价',act_box_stays:'移入待排房',act_restore_stays:'放回房态',act_create_reservation:'新建预订',
+  act_memo_save:'保存备注',act_create:'建立订单',act_assign:'排房',act_edit:'修改订单',act_lock:'锁定订单',act_payment:'收款',
+  act_cancel:'取消订单',act_checkin:'办理入住',act_checkout:'办理退房',act_clean:'完成清洁',act_block:'关房',act_unblock:'解除关房',
+  act_bulk_clean:'批量清洁',act_bulk_block:'批量关房',act_bulk_unblock:'批量解除关房',act_room_type_save:'保存房型',
+  act_physical_room_save:'保存房间',act_suite_save:'保存套房',act_resource_update:'修改资源',act_resource_archive:'归档资源',
+  act_business_date_init:'启用营业日',act_night_audit:'夜审',act_shift_save:'保存班次',act_shift_delete:'删除班次',
+  act_shift_handover:'交班',act_cash_variance_approve:'审批现金差异',act_member_save:'管理成员',act_role_save:'保存角色',
+  act_role_delete:'删除角色',act_member_permission_save:'成员附加权限',act_site_save:'发布官网',act_notice_severity_save:'通知优先级',
+  act_notice_rule_save:'通知规则',act_purge_test_orders:'清理测试订单',act_booking_request_decision:'处理预订申请',
+  act_commission_save:'佣金设置',act_guest_read:'查看客人消息',act_guest_sync:'同步客人消息',act_guest_send:'发送客人消息',
+  act_guest_note:'客人消息备注',act_guest_handled:'标记已处理',act_guest_bind:'绑定客人会话',act_guest_reconcile:'客人消息对账',
+  act_sc_read:'查看自助入住',act_sc_invite:'发送自助入住邀请',act_sc_revoke:'撤销邀请',act_sc_review:'审核自助入住',
+  act_sc_document:'查看证件',act_sc_checkin:'代办自助入住',act_sc_policy_save:'自助入住政策',act_sc_purge_identity:'清除证件数据',
+  act_support_create:'新建工单',act_support_reply:'回复工单',act_support_status:'工单状态',act_support_contact_save:'工单联系方式',
   member_input:'请检查账号、密码长度、角色与门店范围。',member_scope:'只能管理与你共享门店的成员，且门店必须在你的权限范围内。',
   member_self:'不能在此修改自己的权限。',member_last_admin:'至少保留一位启用的管理员。',password_length:'密码至少12位。'},
  en:{teamAccess:'Team & access',teamAccessNote:'The account role is the default everywhere; a property role applies to that property only and overrides it. Only account administrators can change members, only inside properties they share with them, never themselves, and never the last administrator.',
@@ -219,6 +295,29 @@ export const teamWords={
   roleDesc_operations:'Room state, bookings, assignment, check-in and check-out, receipts, cleaning and blocking, night audit and handovers. No rates, resources or member settings.',
   roleDesc_finance:'Settlement and receipt records only. No room state, rates or member settings.',
   roleDesc_viewer:'Read only. Cannot write any business data.',
+  roleSectionNote:'A role is a set of actions: tick what it may do, then hand it to a member. A role applies to the property that owns it, and a member can also carry a few extra actions on top of its role - never an action the giver does not hold.',
+  roleName:'Role name',roleWhatItAllows:'What it allows',roleBuiltin:'Built in, cannot be edited',roleReadOnly:'No permission to change',
+  roleNoneYet:'No custom role yet. Create one and tick what it may do.',roleNew:'New role',roleEdit:'Edit role',roleCreate:'Create role',
+  roleNameHint:'For example: Night front desk',teamSharedOnly:'Roles and access are only available on the shared server.',delete:'Delete',roleDeleteConfirm:'Delete this role? This cannot be undone.',
+  role_input:'Check the role name and the ticked actions.',role_name_taken:'This property already has a role with that name.',role_in_use:'Members still hold this role. Give them another role first.',role_limit:'A property can define at most 50 roles.',
+  mod_reservations:'Reservations',mod_frontDesk:'Front desk',mod_housekeeping:'Housekeeping',mod_money:'Money',mod_catalog:'Rates & resources',
+  mod_operationsDay:'Business day',mod_access:'Access',mod_site:'Website',mod_notice:'Notices',mod_data:'Data',
+  mod_guest:'Guest messages',mod_selfCheckin:'Self check-in',mod_support:'Support desk',
+  act_settle:'Settle',act_reopen_folio:'Reopen folio',act_rate_plan_save:'Save rate plan',act_rate_plan_archive:'Archive rate plan',
+  act_rates_bulk_update:'Bulk rate update',act_box_stays:'Move to unassigned',act_restore_stays:'Return to the grid',act_create_reservation:'Create reservation',
+  act_memo_save:'Save note',act_create:'Create booking',act_assign:'Assign room',act_edit:'Edit booking',act_lock:'Lock booking',act_payment:'Take payment',
+  act_cancel:'Cancel booking',act_checkin:'Check in',act_checkout:'Check out',act_clean:'Mark clean',act_block:'Block dates',act_unblock:'Unblock dates',
+  act_bulk_clean:'Bulk clean',act_bulk_block:'Bulk block',act_bulk_unblock:'Bulk unblock',act_room_type_save:'Save room type',
+  act_physical_room_save:'Save room',act_suite_save:'Save suite',act_resource_update:'Update resource',act_resource_archive:'Archive resource',
+  act_business_date_init:'Start business day',act_night_audit:'Night audit',act_shift_save:'Save shift',act_shift_delete:'Delete shift',
+  act_shift_handover:'Handover',act_cash_variance_approve:'Approve cash variance',act_member_save:'Manage members',act_role_save:'Save role',
+  act_role_delete:'Delete role',act_member_permission_save:'Member extra actions',act_site_save:'Publish website',act_notice_severity_save:'Notice priority',
+  act_notice_rule_save:'Notice rules',act_purge_test_orders:'Purge test orders',act_booking_request_decision:'Decide booking requests',
+  act_commission_save:'Commission settings',act_guest_read:'Read guest messages',act_guest_sync:'Sync guest messages',act_guest_send:'Send guest messages',
+  act_guest_note:'Guest message note',act_guest_handled:'Mark handled',act_guest_bind:'Bind guest thread',act_guest_reconcile:'Reconcile guest messages',
+  act_sc_read:'View self check-in',act_sc_invite:'Send check-in invite',act_sc_revoke:'Revoke invite',act_sc_review:'Review self check-in',
+  act_sc_document:'View documents',act_sc_checkin:'Complete check-in',act_sc_policy_save:'Self check-in policy',act_sc_purge_identity:'Purge identity data',
+  act_support_create:'Open ticket',act_support_reply:'Reply to ticket',act_support_status:'Ticket status',act_support_contact_save:'Support contact details',
   member_input:'Check the account, password length, role and property scope.',member_scope:'You can only manage members who share a property with you, inside properties you can reach.',
   member_self:'Your own access cannot be changed here.',member_last_admin:'At least one active administrator must remain.',password_length:'The password needs at least 12 characters.'},
  ms:{teamAccess:'Pasukan & akses',teamAccessNote:'Peranan akaun ialah lalai di semua hartanah; peranan hartanah hanya berkuat kuasa di hartanah itu dan mengatasinya. Hanya pentadbir akaun boleh menukar ahli, hanya dalam hartanah yang dikongsi, tidak pernah diri sendiri, dan tidak pernah pentadbir terakhir.',
@@ -233,6 +332,29 @@ export const teamWords={
   roleDesc_operations:'Status bilik, tempahan, penetapan, daftar masuk dan keluar, terimaan, pembersihan dan sekatan, audit malam dan serahan. Tiada kadar, sumber atau tetapan ahli.',
   roleDesc_finance:'Penyelesaian dan rekod terimaan sahaja. Tiada status bilik, kadar atau tetapan ahli.',
   roleDesc_viewer:'Baca sahaja. Tidak boleh menulis sebarang data perniagaan.',
+  roleSectionNote:'Peranan ialah satu set tindakan: tandakan apa yang dibenarkan, kemudian berikan kepada ahli. Peranan hanya berkuat kuasa di hartanah pemiliknya, dan ahli boleh membawa beberapa tindakan tambahan - tidak pernah tindakan yang pemberi sendiri tiada.',
+  roleName:'Nama peranan',roleWhatItAllows:'Apa yang dibenarkan',roleBuiltin:'Terbina dalam, tidak boleh diubah',roleReadOnly:'Tiada kebenaran mengubah',
+  roleNoneYet:'Belum ada peranan tersuai. Cipta satu dan tandakan apa yang dibenarkan.',roleNew:'Peranan baharu',roleEdit:'Sunting peranan',roleCreate:'Cipta peranan',
+  roleNameHint:'Contoh: Kaunter malam',teamSharedOnly:'Peranan dan akses hanya tersedia pada pelayan dikongsi.',delete:'Padam',roleDeleteConfirm:'Padam peranan ini? Tindakan ini tidak boleh dibatalkan.',
+  role_input:'Semak nama peranan dan tindakan yang ditanda.',role_name_taken:'Hartanah ini sudah ada peranan dengan nama itu.',role_in_use:'Masih ada ahli memegang peranan ini. Beri mereka peranan lain dahulu.',role_limit:'Satu hartanah boleh menentukan paling banyak 50 peranan.',
+  mod_reservations:'Tempahan',mod_frontDesk:'Kaunter hadapan',mod_housekeeping:'Pembersihan',mod_money:'Kewangan',mod_catalog:'Kadar & sumber',
+  mod_operationsDay:'Hari perniagaan',mod_access:'Akses',mod_site:'Laman web',mod_notice:'Notis',mod_data:'Data',
+  mod_guest:'Mesej tetamu',mod_selfCheckin:'Daftar masuk sendiri',mod_support:'Meja sokongan',
+  act_settle:'Selesaikan bil',act_reopen_folio:'Buka semula folio',act_rate_plan_save:'Simpan pelan kadar',act_rate_plan_archive:'Arkib pelan kadar',
+  act_rates_bulk_update:'Kemas kini kadar pukal',act_box_stays:'Pindah ke belum ditetapkan',act_restore_stays:'Kembali ke grid',act_create_reservation:'Cipta tempahan',
+  act_memo_save:'Simpan nota',act_create:'Cipta tempahan',act_assign:'Tetapkan bilik',act_edit:'Sunting tempahan',act_lock:'Kunci tempahan',act_payment:'Terima bayaran',
+  act_cancel:'Batal tempahan',act_checkin:'Daftar masuk',act_checkout:'Daftar keluar',act_clean:'Tanda bersih',act_block:'Sekat tarikh',act_unblock:'Buka sekatan',
+  act_bulk_clean:'Bersih pukal',act_bulk_block:'Sekat pukal',act_bulk_unblock:'Buka sekatan pukal',act_room_type_save:'Simpan jenis bilik',
+  act_physical_room_save:'Simpan bilik',act_suite_save:'Simpan suite',act_resource_update:'Kemas kini sumber',act_resource_archive:'Arkib sumber',
+  act_business_date_init:'Mula hari perniagaan',act_night_audit:'Audit malam',act_shift_save:'Simpan syif',act_shift_delete:'Padam syif',
+  act_shift_handover:'Serahan syif',act_cash_variance_approve:'Lulus beza tunai',act_member_save:'Urus ahli',act_role_save:'Simpan peranan',
+  act_role_delete:'Padam peranan',act_member_permission_save:'Tindakan tambahan ahli',act_site_save:'Terbitkan laman web',act_notice_severity_save:'Keutamaan notis',
+  act_notice_rule_save:'Peraturan notis',act_purge_test_orders:'Bersihkan tempahan ujian',act_booking_request_decision:'Putus permintaan tempahan',
+  act_commission_save:'Tetapan komisen',act_guest_read:'Baca mesej tetamu',act_guest_sync:'Segerak mesej tetamu',act_guest_send:'Hantar mesej tetamu',
+  act_guest_note:'Nota mesej tetamu',act_guest_handled:'Tanda selesai',act_guest_bind:'Ikat benang tetamu',act_guest_reconcile:'Runding mesej tetamu',
+  act_sc_read:'Lihat daftar masuk sendiri',act_sc_invite:'Hantar jemputan daftar masuk',act_sc_revoke:'Tarik balik jemputan',act_sc_review:'Semak daftar masuk sendiri',
+  act_sc_document:'Lihat dokumen',act_sc_checkin:'Selesaikan daftar masuk',act_sc_policy_save:'Polisi daftar masuk sendiri',act_sc_purge_identity:'Hapus data identiti',
+  act_support_create:'Buka tiket',act_support_reply:'Balas tiket',act_support_status:'Status tiket',act_support_contact_save:'Maklumat hubungan sokongan',
   member_input:'Semak akaun, panjang kata laluan, peranan dan skop hartanah.',member_scope:'Anda hanya boleh mengurus ahli yang berkongsi hartanah dengan anda, dalam hartanah yang boleh anda capai.',
   member_self:'Akses sendiri tidak boleh diubah di sini.',member_last_admin:'Sekurang-kurangnya seorang pentadbir aktif mesti kekal.',password_length:'Kata laluan perlu sekurang-kurangnya 12 aksara.'}
 };

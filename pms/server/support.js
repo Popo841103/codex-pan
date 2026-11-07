@@ -68,11 +68,13 @@ export class SupportDesk {
     const fingerprint=createHash('sha256').update(JSON.stringify(command)).digest('hex');
     return this.store.transaction(()=>{
       const actor=this.actor(user,command.propertyId),{type,propertyId}=command;
-      if(!supportPermissions(actor.role).includes(type))fail(403,'forbidden');
+      // A property may define its own roles, so what the ticket desk accepts comes from
+      // the account's permissions in this property rather than from a built-in name.
+      if(!this.store.permissionsFor(actor,propertyId).includes(type))fail(403,'forbidden');
       // Re-authorize visibility even when replaying a previously accepted command.
       let ticket=null;
       if(['support_reply','support_status'].includes(type))ticket=this.ticket(actor,command.ticketId,propertyId);
-      if(type==='support_contact_save'&&actor.role!=='admin')fail(403,'forbidden');
+      // Saving the desk's contact details is covered by the action check above.
       const prior=this.db.prepare('SELECT * FROM support_receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)fail(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
       const id=randomUUID(),at=new Date().toISOString();let revision,summary={};

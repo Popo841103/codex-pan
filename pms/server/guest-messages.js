@@ -26,7 +26,7 @@ export class GuestMessages {
   actor(user,propertyId,action='guest_read'){
     const actor=this.db.prepare('SELECT id,role,username FROM users WHERE id=? AND active=1').get(user.id);
     if(!actor)fail(401,'login_required');this.store.authorize(actor,propertyId);
-    if(!guestPermissions(actor.role).includes(action))fail(403,'forbidden');return actor;
+    if(!this.store.permissionsFor(actor,propertyId).includes(action))fail(403,'forbidden');return actor;
   }
   thread(id,propertyId){const row=this.db.prepare('SELECT * FROM ota_threads WHERE id=? AND property_id=?').get(id,propertyId);if(!row)fail(404,'messages_not_found');return row;}
   order(id,propertyId){const property=this.db.prepare('SELECT body FROM properties WHERE id=?').get(propertyId);const order=property&&JSON.parse(property.body).orders.find(o=>o.id===id&&o.propertyId===propertyId);if(!order)fail(400,'messages_mapping');return order;}

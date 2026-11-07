@@ -151,7 +151,7 @@ function render() {
   else if(view==='customers') { $('#content').innerHTML=customersPage(state,propertyId,t,escape,customerQuery); }
   else if(view==='channels') { $('#content').innerHTML=channelsPage(t,escape,channelProperty===propertyId?channelProvider:null,can)+`<button data-rates-open>${rateLabel('房价管理','Rate management','Pengurusan kadar')}</button>`; }
   else if(view==='resourcesSettings') { $('#content').innerHTML=catalogPage(state,propertyId,lang,t,can); }
-  else if(view==='teamAccess') { $('#content').innerHTML=teamAccessPage({members:state.members||[],memberAudit:state.memberAudit||[],properties:state.properties,propertyId,user:backend.user,can,t,escape}); }
+  else if(view==='teamAccess') { $('#content').innerHTML=teamAccessPage({members:state.members||[],memberAudit:state.memberAudit||[],properties:state.properties,propertyId,user:backend.user,can,t,escape,roles:state.roles||[]}); }
   else if(view==='propertySite') { $('#content').innerHTML=propertySitePage({sites:state.sites||[],siteAudit:state.siteAudit||[],roomTypes:state.roomTypes,ratePlans:state.ratePlans,propertyId,can,t,escape}); }
    else if(view==='notifications') { $('#content').innerHTML=notificationsPage({notifications:state.notifications||[],noticeSettings:state.noticeSettings||[],noticeSettingsAudit:state.noticeSettingsAudit||[],noticeRules:state.noticeRules||[],noticeRulesAudit:state.noticeRulesAudit||[],properties:state.properties,propertyId,can,t,escape}); }
  else if(view==='bookingRequests') { $('#content').innerHTML=bookingRequestsPage({requests:state.bookingRequests||[],events:state.bookingRequestEvents||[],roomTypes:state.roomTypes,propertyId,can,t,escape,currency}); }
@@ -536,6 +536,33 @@ $('#content').addEventListener('submit',async event=>{
   const data=new FormData(event.target),propertyIds=[...new Set(data.getAll('properties').filter(Boolean))];
   try{await commit({type:'member_save',username:String(data.get('username')||'').trim(),password:String(data.get('password')||''),role:String(data.get('role')||''),propertyIds});render();}
   catch(error){$('#message').textContent=errorText(error);}
+});
+// Roles. A role is saved as the exact set of ticked actions, so the page and the
+// server agree on what a role allows without either side keeping a second list.
+$('#content').addEventListener('submit',async event=>{
+  const form=event.target;
+  if(form.id!=='role-new'&&!form.dataset.roleForm)return;
+  event.preventDefault();
+  if(!backend.shared){$('#message').textContent=t('teamSharedOnly');return;}
+  const data=new FormData(form),actions=[...new Set(data.getAll('actions').filter(Boolean))];
+  const name=String(data.get('name')||'').trim();
+  const button=form.querySelector('button.primary');
+  if(button)button.disabled=true;
+  try{
+    await commit({type:'role_save',...(form.dataset.roleForm?{roleId:form.dataset.roleForm}:{}),name,actions});
+    render();
+  }catch(error){$('#message').textContent=errorText(error);}
+  finally{if(button)button.disabled=false;}
+});
+$('#content').addEventListener('click',async event=>{
+  const drop=event.target.closest('[data-role-delete]');
+  if(!drop)return;
+  event.preventDefault();
+  if(!confirm(t('roleDeleteConfirm')))return;
+  if(!backend.shared){$('#message').textContent=t('teamSharedOnly');return;}
+  drop.disabled=true;
+  try{ await commit({type:'role_delete',roleId:drop.dataset.roleDelete}); render(); }
+  catch(error){$('#message').textContent=errorText(error);drop.disabled=false;}
 });
 $('#content').addEventListener('submit',async event=>{
   if(event.target.id!=='site-form')return;

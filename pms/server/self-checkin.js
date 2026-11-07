@@ -50,7 +50,7 @@ export class SelfCheckin {
       this.db.exec('ALTER TABLE sc_grants ADD COLUMN purged_at TEXT');
   }
   now(){return this.clock();}
-  actor(user,pid,action){const actor=this.db.prepare('SELECT id,role,username FROM users WHERE id=? AND active=1').get(user.id);if(!actor)fail(401,'login_required');this.store.authorize(actor,pid);if(!checkinPermissions(actor.role).includes(action))fail(403,'forbidden');return actor;}
+  actor(user,pid,action){const actor=this.db.prepare('SELECT id,role,username FROM users WHERE id=? AND active=1').get(user.id);if(!actor)fail(401,'login_required');this.store.authorize(actor,pid);if(!this.store.permissionsFor(actor,pid).includes(action))fail(403,'forbidden');return actor;}
   policy(pid){const row=this.db.prepare('SELECT * FROM sc_policies WHERE property_id=?').get(pid);return row?{...defaults(),...JSON.parse(row.body),revision:row.revision}:defaults();}
   // The property works in Malaysia local time. The cut-off is computed here on the
   // server from that day and the configured period; a browser never supplies a date.

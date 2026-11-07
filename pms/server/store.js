@@ -28,10 +28,33 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','cash_variance_approve','member_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
+  admin: ['settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','shift_save','shift_delete','shift_handover','cash_variance_approve','member_save','role_save','role_delete','member_permission_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
   operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','shift_handover','booking_request_decision'],
   finance: ['settle','payment','commission_save'], viewer: []
 };
+// A role is a set of actions, exactly like the reference product's Account Role page:
+// an operator ticks what the role may do, then hands the role to an account. The
+// groups below exist so the settings page can draw that matrix module by module;
+// they are a view of the flat action list, never a second source of truth.
+export const actionModules = {
+  reservations: ['create_reservation','create','edit','assign','lock','memo_save','cancel','box_stays','restore_stays','booking_request_decision'],
+  frontDesk: ['checkin','checkout'],
+  housekeeping: ['clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
+  money: ['settle','reopen_folio','payment','cash_variance_approve','commission_save'],
+  catalog: ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
+  operationsDay: ['business_date_init','night_audit','shift_save','shift_delete','shift_handover'],
+  access: ['member_save','role_save','role_delete','member_permission_save'],
+  site: ['site_save'],
+  notice: ['notice_severity_save','notice_rule_save'],
+  data: ['purge_test_orders'],
+  guest: ['guest_read','guest_sync','guest_send','guest_note','guest_handled','guest_bind','guest_reconcile'],
+  selfCheckin: ['sc_read','sc_invite','sc_revoke','sc_review','sc_document','sc_checkin','sc_policy_save','sc_purge_identity'],
+  support: ['support_create','support_reply','support_status','support_contact_save']
+};
+// The whole catalogue is derived from the built-in administrator set, so an action
+// can never be grantable through a custom role without also being known here.
+export const allActions = [...new Set([...roleTypes.admin, ...supportPermissions('admin'), ...guestPermissions('admin'), ...checkinPermissions('admin')])];
+const rolePrefix = 'role-';
 export class Store {
   constructor(path,{messagesAdapter,selfCheckin={}}={}) {
     this.db = new DatabaseSync(path);
@@ -125,6 +148,17 @@ export class Store {
         action TEXT NOT NULL, at TEXT NOT NULL, revision INTEGER NOT NULL, summary TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS audit_no_update BEFORE UPDATE ON audit BEGIN SELECT RAISE(ABORT,'audit_append_only'); END;
       CREATE TRIGGER IF NOT EXISTS audit_no_delete BEFORE DELETE ON audit BEGIN SELECT RAISE(ABORT,'audit_append_only'); END;`);
+    // Access is modelled the way the reference product does it: a property owns named
+    // roles, each role is a list of actions, and an account either takes a role or is
+    // granted extra actions on top. Roles live beside the built-in four rather than
+    // replacing them, so existing accounts keep exactly the access they had.
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS role_definitions (property_id TEXT NOT NULL REFERENCES properties(id), id TEXT NOT NULL,
+        name TEXT NOT NULL, actions TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+        updated_by TEXT NOT NULL REFERENCES users(id), PRIMARY KEY(property_id,id));
+      CREATE TABLE IF NOT EXISTS member_permissions (user_id TEXT NOT NULL REFERENCES users(id),
+        property_id TEXT NOT NULL REFERENCES properties(id), action TEXT NOT NULL,
+        granted_by TEXT NOT NULL REFERENCES users(id), granted_at TEXT NOT NULL, PRIMARY KEY(user_id,property_id,action));`);
     // A property can override the account's role, so one person can run operations
     // in one property and only read in another. Older databases predate the column
     // and are widened here rather than being recreated.
@@ -214,6 +248,41 @@ export class Store {
     const base=roleTypes[role]||[];
     return [...new Set([...base,...supportPermissions(role),...guestPermissions(role),...checkinPermissions(role)])];
   }
+  // A role held in a property may be one of the four built-ins or a role this property
+  // defined itself. Only the built-ins carry subsystem defaults; a custom role is
+  // exactly the list of actions that was ticked for it, nothing implied.
+  actionsForRole(role,propertyId){
+    if(Object.hasOwn(roleTypes,role))return this.actionsFor(role);
+    if(typeof role!=='string'||!role.startsWith(rolePrefix))return [];
+    const row=this.db.prepare('SELECT actions FROM role_definitions WHERE property_id=? AND id=?').get(propertyId,role);
+    if(!row)return [];
+    try{ const list=JSON.parse(row.actions); return Array.isArray(list)?list.filter(action=>allActions.includes(action)):[]; }
+    catch{ return []; }
+  }
+  // What the account may actually do here: its role in this property, plus any single
+  // actions granted to it on top of that role.
+  permissionsFor(user,propertyId){
+    if(!user||typeof propertyId!=='string')return [];
+    // Holding a role means holding it somewhere: without membership in this property
+    // the account has no access here, whatever its account-level role says.
+    if(!this.db.prepare('SELECT 1 FROM user_properties WHERE user_id=? AND property_id=?').get(user.id,propertyId))return [];
+    const granted=this.db.prepare('SELECT action FROM member_permissions WHERE user_id=? AND property_id=?').all(user.id,propertyId).map(r=>r.action);
+    return [...new Set([...this.actionsForRole(this.propertyRole(user,propertyId),propertyId),...granted])];
+  }
+  roleExists(propertyId,roleId){
+    if(Object.hasOwn(roleTypes,roleId))return true;
+    return !!this.db.prepare('SELECT 1 FROM role_definitions WHERE property_id=? AND id=?').get(propertyId,roleId);
+  }
+  // Roles are listed with their actions so the settings page can draw the same matrix
+  // an administrator edits, and so an account can be shown where its access comes from.
+  visibleRoles(user){
+    const ids=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=? ORDER BY property_id').all(user.id).map(p=>p.property_id);
+    if(!ids.length)return [];
+    const keep=ids.map(()=>'?').join(',');
+    return this.db.prepare(`SELECT * FROM role_definitions WHERE property_id IN (${keep}) ORDER BY property_id,name`).all(...ids)
+      .map(row=>({propertyId:row.property_id,id:row.id,name:row.name,actions:this.actionsForRole(row.id,row.property_id),
+        createdAt:row.created_at,updatedAt:row.updated_at}));
+  }
   // A property override wins over the account role; with no override the account
   // role applies everywhere it is scoped.
   propertyRole(user,propertyId){
@@ -231,25 +300,33 @@ export class Store {
     const roles=this.propertyRoles(user);
     const ids=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=? ORDER BY property_id').all(user.id).map(p=>p.property_id);
     const byProperty={};
-    for(const id of ids)byProperty[id]=this.actionsFor(roles[id]||user.role);
+    for(const id of ids)byProperty[id]=this.permissionsFor(user,id);
     return { id:user.id,username:user.username,role:user.role,origin:user.origin||'staff',allowedActions:this.actionsFor(user.role),
       allowedActionsByProperty:byProperty,propertyRoles:roles,propertyIds:ids };
   }
   // Members are only visible to an administrator, and only inside the properties
   // that administrator is themselves scoped to: an administrator of one property
   // never sees the staff of another.
+  // Access management follows the same rule as every other module: the action that
+  // opens the page is member_save, held either through a built-in role or a role this
+  // property defined itself. An account without it sees no team at all.
+  manageScope(user){
+    const ids=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=? ORDER BY property_id').all(user.id).map(p=>p.property_id);
+    return ids.filter(id=>this.permissionsFor(user,id).includes('member_save'));
+  }
   visibleMembers(user){
-    if(user.role!=='admin')return [];
+    const scope=this.manageScope(user);
+    if(!scope.length)return [];
+    const keep=scope.map(()=>'?').join(',');
     return this.db.prepare(`SELECT u.id,u.username,u.role,u.active,
         (SELECT group_concat(property_id) FROM user_properties WHERE user_id=u.id ORDER BY property_id) ids FROM users u
-      WHERE EXISTS (SELECT 1 FROM user_properties mine WHERE mine.user_id=? AND mine.property_id IN
-        (SELECT property_id FROM user_properties WHERE user_id=u.id)) ORDER BY u.username`).all(user.id)
+      WHERE EXISTS (SELECT 1 FROM user_properties p WHERE p.user_id=u.id AND p.property_id IN (${keep})) ORDER BY u.username`).all(...scope)
       .map(row=>({id:row.id,username:row.username,role:row.role,active:!!row.active,
         propertyIds:(row.ids||'').split(',').filter(Boolean),propertyRoles:this.propertyRoles(row)}));
   }
   visibleMemberAudit(user){
-    if(user.role!=='admin')return [];
-    const scope=this.db.prepare('SELECT property_id FROM user_properties WHERE user_id=?').all(user.id).map(p=>p.property_id);
+    const scope=this.manageScope(user);
+    if(!scope.length)return [];
     return this.db.prepare(`SELECT m.*,a.username actor,t.username target FROM member_audit m
         JOIN users a ON a.id=m.actor_id JOIN users t ON t.id=m.target_id ORDER BY m.at DESC LIMIT 200`).all()
       .filter(row=>{
@@ -321,7 +398,7 @@ export class Store {
   // Team access. This writes the user tables, not a property body, so it is handled
   // before the property reducer and never advances a property revision.
   saveMember(actor,command,key,fingerprint){
-    if(actor.role!=='admin')error(403,'forbidden');
+    if(!this.permissionsFor(actor,command.propertyId).includes('member_save'))error(403,'forbidden');
     const username=command.username;
     if(typeof username!=='string'||!/^[a-zA-Z0-9._-]{3,64}$/.test(username))error(400,'member_input');
     if(actor.username===username)error(400,'member_self');
@@ -337,7 +414,8 @@ export class Store {
       const out={};
       for(const [id,role] of Object.entries(value)){
         if(!inScope(id))error(400,'member_scope');
-        if(role!==null&&!Object.hasOwn(roleTypes,role))error(400,'member_input');
+        // A property may hand out one of its own roles, not only the built-in four.
+        if(role!==null&&!this.roleExists(id,role))error(400,'member_input');
         out[id]=role;
       }
       return out;
@@ -356,6 +434,10 @@ export class Store {
     if(active!==null&&typeof active!=='boolean')error(400,'member_input');
     const password=command.password===undefined?null:command.password;
     if(password!==null&&(typeof password!=='string'||password.length<12||password.length>256))error(400,'password_length');
+    // A property-defined role may hold member_save and hand out roles inside this
+    // property, but the account row itself (its system role, password, existence) is
+    // shared by every property this person touches and stays with account administrators.
+    if(actor.role!=='admin'&&(role!==null||password!==null||active!==null||propertyIds!==null||!target))error(403,'forbidden');
     if(!target&&(password===null||propertyIds===null||role===null))error(400,'member_input');
     // Losing the last active administrator would lock the team out of its own access
     // page, so the change is refused rather than applied and discovered afterwards.
@@ -405,6 +487,84 @@ export class Store {
     this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
     return response;
   }
+  // A role is a name plus the actions ticked for it. Editing a role changes what every
+  // account holding it may do here, which is why it is audited like a membership change
+  // and why the roles in use cannot simply be deleted out from under those accounts.
+  saveRole(actor,command,key,fingerprint){
+    const propertyId=command.propertyId;
+    if(!this.permissionsFor(actor,propertyId).includes('role_save'))error(403,'forbidden');
+    const name=typeof command.name==='string'?command.name.replace(/\s+/g,' ').trim():'';
+    if(name.length<1||name.length>40)error(400,'role_input');
+    if(!Array.isArray(command.actions)||command.actions.length>allActions.length||
+      new Set(command.actions).size!==command.actions.length||
+      !command.actions.every(action=>typeof action==='string'&&allActions.includes(action)))error(400,'role_input');
+    const actions=[...command.actions].sort();
+    const roleId=command.roleId===undefined||command.roleId===null?null:String(command.roleId);
+    const existing=roleId===null?null:this.db.prepare('SELECT * FROM role_definitions WHERE property_id=? AND id=?').get(propertyId,roleId);
+    if(roleId!==null&&!existing)error(404,'not_found');
+    if(roleId!==null&&Object.hasOwn(roleTypes,roleId))error(400,'role_input');
+    const sameName=this.db.prepare('SELECT id FROM role_definitions WHERE property_id=? AND name=?').get(propertyId,name);
+    if(sameName&&sameName.id!==existing?.id)error(409,'role_name_taken');
+    if(!existing&&this.db.prepare('SELECT COUNT(*) n FROM role_definitions WHERE property_id=?').get(propertyId).n>=50)error(403,'role_limit');
+    const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
+    if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+    const at=new Date().toISOString(),id=existing?existing.id:`${rolePrefix}${randomUUID()}`;
+    const before=existing?{name:existing.name,actions:this.actionsForRole(existing.id,propertyId)}:null;
+    if(existing)this.db.prepare('UPDATE role_definitions SET name=?,actions=?,updated_at=?,updated_by=? WHERE property_id=? AND id=?')
+      .run(name,JSON.stringify(actions),at,actor.id,propertyId,id);
+    else this.db.prepare('INSERT INTO role_definitions VALUES(?,?,?,?,?,?,?)').run(propertyId,id,name,JSON.stringify(actions),at,at,actor.id);
+    this.db.prepare('INSERT INTO member_audit VALUES(?,?,?,?,?,?)').run(randomUUID(),actor.id,actor.id,'role_save',at,
+      JSON.stringify({propertyIds:[propertyId],roleId:id,name,actions,previous:before}));
+    const response={id,name,actions,created:!existing};
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    return response;
+  }
+  // A role that somebody still holds is refused rather than silently stripping that
+  // person of every action the role carried.
+  deleteRole(actor,command,key,fingerprint){
+    const propertyId=command.propertyId;
+    if(!this.permissionsFor(actor,propertyId).includes('role_delete'))error(403,'forbidden');
+    const row=this.db.prepare('SELECT * FROM role_definitions WHERE property_id=? AND id=?').get(propertyId,command.roleId);
+    if(!row)error(404,'not_found');
+    const holders=this.db.prepare('SELECT COUNT(*) n FROM user_properties WHERE property_id=? AND role=?').get(propertyId,row.id).n;
+    if(holders)error(409,'role_in_use');
+    const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
+    if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+    const at=new Date().toISOString();
+    const actions=this.actionsForRole(row.id,propertyId);
+    this.db.prepare('DELETE FROM role_definitions WHERE property_id=? AND id=?').run(propertyId,row.id);
+    this.db.prepare('INSERT INTO member_audit VALUES(?,?,?,?,?,?)').run(randomUUID(),actor.id,actor.id,'role_delete',at,
+      JSON.stringify({propertyIds:[propertyId],roleId:row.id,name:row.name,actions}));
+    const response={id:row.id,deleted:true};
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    return response;
+  }
+  // The reference product lets an account carry a role *and* a few extra permissions.
+  // The same is offered here, but nobody can hand out an action they do not hold
+  // themselves, so an extra grant can never be a way to climb past one's own role.
+  saveMemberPermissions(actor,command,key,fingerprint){
+    const propertyId=command.propertyId;
+    const mine=this.permissionsFor(actor,propertyId);
+    if(!mine.includes('member_permission_save'))error(403,'forbidden');
+    const target=this.db.prepare('SELECT * FROM users WHERE username=?').get(command.username);
+    if(!target||!this.db.prepare('SELECT 1 FROM user_properties WHERE user_id=? AND property_id=?').get(target.id,propertyId))error(404,'not_found');
+    if(!Array.isArray(command.actions)||command.actions.length>allActions.length||
+      new Set(command.actions).size!==command.actions.length||
+      !command.actions.every(action=>typeof action==='string'&&allActions.includes(action)))error(400,'member_input');
+    if(command.actions.some(action=>!mine.includes(action)))error(403,'forbidden');
+    const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
+    if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
+    const at=new Date().toISOString();
+    const before=this.db.prepare('SELECT action FROM member_permissions WHERE user_id=? AND property_id=? ORDER BY action').all(target.id,propertyId).map(r=>r.action);
+    this.db.prepare('DELETE FROM member_permissions WHERE user_id=? AND property_id=?').run(target.id,propertyId);
+    for(const action of [...command.actions].sort())
+      this.db.prepare('INSERT INTO member_permissions VALUES(?,?,?,?,?)').run(target.id,propertyId,action,actor.id,at);
+    this.db.prepare('INSERT INTO member_audit VALUES(?,?,?,?,?,?)').run(randomUUID(),actor.id,target.id,'member_permission_save',at,
+      JSON.stringify({propertyIds:[propertyId],username:target.username,actions:[...command.actions].sort(),previous:before}));
+    const response={username:target.username,actions:[...command.actions].sort()};
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(actor.id,key,fingerprint,JSON.stringify(response));
+    return response;
+  }
   // A published property site is public content. It is stored and audited apart from
   // property state, so publishing never advances a property revision and can never
   // be mixed into the operational audit a night audit or a handover reads.
@@ -420,7 +580,9 @@ export class Store {
     const propertyId=command.propertyId;
     // Publishing is administrator-only within the property itself. A property-level
     // admin override does not reach here, because what is published is public.
-    if(actor.role!=='admin'||!this.db.prepare('SELECT 1 FROM user_properties WHERE user_id=? AND property_id=?').get(actor.id,propertyId))error(403,'forbidden');
+    // Publishing is decided by the site_save action within the property itself, so a
+    // property-defined role can be trusted with it without becoming an administrator.
+    if(!this.permissionsFor(actor,propertyId).includes('site_save')||!this.db.prepare('SELECT 1 FROM user_properties WHERE user_id=? AND property_id=?').get(actor.id,propertyId))error(403,'forbidden');
     const slug=command.slug===undefined?null:command.slug;
     if(slug!==null&&(typeof slug!=='string'||!/^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/.test(slug)))error(400,'site_slug');
     const enabled=command.enabled===true;
@@ -521,7 +683,7 @@ export class Store {
     const propertyId=command.propertyId;
     // An administrator of this property decides how its list is read. A property-level
     // role override counts here exactly as it does for every other action.
-    if(this.propertyRole(actor,propertyId)!=='admin')error(403,'forbidden');
+    if(!this.permissionsFor(actor,propertyId).includes('notice_severity_save'))error(403,'forbidden');
     const levels=cleanNoticeLevels(command.levels);
     if(!levels)error(400,'notice_levels');
     const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
@@ -556,7 +718,7 @@ export class Store {
   // answered from here and never advances a revision or raises a notice of its own.
   saveNoticeRules(actor,command,key,fingerprint){
     const propertyId=command.propertyId;
-    if(this.propertyRole(actor,propertyId)!=='admin')error(403,'forbidden');
+    if(!this.permissionsFor(actor,propertyId).includes('notice_rule_save'))error(403,'forbidden');
     const rules=cleanNoticeRules(command.rules);
     if(!rules)error(400,'notice_rules');
     const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(actor.id,key);
@@ -928,11 +1090,11 @@ export class Store {
     if(fresh.role==='admin'&&!this.db.prepare('SELECT 1 FROM user_properties WHERE user_id=?').get(user.id))
       return {ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],
         reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],
-        members:this.visibleMembers(fresh),memberAudit:this.visibleMemberAudit(fresh),sites:[],siteAudit:[],
+        members:this.visibleMembers(fresh),memberAudit:this.visibleMemberAudit(fresh),roles:[],sites:[],siteAudit:[],
         bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[],
         noticeRules:[],noticeRulesAudit:[],noPropertyYet:true};
     const ids=this.publicUser(fresh).propertyIds;
-    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[],noticeRules:[],noticeRulesAudit:[]};
+    const result={ratePlans:[],rateCells:[],rateChanges:[],version:1,properties:[],resources:[],roomTypes:[],physicalRooms:[],reservations:[],orders:[],blocks:[],audit:[],revisions:{},businessDates:{},nightAudits:[],shiftTypes:[],handovers:[],members:[],memberAudit:[],roles:[],sites:[],siteAudit:[],bookingRequests:[],bookingRequestEvents:[],notifications:[],noticeSettings:[],noticeSettingsAudit:[],noticeRules:[],noticeRulesAudit:[]};
     for(const id of ids){
       const row=this.db.prepare('SELECT * FROM properties WHERE id=?').get(id);
       const body=upgradeCatalog(JSON.parse(row.body));
@@ -948,6 +1110,7 @@ export class Store {
         id:a.id,propertyId:a.property_id,type:a.action,at:a.at,actor:a.actor,revision:a.revision,...JSON.parse(a.summary) }));
     result.members=this.visibleMembers(fresh);
     result.memberAudit=this.visibleMemberAudit(fresh);
+    result.roles=this.visibleRoles(fresh);
     result.sites=this.visibleSites(fresh);
     result.siteAudit=this.visibleSiteAudit(fresh);
     result.bookingRequests=this.visibleBookingRequests(fresh);
@@ -981,6 +1144,11 @@ export class Store {
       // Team access is not a property business command: it writes the user tables and
       // is answered here instead of being folded into a property revision.
       if(command.type==='member_save')return this.saveMember(rowUser,command,key,fingerprint);
+      // Roles and single-action grants are access control too: they write the user
+      // tables, are audited with the other access changes, and never touch a revision.
+      if(command.type==='role_save')return this.saveRole(rowUser,command,key,fingerprint);
+      if(command.type==='role_delete')return this.deleteRole(rowUser,command,key,fingerprint);
+      if(command.type==='member_permission_save')return this.saveMemberPermissions(rowUser,command,key,fingerprint);
       // Publishing a property site writes public content, not property state.
       if(command.type==='site_save')return this.saveSite(rowUser,command,key,fingerprint);
       // A property's choice of notice priority, and of the conditional rules that raise
@@ -1006,11 +1174,12 @@ export class Store {
         command=this.bookingRequestCommand(requestRow);
       }
       // A property override decides what this account may do here, not its account role.
-      const effectiveRole=this.propertyRole(rowUser,propertyId);
-      if(command.type==='create_reservation'&&command.mode==='checkin'&&!roleTypes[effectiveRole].includes('checkin'))error(403,'forbidden');
+      // The override may name a built-in role or one this property defined itself.
+      const allowed=this.permissionsFor(rowUser,propertyId);
+      if(command.type==='create_reservation'&&command.mode==='checkin'&&!allowed.includes('checkin'))error(403,'forbidden');
       // Rewriting nights already closed by a night audit stays an administrator-only override.
       if(command.auditOverride===true&&rowUser.role!=='admin')error(403,'forbidden');
-      if(!roleTypes[effectiveRole].includes(command.type))error(403,'forbidden');
+      if(!allowed.includes(command.type))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
       // A request is decided once. Replaying the same key answers from the receipt above;

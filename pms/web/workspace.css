@@ -121,3 +121,18 @@ tr.sev-urgent td:first-child{box-shadow:inset 3px 0 0 #d0342c}
 .checkin-retention p{margin:0 0 8px}
 .checkin-retention button.primary{margin-top:8px}
 .checkin-retention input[type=number]{height:40px;font-size:14px;width:110px;max-width:100%;padding:0 8px;border:1px solid #d7dce2;border-radius:6px;box-sizing:border-box}
+
+/* Access matrix. A role is edited as a grid of modules and ticks, so the page shows
+   the whole grantable surface at once instead of hiding it behind a nested dialog. */
+.role-editor{margin:12px 0;padding:10px 12px;border:1px solid #d7dce2;border-radius:8px;background:#fff}
+.role-editor summary{cursor:pointer;font-weight:600}
+.role-editor form{display:grid;gap:10px;margin-top:10px}
+.role-editor form>label{display:grid;gap:4px;max-width:320px}
+.role-editor form>label input{height:40px;font-size:14px;padding:0 8px;border:1px solid #d7dce2;border-radius:6px;box-sizing:border-box}
+.perm-matrix{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.perm-group{border:1px solid #e3e7ec;border-radius:8px;padding:8px 10px;margin:0}
+.perm-group legend{padding:0 4px;font-weight:600;font-size:13px;color:#445}
+.perm-item{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.35;padding:2px 0}
+.perm-item input{margin:2px 0 0;flex:none}
+.perm-item span{word-break:break-word}
+.perm-matrix+.primary,.role-editor button.primary{justify-self:start;margin-top:4px}
