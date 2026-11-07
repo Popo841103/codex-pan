@@ -101,6 +101,19 @@ try {
   assert.deepEqual([...session.user.allowedActionsByProperty['TEST-KL']].sort(),[...tick].sort(),
     'the signed-in member holds exactly what the role was ticked for');
 
+  // Back as the administrator: the member's extra-grant editor exists and is pre-ticked
+  // with what that member actually carries, and saving it is the replace-the-set command.
+  await login(adminName,adminPassword);
+  await import(new URL('../web/app.js?admin-check='+randomUUID(),import.meta.url).href);
+  await until(()=>document.querySelector('[data-property="TEST-KL"]'),'property switch rendered again');
+  $('[data-property="TEST-KL"]').click();
+  $('#global-nav [data-view="resourcesSettings"]').click();
+  await until(()=>document.querySelector('#nav [data-view="teamAccess"]'),'team access entry again');
+  $('#nav [data-view="teamAccess"]').click();
+  await until(()=>document.querySelector(`#content form[data-perms-form="${memberName}"]`),'the member extra-action editor is rendered');
+  const ticks=[...document.querySelectorAll(`#content form[data-perms-form="${memberName}"] input[name=actions]:checked`)].map(n=>n.value);
+  assert.deepEqual(ticks.sort(),[],'the member was given no extra actions, only the role');
+
   console.log('Role permission DOM passed: the matrix matches the enforced actions, a created role holds only its ticks, a member inherits exactly that, and a held role cannot be deleted.');
   await new Promise(done=>setTimeout(done,100));
 }finally {

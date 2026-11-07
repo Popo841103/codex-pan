@@ -237,11 +237,21 @@ export function teamAccessPage({members=[],memberAudit=[],properties=[],property
  const editors=custom.map(r=>`<details class="role-editor"><summary>${esc(t('roleEdit'))} · ${esc(r.name)}</summary>
   <form data-role-form="${esc(r.id)}"><label>${esc(t('roleName'))}<input name="name" value="${esc(r.name)}" required maxlength="40"></label>
   ${matrix(r.actions)}<button class="primary" ${canRoles?'':'disabled'}>${esc(t('save'))}</button></form></details>`).join('');
+ // Extra grants ride on top of a role. One details per member keeps the form stateless:
+ // the ticks are exactly what is stored for that member in this property.
+ const canPerms=can('member_permission_save');
+ const grantEditors=canPerms?members.filter(m=>m.propertyIds.includes(propertyId)).map(m=>{
+  const extra=m.extraPermissions?.[propertyId]||[];
+  if(!extra.length&&!canPerms)return '';
+  return `<details class="role-editor"><summary>${esc(t('memberExtraTitle'))} · ${esc(m.username)}</summary>
+   <form data-perms-form="${esc(m.username)}">${matrix(extra)}<button class="primary">${esc(t('save'))}</button></form></details>`;
+ }).join(''):'';
  return `<section class="panel"><div class="panel-head"><h2>${esc(t('teamAccess'))}</h2></div>
   <p class="muted">${esc(t('teamAccessNote'))}</p>
   ${editable?'':`<p class="muted">${esc(t('teamReadOnly'))}</p>`}
   <h3>${esc(t('memberRolesTitle'))}</h3><p class="muted">${esc(t('roleSectionNote'))}</p>
   ${roleTable}${newRole}${editors}
+  ${grantEditors?`<h3>${esc(t('memberExtraTitle'))}</h3><p class="muted">${esc(t('memberExtraNote'))}</p>${grantEditors}`:''}
   ${newForm}<h3>${esc(t('memberList'))}</h3>${table}${audit}</section>`;
 }
 
@@ -261,7 +271,7 @@ export const teamWords={
   roleSectionNote:'角色就是一组动作：勾选这个角色能做什么，再把角色交给成员。角色只在所属门店生效；成员也可以在角色之外单独追加动作，但不能给出自己没有的动作。',
   roleName:'角色名称',roleWhatItAllows:'可执行的动作',roleBuiltin:'内置角色，不可修改',roleReadOnly:'无权修改',
   roleNoneYet:'还没有自定义角色。新建一个角色，勾选它能做的事。',roleNew:'新建角色',roleEdit:'编辑角色',roleCreate:'创建角色',
-  roleNameHint:'例如：夜班前台',teamSharedOnly:'角色与权限只在连接服务端时可用。',delete:'删除',roleDeleteConfirm:'删除这个角色？此操作不可撤销。',
+  roleNameHint:'例如：夜班前台',memberExtraTitle:'成员附加动作',memberExtraNote:'在角色之外单独给这位成员追加动作；保存会整体替换此前给他的附加动作，且不能给出你自己没有的动作。',teamSharedOnly:'角色与权限只在连接服务端时可用。',delete:'删除',roleDeleteConfirm:'删除这个角色？此操作不可撤销。',
   role_input:'请检查角色名称与勾选的动作。',role_name_taken:'这个门店已有同名角色。',role_in_use:'还有成员在使用这个角色，先改掉他们的角色再删除。',role_limit:'一个门店最多 50 个自定义角色。',
   mod_reservations:'预订',mod_frontDesk:'前台',mod_housekeeping:'房务',mod_money:'账务',mod_catalog:'房价与资源',
   mod_operationsDay:'营业日',mod_access:'权限',mod_site:'官网',mod_notice:'通知',mod_data:'数据维护',
@@ -298,7 +308,7 @@ export const teamWords={
   roleSectionNote:'A role is a set of actions: tick what it may do, then hand it to a member. A role applies to the property that owns it, and a member can also carry a few extra actions on top of its role - never an action the giver does not hold.',
   roleName:'Role name',roleWhatItAllows:'What it allows',roleBuiltin:'Built in, cannot be edited',roleReadOnly:'No permission to change',
   roleNoneYet:'No custom role yet. Create one and tick what it may do.',roleNew:'New role',roleEdit:'Edit role',roleCreate:'Create role',
-  roleNameHint:'For example: Night front desk',teamSharedOnly:'Roles and access are only available on the shared server.',delete:'Delete',roleDeleteConfirm:'Delete this role? This cannot be undone.',
+  roleNameHint:'For example: Night front desk',memberExtraTitle:'Member extra actions',memberExtraNote:'Add single actions to a member on top of its role; saving replaces the whole set, and no action can be granted that the giver does not hold.',teamSharedOnly:'Roles and access are only available on the shared server.',delete:'Delete',roleDeleteConfirm:'Delete this role? This cannot be undone.',
   role_input:'Check the role name and the ticked actions.',role_name_taken:'This property already has a role with that name.',role_in_use:'Members still hold this role. Give them another role first.',role_limit:'A property can define at most 50 roles.',
   mod_reservations:'Reservations',mod_frontDesk:'Front desk',mod_housekeeping:'Housekeeping',mod_money:'Money',mod_catalog:'Rates & resources',
   mod_operationsDay:'Business day',mod_access:'Access',mod_site:'Website',mod_notice:'Notices',mod_data:'Data',
@@ -335,7 +345,7 @@ export const teamWords={
   roleSectionNote:'Peranan ialah satu set tindakan: tandakan apa yang dibenarkan, kemudian berikan kepada ahli. Peranan hanya berkuat kuasa di hartanah pemiliknya, dan ahli boleh membawa beberapa tindakan tambahan - tidak pernah tindakan yang pemberi sendiri tiada.',
   roleName:'Nama peranan',roleWhatItAllows:'Apa yang dibenarkan',roleBuiltin:'Terbina dalam, tidak boleh diubah',roleReadOnly:'Tiada kebenaran mengubah',
   roleNoneYet:'Belum ada peranan tersuai. Cipta satu dan tandakan apa yang dibenarkan.',roleNew:'Peranan baharu',roleEdit:'Sunting peranan',roleCreate:'Cipta peranan',
-  roleNameHint:'Contoh: Kaunter malam',teamSharedOnly:'Peranan dan akses hanya tersedia pada pelayan dikongsi.',delete:'Padam',roleDeleteConfirm:'Padam peranan ini? Tindakan ini tidak boleh dibatalkan.',
+  roleNameHint:'Contoh: Kaunter malam',memberExtraTitle:'Tindakan tambahan ahli',memberExtraNote:'Tambah tindakan tunggal kepada ahli di atas peranannya; menyimpan menggantikan keseluruhan set, dan tindakan yang pemberi sendiri tiada tidak boleh diberi.',teamSharedOnly:'Peranan dan akses hanya tersedia pada pelayan dikongsi.',delete:'Padam',roleDeleteConfirm:'Padam peranan ini? Tindakan ini tidak boleh dibatalkan.',
   role_input:'Semak nama peranan dan tindakan yang ditanda.',role_name_taken:'Hartanah ini sudah ada peranan dengan nama itu.',role_in_use:'Masih ada ahli memegang peranan ini. Beri mereka peranan lain dahulu.',role_limit:'Satu hartanah boleh menentukan paling banyak 50 peranan.',
   mod_reservations:'Tempahan',mod_frontDesk:'Kaunter hadapan',mod_housekeeping:'Pembersihan',mod_money:'Kewangan',mod_catalog:'Kadar & sumber',
   mod_operationsDay:'Hari perniagaan',mod_access:'Akses',mod_site:'Laman web',mod_notice:'Notis',mod_data:'Data',

@@ -541,7 +541,20 @@ $('#content').addEventListener('submit',async event=>{
 // server agree on what a role allows without either side keeping a second list.
 $('#content').addEventListener('submit',async event=>{
   const form=event.target;
-  if(form.id!=='role-new'&&!form.dataset.roleForm)return;
+  if(form.id!=='role-new'&&!form.dataset.roleForm&&!form.dataset.permsForm)return;
+  if(form.dataset.permsForm){
+    if(!backend.shared){$('#message').textContent=t('teamSharedOnly');return;}
+    event.preventDefault();
+    const actions=[...new Set([...new FormData(form).getAll('actions').filter(Boolean)])];
+    const button=form.querySelector('button.primary');
+    if(button)button.disabled=true;
+    try{
+      await commit({type:'member_permission_save',username:form.dataset.permsForm,actions});
+      render();
+    }catch(error){$('#message').textContent=errorText(error);}
+    finally{if(button)button.disabled=false;}
+    return;
+  }
   event.preventDefault();
   if(!backend.shared){$('#message').textContent=t('teamSharedOnly');return;}
   const data=new FormData(form),actions=[...new Set(data.getAll('actions').filter(Boolean))];

@@ -101,6 +101,9 @@ test('extra permissions ride on top of a role, but never above the giver own acc
       'finance keeps the ticket desk it always had');
     const granted=send(store,admin,{type:'member_permission_save',username:'fin-one',actions:['settle','commission_save','rate_plan_save']});
     assert.deepEqual(granted.actions,['commission_save','rate_plan_save','settle']);
+    // The extra grant is listed with the member, so the page edits what is stored.
+    const listed=store.read({id:admin.id}).members.find(m=>m.username==='fin-one');
+    assert.deepEqual((listed.extraPermissions['TEST-KL']||[]).sort(),['commission_save','rate_plan_save','settle']);
     assert.deepEqual(store.permissionsFor(fin,'TEST-KL').sort(),['commission_save','payment','rate_plan_save','settle','support_create','support_reply','support_status'],
       'the extra grant adds to the role instead of replacing it');
     // An operator holding member_permission_save can only pass on actions it holds itself.

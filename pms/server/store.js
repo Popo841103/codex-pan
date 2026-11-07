@@ -318,11 +318,18 @@ export class Store {
     const scope=this.manageScope(user);
     if(!scope.length)return [];
     const keep=scope.map(()=>'?').join(',');
+    // Extra grants are listed with the member so the page can edit the set that is
+    // actually stored, not a guess rebuilt from the role it rides on.
+    const grants={};
+    for(const g of this.db.prepare(`SELECT user_id,property_id,action FROM member_permissions WHERE property_id IN (${keep}) ORDER BY action`).all(...scope)){
+      (grants[g.user_id]??={})[g.property_id]??=[];grants[g.user_id][g.property_id].push(g.action);
+    }
     return this.db.prepare(`SELECT u.id,u.username,u.role,u.active,
         (SELECT group_concat(property_id) FROM user_properties WHERE user_id=u.id ORDER BY property_id) ids FROM users u
       WHERE EXISTS (SELECT 1 FROM user_properties p WHERE p.user_id=u.id AND p.property_id IN (${keep})) ORDER BY u.username`).all(...scope)
       .map(row=>({id:row.id,username:row.username,role:row.role,active:!!row.active,
-        propertyIds:(row.ids||'').split(',').filter(Boolean),propertyRoles:this.propertyRoles(row)}));
+        propertyIds:(row.ids||'').split(',').filter(Boolean),propertyRoles:this.propertyRoles(row),
+        extraPermissions:grants[row.id]||{}}));
   }
   visibleMemberAudit(user){
     const scope=this.manageScope(user);
