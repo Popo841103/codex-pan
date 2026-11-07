@@ -1,6 +1,6 @@
 # JOVIAN PMS · 项目状态与续写地图
 
-截至 2026-11-04，代码 `4baad16`（开放试用注册：任何人可自建一个空白门店，严格隔离），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **402/402**、Python **5/5**、DOM 流程 **18/18**、37 个运行时 JS 语法检查与部署 shell `bash -n` 通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。**自主推进队列 P1–P10 已收敛**，详见 `continuity/AUTONOMOUS-RUN.md`。
+截至 2026-11-07，代码 `9a15aed`（门店自定义角色：照参考产品的 Account Role 模型，模块勾选动作 + 成员附加授权，内置四角色行为不变），此前批次见下表与 `WORKBUDDY-HANDOFF.md` 末尾。Node **408/408**、Python **5/5**、DOM 流程 **19/19**、37 个运行时 JS 语法检查与部署 shell `bash -n` 通过；线上测试服务 `/healthz` 200，前端与 `src/` 新标识已外部实见，`/server/` 仍 404。**自主推进队列 P1–P10 已收敛**，详见 `continuity/AUTONOMOUS-RUN.md`。
 
 ## 系统是什么
 
@@ -17,7 +17,7 @@
 **关键设计事实**
 
 - 双状态机：`demo-store.js` 与 `server/store.js` 各有一套，改动常常要同时考虑两边。
-- 角色 `admin / operations / finance / viewer`，`user_properties.role` 支持**门店级角色覆盖**；`actionsFor()` 合并各模块权限。
+- 角色 `admin / operations / finance / viewer`，`user_properties.role` 支持**门店级角色覆盖**（可为内置角色或门店自定义角色 `role-*`）；`permissionsFor(user, propertyId)` 是唯一权限来源 = 门店角色动作集 + `member_permissions` 附加授权；新增命令 `role_save` / `role_delete` / `member_permission_save`。账号共享行（系统角色/密码/启停/门店范围）仍只有账号级 admin 可改。
 - `writer generation = 9` 的持久触发器阻止旧运行时写 `properties.body`；旧代码能读不能写。
 - 营业日（business date）与马来西亚交易日 `localDay` 是**两个口径**，报表按各自口径出，不要混用。
 - 押金是**负债**，不是收入；审计锁只锁 `edit` / `cancel`，不锁 `payment`。
@@ -48,6 +48,7 @@
 | 19 | `546e331` | **交班现金盘点与差异审批**：期望现金（收款减退款、押金单列）、可选实点、差异仅管理员带原因审批且原数不改 |
 | 20 | `b4754fc` | **佣金更正历史**（页面可见前后金额）+ **新建门店零库存**（`property_create`，仅 admin，全新门店无房型/房间/床位）+ 三处空门店 UI 缺陷修复 |
 | 21 | `4baad16` | **开放试用注册**：公开无脚本 `/signup` 页（三语、蜜罐、每 IP 5 次/15 分钟），一步创建账号+空白门店；trial origin 服务端封锁（不能再建店、受邀成员继承限制、全局上限 500） |
+| 22 | `9a15aed` | **门店自定义角色**：`role_definitions` + `member_permissions`，`permissionsFor()` 为唯一权限来源；工单/客人消息/自助入住改按动作判定；团队页三语权限矩阵（13 模块 × 全部动作）；角色保存/删除/附加授权全走幂等 + member_audit；内置四角色行为不变 |
 
 每个批次通常伴随一条 `Record ... in the handoff` 文档提交，细节见 `WORKBUDDY-HANDOFF.md`。
 

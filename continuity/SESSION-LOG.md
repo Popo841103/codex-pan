@@ -41,6 +41,7 @@
 | 12 | `data-notice-view="checkin"` 指向的是弹层不是视图；`session()` 编辑时误删一段返回字段；自助登记关闭后 `session()` / `register()` 都会 401，测试不能靠它取 revision | app.js 里对 `checkin` 分支走 `leaveDialogs()` + `selfCheckinUI.open()`；恢复 `room/instructions/lock/accessStatus/canRequestAccess`；测试改从 `sc_grants` 表读 revision |
 | 13 | P4 改了佣金页文案后 `dom-occupancy.mjs` 仍断言「佣金尚未接入 / not connected」，全量 DOM 才暴露；`currency()` 用 U+00A0 不间断空格，`'MYR 12.34'` 严格相等失败；佣金页 totals 把订单数 / 间夜量经 `currency()` 渲染成 `MYR 0.03` / `MYR 0.07` | 旧断言改为新语义并扩展成真实表单端到端流程；金额断言用 `/^MYR\s12\.34$/`；totals 按 `count` / `money` 分支渲染，计数用 `esc(v)` |
 | 14 | P5 改了 `deploy/update-vultr-test.sh` 后 `test_release_archive.py` 失败：`deploy/ci/BOOTSTRAP.txt` 内嵌四份部署脚本的 base64+gzip 副本带 SHA-256 校验，不同步会让新服务器装回旧脚本、静默丢失密钥备份；`sc_grants` 已被加宽两次，`sc_invite` 的位置参数 INSERT 会在加列后错位 | 用确定性 gzip（`mtime=0`、level 9、`json.dumps(separators)`）重生成 payload 与 digest，Python 5/5 恢复；INSERT 改为具名列 |
+| 22 | 角色可见性改动 `visibleMembers`/`visibleMemberAudit` 时旧 `const scope=` 行残留下导致重复声明；`role_delete` 在 DELETE 之后才算 `actionsForRole` 拿到空数组；测试里 `member_save` 改自己会先撞 `member_self`（400）而不是权限 403；jsdom 里 `app.js` 裸用 `confirm` 需要 `global.confirm=dom.window.confirm`；server 与 web 各有一份模块分组，靠「矩阵并集===enforced 全集」的测试与 DOM 校验防漂移 | 删重复行；先取 actions 再删；测试改用 `desk-two`；补全局；测试 + DOM 双向断言 |
 
 
 ## 关键实现模式（接着改时用得上）

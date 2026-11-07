@@ -170,3 +170,30 @@ grep -c renderSignupPage /opt/jovian-pms-test/current/server/http.js
 ```
 
 页面行为由 `verification/dom-trial-signup.mjs` 在进程内 jsdom + 真实 in-process HTTP 驱动：公开页 → 无脚本表单注册 → 登录 → 空白设置页 → 服务端以 403 拒绝第二家门店。**刻意没有在线上服务真实注册试用账号**——不向共享测试库写入未被要求的账号。
+
+## 第 22 批外部核验清单（2026-11-07，`9a15aed`，门店自定义角色）
+
+```bash
+curl -s https://pms.jovianhome.com/healthz
+# {"ok":true,"service":"jovian-pms","data":"test-only"}
+
+# 前端：矩阵与命令都应出现
+curl -s https://pms.jovianhome.com/web/workspace-ui.js | grep -o "permissionModules\|roleDefinitions\|mod_selfCheckin\|act_commission_save\|role_in_use\|data-role-delete" | sort -u
+curl -s https://pms.jovianhome.com/web/app.js | grep -o "role_save\|role_delete\|member_permission_save\|state.roles" | sort -u
+curl -s https://pms.jovianhome.com/web/workspace.css | grep -o "perm-matrix\|role-editor" | sort -u
+
+# 工单 / 消息 / 自助入住按动作判定（旧的角色名判断应已消失）
+curl -s https://pms.jovianhome.com/server/support.js 2>/dev/null  # 仍应 404（/server/ 不对外）
+curl -s https://pms.jovianhome.com/web/workspace-ui.js | grep -c "act_"   # > 180（63 动作 × 3 语言词条）
+```
+
+后端在主机上（部署重启推断，非公网实见）：
+
+```bash
+grep -c "role_definitions" /opt/jovian-pms-test/current/server/store.js
+grep -c "permissionsFor" /opt/jovian-pms-test/current/server/store.js
+grep -c "member_permissions" /opt/jovian-pms-test/current/server/store.js
+grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
+```
+
+未做且刻意不做：没有在线上真实创建自定义角色或改动任何线上账号的权限——线上是共享测试库，核验只读前端资产与 `/healthz`；角色机制由 408 条 Node 测试与 19 条 DOM 流程在进程内真实验证。
