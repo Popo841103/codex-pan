@@ -3,7 +3,7 @@ import {rateAvailability} from '../src/rate-availability.js';
 import {previewCancellation} from '../src/cancellation-policy.js';
 import {rateCalendar} from './rate-calendar.js';
 import {countryOptions,languageOptions} from './guest-locales.js';
-import {financialPage,financialWords,renderFolioHistory,comparisonPage,managerReportPage,guestLedgerPage,roomChargePage,roomBusinessPage,roomMovementPage,extraChargePage,cancellationPenaltyPage,roomOccupantPage,registrationRecordPage,commissionPage,arLedgerPage,arPostForm,arReportsPage} from './financial-ui.js';
+import {financialPage,financialWords,renderFolioHistory,comparisonPage,managerReportPage,guestLedgerPage,roomChargePage,roomBusinessPage,roomMovementPage,extraChargePage,cancellationPenaltyPage,roomOccupantPage,registrationRecordPage,commissionPage,arLedgerPage,arPostForm,arReportsPage,commissionPeriodPanel} from './financial-ui.js';
 import {filterOrders,orderTabs} from '../src/order-filters.js';
 import {settlementStatus,columns,columnsWords,defaultColumns,loadColumns,saveColumns,columnLabel,renderOrderTable} from './order-columns.js';
 import {icon,shellWords,navigation,customersPage,channelsPage,nightAuditWords,nightAuditPage,handoverWindow,teamAccessPage,teamWords,propertySitePage,siteWords,bookingRequestsPage,requestWords,notificationsPage,noticeWords,dataMaintenancePage,cleanupWords} from './workspace-ui.js';
@@ -547,7 +547,7 @@ function financialSummary(kind){
   if(kind==='cancellation')return cancellationPenaltyPage(state,options);
   if(kind==='occupants')return roomOccupantPage(state,{...options,basis:filters.basis||'arrival'});
   if(kind==='registration')return registrationRecordPage(state,{...options,basis:filters.basis||'arrival'});
-  return commissionPage(state,{...options,can});
+  return commissionPeriodPanel(state,{...options,can})+commissionPage(state,{...options,can});
  }
  if(kind==='comparison'){
   if(!financeFilters.has(key)){const defaults=defaultComparisonPeriods(businessDate(),businessDate());financeFilters.set(key,{source:'all',...Object.fromEntries(Object.entries(defaults).flatMap(([period,dates])=>[[period+'From',dates.from],[period+'To',dates.to]]))});}
@@ -657,6 +657,12 @@ $('#content').addEventListener('submit',async event=>{
 });
 // A channel commission is a real figure read off an invoice, never a calculated rate.
 $('#content').addEventListener('submit',async event=>{
+  if(event.target.id==='commission-close-form'){
+    event.preventDefault();
+    try{await commit({type:'commission_close_month',month:new FormData(event.target).get('month')});}
+    catch(error){$('#message').textContent=errorText(error);}
+    return;
+  }
   if(event.target.id!=='commission-form')return;
   event.preventDefault();
   const form=event.target;

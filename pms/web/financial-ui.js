@@ -1,3 +1,4 @@
+import {commissionPeriod} from '../src/demo-store.js';
 import {receivableReports} from '../src/financial-reports.js';
 import {accommodationReport,accommodationBreakdown,cashflowReport,financialComparison,managerDailyReport,guestLedger,roomChargeDetail,roomBusinessSummary,roomMovementLog,extraChargeDetail,cancellationPenaltyDetail,roomOccupantDetail,registrationRecord,commissionDetail} from '../src/financial-reports.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -335,13 +336,14 @@ export function commissionPage(state,{propertyId,from,to,source='all',sources=[]
   const link=r=>`<button data-open-stay="${esc(r.orderId)}">${esc(r.guest||r.orderId)}</button>`;
   const blank=`<em>${esc(t('commissionNotRecorded'))}</em>`;
   const stateLabel=r=>r.settlement==='settled'?t('commissionSettled'):r.settlement==='recorded'?t('commissionRecorded'):t('commissionNotRecorded');
-  const amountCell=r=>r.commission===null?blank:`<span>${esc(currency(r.commission))}</span><small>${esc(r.commissionReference||'')}</small>`;
+  const amountCell=r=>r.commission===null?blank:`<span>${esc(currency(r.commission))}</span><small>${esc(r.commissionReference||'')}</small>${r.commissionPeriod?' <small>'+esc(t('commissionMonth'))+' · '+esc(r.commissionPeriod)+'</small>':''}`;
   const totals=`<div class="table-wrap"><table><tbody>${[['commissionOrders',report.totals.orders,'count'],['nightCount',report.totals.nights,'count'],['roomRevenue',report.totals.room,'money'],['commissionCharged',report.totals.charge,'money'],['commissionPaid',report.totals.paid,'money'],['ledgerOutstanding',report.totals.outstanding,'money'],['commissionAmount',report.totals.commission,'money']].map(([k,v,kind])=>`<tr><th>${esc(t(k))}</th><td>${v===null?blank:kind==='count'?esc(v):esc(currency(v))}</td></tr>`).join('')}</tbody></table></div>`;
   const byChannel=`<h3>${esc(t('commissionByChannel'))}</h3>${table(['source','commissionOrders','nightCount','roomRevenue','commissionCharged','commissionPaid','ledgerOutstanding','commissionAmount'],
    report.channels.map(c=>`<tr><th>${esc(t(c.source))}</th><td>${esc(c.orders)}</td><td>${esc(c.nights)}</td><td>${esc(currency(c.room))}</td><td>${esc(currency(c.charge))}</td><td>${esc(currency(c.paid))}</td><td>${esc(currency(c.outstanding))}</td><td>${c.commission===null?blank:esc(currency(c.commission))}${c.unrecorded?`<small>${esc(t('commissionUnrecordedCount'))}: ${esc(c.unrecorded)}</small>`:''}</td></tr>`).join(''))}`;
   const body=report.rows.map(r=>`<tr><td>${esc(r.start)}</td><td>${esc(t(r.source))}</td><td>${esc(r.channelOrderId||'\u2014')}</td><td>${link(r)}</td><td>${esc(r.roomTypeName||t('unspecified'))}</td><td>${esc(r.resourceLabel||t('unassignedStay'))}</td><td>${esc(r.start)} \u2192 ${esc(r.end)}</td><td>${esc(r.nights)}</td><td>${esc(currency(r.room))}</td><td>${esc(currency(r.extras))}</td><td>${esc(currency(r.penalty))}</td><td>${esc(currency(r.charge))}</td><td>${esc(currency(r.paid))}</td><td>${esc(currency(r.outstanding))}</td><td>${amountCell(r)}</td><td>${esc(stateLabel(r))}</td></tr>`).join('');
   const detail=`<h3>${esc(t('reportDetails'))}</h3>${table(['reportDate','source','channelOrderId','guest','roomType','room','mdrStay','nightCount','roomRevenue','mdrExtras','mdrCancellation','commissionCharged','commissionPaid','ledgerOutstanding','commissionAmount','commissionSettlement'],body)}`;
-  const candidates=(state.orders||[]).filter(o=>o.propertyId===propertyId&&o.status!=='cancelled')
+  const closed=(state.commissionPeriods||[]).filter(row=>row.propertyId===propertyId).at(-1);
+  const candidates=(state.orders||[]).filter(o=>o.propertyId===propertyId&&o.status!=='cancelled'&&!(closed&&o.commission&&commissionPeriod(o.commission)<=closed.month))
     .sort((a,b)=>String(b.start||'').localeCompare(String(a.start||''))).slice(0,200);
   const options=candidates.map(o=>`<option value="${esc(o.id)}">${esc(o.guest||o.id)} · ${esc(o.start||'')} · ${esc(o.id)}</option>`).join('');
   const editor=can('commission_save')
@@ -550,3 +552,20 @@ Object.assign(financialWords.ms,{"arPeriods":"Rekod tutup bulan AR","arMonth":"B
 Object.assign(financialWords.zh,{"ar_adjust":"新增应收调账","ar_undo_adjust":"冲销应收调账","arDebit":"加记应收","arCredit":"减记应收","arAdjustConfirm":"确认按本营业日登记此分录","arAdjustNote":"加记生成独立应收。减记抵减指定开放应收。两者均不产生现金或住宿收入。"});
 Object.assign(financialWords.en,{"ar_adjust":"Post AR adjustment","ar_undo_adjust":"Reverse AR adjustment","arDebit":"Increase receivable","arCredit":"Decrease receivable","arAdjustConfirm":"Confirm posting on this business date","arAdjustNote":"An increase creates a standalone receivable. A decrease reduces the selected open item. Neither changes cash or accommodation revenue."});
 Object.assign(financialWords.ms,{"ar_adjust":"Catat pelarasan AR","ar_undo_adjust":"Balikkan pelarasan AR","arDebit":"Tambah belum terima","arCredit":"Kurangkan belum terima","arAdjustConfirm":"Sahkan catatan pada tarikh operasi ini","arAdjustNote":"Tambahan mencipta baki berasingan. Pengurangan mengurangkan baki dipilih. Tiada perubahan tunai atau hasil penginapan."});
+export function commissionPeriodPanel(state,{propertyId,t,currency,can}){
+  if(!can('commission_save')&&!can('commission_close_month'))return '';
+  const label=k=>esc(t(k)),money=n=>esc(currency(n));
+  const periods=(state.commissionPeriods||[]).filter(row=>row.propertyId===propertyId);
+  const history=[...periods].reverse().map(period=>'<details data-commission-period="'+esc(period.month)+'"><summary>'+esc(period.month)+' · '+money(period.total)+' · '+esc(period.actor)+' · '+esc(period.at)+'</summary>'+
+    '<div class="table-wrap"><table><thead><tr>'+['source','commissionOrders','commissionAmount'].map(k=>'<th>'+label(k)+'</th>').join('')+
+    '</tr></thead><tbody>'+period.channels.map(row=>'<tr><td>'+label(row.source)+'</td><td>'+esc(row.count)+'</td><td>'+money(row.amount)+'</td></tr>').join('')+
+    '</tbody></table><table><thead><tr>'+['id','source','reference','commissionAmount'].map(k=>'<th>'+label(k)+'</th>').join('')+
+    '</tr></thead><tbody>'+period.entries.map(row=>'<tr><td><button data-open-stay="'+esc(row.orderId)+'">'+esc(row.orderId)+'</button></td><td>'+label(row.source)+'</td><td>'+esc(row.reference)+'</td><td>'+money(row.amount)+'</td></tr>').join('')+
+    '</tbody></table></div></details>').join('');
+  const form=can('commission_close_month')?'<form id="commission-close-form"><label>'+label('commissionMonth')+'<input name="month" type="month" required></label><label><input type="checkbox" required> '+label('commissionCloseConfirm')+'</label><button>'+label('commission_close_month')+'</button></form>':'';
+  return '<section class="panel"><details><summary>'+label('commissionPeriods')+'</summary><p>'+label('commissionPeriodNote')+'</p>'+form+history+'</details></section>';
+}
+
+Object.assign(financialWords.zh,{"commissionPeriods":"佣金月结记录","commissionMonth":"佣金月份","commission_close_month":"关闭佣金账期","commissionCloseConfirm":"确认冻结该月佣金","commissionPeriodNote":"按首次记录的营业月份归期，旧数据按首次可用记录时点的马来西亚月份归期。只汇总已录入且标为已结的佣金。","commission_period":"月份仍在营业、已关闭、不连续，或存在更早未关闭月份。","commission_pending":"该月存在未结佣金，或有佣金缺少可用归期。"});
+Object.assign(financialWords.en,{"commissionPeriods":"Commission month-end records","commissionMonth":"Commission month","commission_close_month":"Close commission month","commissionCloseConfirm":"Confirm freezing this commission month","commissionPeriodNote":"Invoices use their first recorded business month. Legacy entries use the available Malaysia recording timestamp. Only entered and settled commissions enter the snapshot.","commission_period":"The month is active, closed, out of sequence, or an earlier month remains open.","commission_pending":"Unsettled invoices or entries without a usable month remain."});
+Object.assign(financialWords.ms,{"commissionPeriods":"Rekod tutup bulan komisen","commissionMonth":"Bulan komisen","commission_close_month":"Tutup bulan komisen","commissionCloseConfirm":"Sahkan pembekuan bulan ini","commissionPeriodNote":"Invois mengikut bulan operasi rekod pertama. Rekod lama menggunakan cap masa Malaysia yang tersedia. Hanya komisen direkod dan selesai diringkaskan.","commission_period":"Bulan aktif, sudah ditutup, tidak berturutan atau ada bulan terdahulu belum ditutup.","commission_pending":"Ada komisen belum selesai atau tanpa bulan yang sah."});

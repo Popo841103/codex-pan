@@ -1,4 +1,4 @@
-import {replayReceivables} from './demo-store.js';
+import {replayReceivables,commissionPeriod} from './demo-store.js';
 import {localDay,comparisonDay} from './dashboard.js';
 import {stayDays} from './reservations.js';
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d+'T00:00:00Z'))&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
@@ -519,7 +519,7 @@ export function commissionDetail(state,q){
       room,extras,penalty,charge,paid,outstanding:charge-paid,
       commission,commissionRecorded:commission!==null,
       settlement:entry?(entry.settledAt?'settled':'recorded'):'unrecorded',
-      commissionReference:entry?.reference||'',commissionNote:entry?.note||'',commissionAt:entry?.at||''};
+      commissionReference:entry?.reference||'',commissionNote:entry?.note||'',commissionAt:entry?.at||'',commissionPeriod:commissionPeriod(entry)};
     rows.push(row);
     let bucket=channels.get(row.source);
     if(!bucket){bucket={source:row.source,orders:0,nights:0,room:0,charge:0,paid:0,outstanding:0,commission:null,recorded:0,unrecorded:0,settled:0};channels.set(row.source,bucket);}

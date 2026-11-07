@@ -337,6 +337,7 @@ export function apply(state, command) {
     const doomed = next.orders.filter(o => o.propertyId === propertyId && String(o.guest||'').toUpperCase().startsWith(match));
     if (!doomed.length) reject('nothing_to_purge');
     if (doomed.some(o=>o.arMoves?.length)) reject('ar_state');
+    if (doomed.some(o=>o.commission&&isCommissionClosed(next,propertyId,commissionPeriod(o.commission))))reject('commission_period');
     const gone = new Set(doomed.map(o => o.id));
     next.orders = next.orders.filter(o => !gone.has(o.id));
     // A booking record exists only to hold its stays, so one left with none goes too.
@@ -377,7 +378,9 @@ export function apply(state, command) {
       (isAudited(next, order.start) || isAudited(next, order.end))) reject('audited');
   if (order && isBoxed(order) && ['assign','checkin','checkout','lock'].includes(type)) reject('box_state');
   if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
-  if (type.startsWith('ar_')) {
+  if (type==='commission_close_month') {
+    closeCommissionMonth(next,command);
+  } else if (type.startsWith('ar_')) {
     changeReceivables(next,order,command);
   } else if (['settle_split','settle_bill','settle_undo','settle_unsplit'].includes(type)) {
     changeSplitBills(order, command);
@@ -452,7 +455,9 @@ export function apply(state, command) {
     const note = String(command.note ?? '').trim();
     if (note.length > 500) reject('commission_input');
     if (typeof command.settled !== 'boolean') reject('commission_input');
-    order.commission = {amount: command.amount, reference, note, at: command.at, actor: command.actor || 'local',
+    const period=commissionPeriod(order.commission)||(isDate(next.businessDate)?next.businessDate.slice(0,7):commissionPeriod({at:command.at}));
+    if(isCommissionClosed(next,propertyId,period))reject('commission_period');
+    order.commission = {amount: command.amount, reference, note, at: command.at, actor: command.actor || 'local',...(period?{period}:{}),
       settledAt: command.settled ? command.at : null, settledBy: command.settled ? (command.actor || 'local') : null};
   } else if (type === 'cancel') {
     if (order.status !== 'confirmed' || !command.reason?.trim()) reject('state');
@@ -832,4 +837,46 @@ function closeReceivableMonth(state,command){
   const totals={opening:0,change:0,closing:0};
   for(const row of balances)for(const key of Object.keys(totals))totals[key]+=row[key];
   periods.push({id,propertyId,month,from,to,at,actor:command.actor||'local',balances,totals});
+}
+
+export function commissionPeriod(entry){
+  if(isDate(entry?.period+'-01'))return entry.period;
+  const at=Date.parse(entry?.at);
+  return Number.isFinite(at)?new Date(at+8*3600000).toISOString().slice(0,7):null;
+}
+
+function isCommissionClosed(state,propertyId,period){
+  return Boolean(period)&&(state.commissionPeriods||[]).some(row=>row.propertyId===propertyId&&period<=row.month);
+}
+
+function closeCommissionMonth(state,command){
+  const {id,propertyId,month,at}=command;
+  const from=typeof month==='string'?month+'-01':'';
+  if(!isDate(from)||!isDate(state.businessDate))reject('commission_period');
+  const end=new Date(from+'T00:00:00Z');
+  end.setUTCMonth(end.getUTCMonth()+1,0);
+  const to=end.toISOString().slice(0,10);
+  const periods=state.commissionPeriods??=[];
+  const prior=periods.filter(row=>row.propertyId===propertyId).at(-1);
+  if(to>=state.businessDate||prior&&nextDay(prior.to)!==from)reject('commission_period');
+  const recorded=state.orders.filter(o=>o.propertyId===propertyId&&o.commission);
+  if(recorded.some(o=>!commissionPeriod(o.commission)))reject('commission_pending');
+  if(!prior&&recorded.some(o=>commissionPeriod(o.commission)<month))reject('commission_period');
+  const entries=recorded.filter(o=>commissionPeriod(o.commission)===month).map(o=>({
+    orderId:o.id,source:o.source||'direct',reference:o.commission.reference,amount:o.commission.amount,
+    settledAt:o.commission.settledAt,settledBy:o.commission.settledBy
+  }));
+  if(entries.some(e=>!e.settledAt))reject('commission_pending');
+  const grouped=new Map();
+  let total=0;
+  for(const e of entries){
+    money(e.amount);
+    if(!grouped.has(e.source))grouped.set(e.source,{source:e.source,count:0,amount:0});
+    const row=grouped.get(e.source);
+    row.count++;
+    row.amount+=e.amount;
+    total+=e.amount;
+  }
+  if(!Number.isSafeInteger(total))reject('amount');
+  periods.push({id,propertyId,month,from,to,at,actor:command.actor||'local',total,entries,channels:[...grouped.values()]});
 }

@@ -220,3 +220,7 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 ### AR 独立调账
 
 运行 `node --test test/ar-ledger.test.js test/ar-reports.test.js test/role-permissions.test.js` 和 `node verification/dom-ar-ledger.mjs node_modules/jsdom/lib/api.js`。公网核验 `/healthz`、`/web/financial-ui.js` 的 `arAdjustConfirm`、`/src/demo-store.js` 的 `ar_undo_adjust`。后端主机佐证 `grep -n ar_undo_adjust /opt/jovian-pms-test/current/server/store.js`。
+
+### 渠道佣金月结
+
+运行 `node --test test/commission-period.test.js test/role-permissions.test.js` 与 `node verification/dom-commission-period.mjs node_modules/jsdom/lib/api.js`。公网检查 `/healthz`、`/web/financial-ui.js` 的 `commissionPeriodPanel` 以及 `/src/demo-store.js` 的 `closeCommissionMonth`。主机佐证 `grep -n commission_close_month /opt/jovian-pms-test/current/server/store.js`。
