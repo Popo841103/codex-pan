@@ -1,15 +1,37 @@
-# 交接给 codex · 财务三件（2026-11-07 简版）
+# 交接给 codex · 财务三件（2026-11-07）
 
 你是 JOVIAN PMS（`Popo841103/codex-pan`，分支 `jovian-pms-test`）的接手开发者。
 先读 `WORKBUDDY-HANDOFF.md` 末三章、`continuity/PROJECT-STATE.md`、`docs/pms/smartorder-permission-catalog-2026-11-07.md`，再动手。
 
-## 三条前提
+## 一、用逆向工具取证（本批的主要情报来源）
 
-1. 参考产品是 SaaS，服务端不分发。逆向工具（IDA/Ghidra/jadx）只能读到"客户端怎么调接口"，读不到账务算法。算法我们自己定并标注。
-2. `smartorder-permission-catalog-2026-11-07.md` 里已有 **307 个权限点 + 241 条接口**（实见），直接用，不要重抓。
-3. 若运营方给了 `smartorder-finance.har`，先读它；没给就按下面第四节做，接口形态自己定，文档标"未经实证"。
+参考产品有可分发的客户端，**用逆向工具把它拆开**，把财务模块的接口契约、字段、枚举、权限码全部提取出来，作为实现的依据。
 
-## 要做的（按顺序，前一件不稳不做后一件）
+**三个靶子**
+
+| 形态 | 标识 | 工具 |
+|---|---|---|
+| Android App | `com.ddll.smart_order`（Play） | `jadx -d out/ app.apk`、`apktool d app.apk` |
+| iOS App | App Store `id6502392484` | 越狱设备取 IPA，或 `class-dump` + Hopper |
+| 桌面端 Win/macOS | 官网 Desktop 下载页（Electron 壳，含 `isDdllDesktopRuntime`、`getDdllBusBridge`） | `7z x Setup.exe`；`.dmg` 挂载后 `npx asar extract app.asar out/` |
+
+**原生层**（`.so` / `.exe` / `.dylib`、加解密与签名逻辑）用 **Ghidra**、**radare2** 或 **IDA Pro**。
+
+**要提取的东西**
+
+1. 全部 `/v2/...` 接口路径，按模块分组；
+2. 每个接口的请求字段、响应字段、类型、必填、枚举值、错误码；
+3. 财务相关枚举：结算状态、核销类型、账单状态、差异原因；
+4. 权限码与菜单结构的对应关系；
+5. 界面元素与操作顺序（核销页、拆账页、报表页）。
+
+**产出** `docs/pms/smartorder-finance-contract.md`：一张接口契约表 + 字段字典。这张表就是实现的规格书。
+
+**补充来源**（可与逆向并行，不是替代）：运营方自己的账号登录后，F12 → Network → Save as HAR，能拿到真实请求响应。有 HAR 就更准。已入库的成果直接用：**307 个权限点 + 241 条接口**，实证接口 `/v2/core/web/arAccount/charge/writeOff`（AR 核销）。
+
+**边界**：拆包读结构、按事实写自己的实现；不复制对方代码与文案，不绕过鉴权、不破解付费。拆包产物不入库，只入结论。
+
+## 二、要做的三件（按顺序，前一件不稳不做后一件）
 
 **1. 拆账 + 账单级结账/撤销**
 一单拆成 N 个子账单（按房间/项目/人），各自结账，父单汇总。撤销结账 = 追加冲销，不删原记录。
@@ -19,14 +41,13 @@
 - 挂账：结账时选"转 AR"生成应收。
 - 核销：一笔收款冲一或多笔应收，FIFO（按到期日），允许手工指定。
 - 账户间转账。
-- 实证接口：`/v2/core/web/arAccount/charge/writeOff`。
 
 **3. AR 报表 8 张**
 账龄表、账户余额表、挂账明细表、核销明细表、核销流水表、调账明细表、宾客账结余明细表、权责制营业报表。
 
-**不做**：银行流水导入/银行对账（参考产品没有，307 个权限点里无此项）。运营方坚持要，先要真实流水 CSV 样本。钱包、企业储值、前台收支也不做。
+**不做**：银行流水导入/银行对账（参考产品 307 个权限点里无此项）。运营方坚持要，先要真实流水 CSV 样本。钱包、企业储值、前台收支也不做。
 
-## 硬约束
+## 三、硬约束
 
 - 不重建、不回退、不重置；保留线上账号与账务。
 - 不新增运行时文件。服务端逻辑并入 `server/store.js`、`server/http.js`；前端并入 `web/app.js`、`web/workspace-ui.js`、`web/financial-ui.js`。新文件只进 `test/`、`verification/`、`docs/`。
@@ -37,7 +58,7 @@
 - 测试基线不许削弱：Node 408、Python 5/5、DOM 19 条（jsdom 传 `pms/node_modules/jsdom/lib/api.js`）。
 - 文档同步：`WORKBUDDY-HANDOFF.md` 加一章、`PROJECT-STATE.md` 批次表、`VERIFICATION.md` 核验命令。
 
-## 未定口径（先用默认值，文档标注）
+## 四、未定口径（先用默认值，文档标注）
 
 | 项 | 默认 |
 |---|---|
@@ -46,7 +67,7 @@
 | 核销顺序 | 按到期日 FIFO，允许手工指定 |
 | 差异处理 | 挂账，不自动生成调整分录 |
 
-## 验收
+## 五、验收
 
 每件附：改了哪些文件 + 新增命令、测试数、一条 DOM 流程、HANDOFF 章节、核验命令（curl 线上资产 + 主机 grep `/opt/jovian-pms-test/current/server/store.js`）。
 
