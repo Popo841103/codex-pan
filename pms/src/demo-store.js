@@ -310,6 +310,7 @@ export function apply(state, command) {
   let next = upgradeBusinessDay(upgradeCatalog(state));
   for (const o of next.orders) { o.nightly ??= 0; o.transactions ??= []; o.notes ??= ''; o.source ??= 'direct'; o.locked ??= false; }
   const { type, propertyId } = command;
+  let settledStayIds;
   if (['checkin','checkout'].includes(type) && (typeof command.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(command.date))) reject('date');
   if (!next.properties.some(p => p.id === propertyId)) reject('scope');
   let order = next.orders.find(o => o.id === command.orderId && o.propertyId === propertyId);
@@ -385,7 +386,18 @@ export function apply(state, command) {
   } else if (['settle_split','settle_bill','settle_undo','settle_unsplit'].includes(type)) {
     changeSplitBills(order, command);
   }
-  else if(type==='settle'){const f=folio(order);if(order.folioClosed)reject('folio_closed');if(f.due!==0||f.deposit!==0)reject('balance');order.folioClosed=true;(order.folioEvents??=[]).push({type:'settle',at:command.at,actor:command.actor||'local',charge:f.charge,paid:f.paid,deposit:f.deposit});}
+  else if(type==='settle') settleFolio(order,command);
+  else if(type==='settle_reservation'){
+    const parent=next.reservations.find(r=>r.id===command.reservationId&&r.propertyId===propertyId);
+    if(!parent||parent.stayIds.length<2)reject('scope');
+    const stays=parent.stayIds.map(id=>next.orders.find(o=>o.id===id&&o.propertyId===propertyId&&o.reservationId===parent.id));
+    if(stays.some(stay=>!stay))reject('scope');
+    const open=stays.filter(stay=>!stay.folioClosed);
+    if(!open.length)reject('folio_closed');
+    if(open.some(stay=>stay.splitBills))reject('bill_state');
+    for(const stay of open)settleFolio(stay,command,command.id);
+    settledStayIds=open.map(stay=>stay.id);
+  }
   else if(type==='reopen_folio'){if(order.arItemId)reject('ar_state');if(!order.folioClosed)reject('state');const reason=text(command.reason||'',500).trim();if(!reason)reject('reason');order.folioClosed=false;(order.folioEvents??=[]).push({type:'reopen',at:command.at,actor:command.actor||'local',reason});}
   else if(['rate_plan_save','rate_plan_archive','rates_bulk_update'].includes(type)){changeRates(next,command);}
   else if (['box_stays','restore_stays'].includes(type)) {
@@ -536,6 +548,7 @@ export function apply(state, command) {
       after:['box_stays','restore_stays'].includes(type) ? null : staySnapshot(movedTo),
       reason: typeof command.reason === 'string' ? command.reason.trim() : null } } : {}),
     ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}),
+    ...(settledStayIds?{reservationId:command.reservationId,settledStayIds}:{}),
     ...(type==='commission_save'?{commissionChange:{before:commissionBefore,after:order?.commission||null}}:{}), at: command.at });
   return next;
 }
@@ -543,6 +556,16 @@ export function apply(state, command) {
 const text = (value, max) => { if(typeof value !== 'string' || value.length > max) reject('input'); return value; };
 const money = value => { if (!Number.isSafeInteger(value) || value < 0 || value > 100000000) reject('amount'); return value; };
 const validSource = value => { if (!['direct','walkin','booking','airbnb','agoda','tripcom','expedia','traveloka','tiket','bookingengine','chinesesite','rednote','neppan','hostelworld','tujia','vrbo','xiaozhu','temairazu','rakuten','klook','other'].includes(value)) reject('input'); return value; };
+function settleFolio(order, command, batchId) {
+  const totals=folio(order);
+  if(order.folioClosed)reject('folio_closed');
+  if(totals.due!==0||totals.deposit!==0)reject('balance');
+  order.folioClosed=true;
+  (order.folioEvents??=[]).push({
+    type:'settle',at:command.at,actor:command.actor||'local',
+    charge:totals.charge,paid:totals.paid,deposit:totals.deposit,...(batchId?{batchId}:{})
+  });
+}
 function roomChargeFor(order, nights) {
   return order.nightlyRates?order.nightlyRates.reduce((n,r)=>n+r.amount,0):nights*(order.nightly||0);
 }

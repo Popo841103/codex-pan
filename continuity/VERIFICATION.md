@@ -228,3 +228,7 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 ### 按消费明细拆账
 
 在 `pms` 执行 `node --test test/folio-split.test.js`。将 jsdom 路径传给 `node verification/dom-folio-split.mjs node_modules/jsdom/lib/api.js --lines`，另执行不带 `--lines` 的原手填流程。发布后检查 `/healthz` 和 `/web/app.js` 的 `split-lines-form`。主机检查 `grep -n folioSplitLines /opt/jovian-pms-test/current/src/demo-store.js` 和 `grep -n settle_split /opt/jovian-pms-test/current/server/store.js`。
+
+### 主订单批量结账
+
+在 `pms` 运行 `node --test test/reservation-settlement.test.js test/role-permissions.test.js` 和 `node verification/dom-reservation-settlement.mjs node_modules/jsdom/lib/api.js`。发布后核对 `/healthz` 和 `/web/app.js` 的 `settle-reservation`。主机检查 `grep -n settle_reservation /opt/jovian-pms-test/current/server/store.js`。

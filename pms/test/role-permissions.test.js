@@ -97,14 +97,14 @@ test('extra permissions ride on top of a role, but never above the giver own acc
   try{
     send(store,admin,{type:'member_save',username:'fin-one',password:'y'.repeat(14),role:'finance',propertyIds:['TEST-KL']});
     const fin=store.db.prepare("SELECT * FROM users WHERE username='fin-one'").get();
-    assert.deepEqual(store.permissionsFor(fin,'TEST-KL').sort(),['ar_account_save','ar_adjust','ar_post','ar_report_view','ar_transfer','ar_undo_adjust','ar_undo_post','ar_undo_write_off','ar_write_off','commission_save','payment','settle','settle_bill','settle_split','settle_undo','settle_unsplit','support_create','support_reply','support_status'],
+    assert.deepEqual(store.permissionsFor(fin,'TEST-KL').sort(),['ar_account_save','ar_adjust','ar_post','ar_report_view','ar_transfer','ar_undo_adjust','ar_undo_post','ar_undo_write_off','ar_write_off','commission_save','payment','settle','settle_bill','settle_reservation','settle_split','settle_undo','settle_unsplit','support_create','support_reply','support_status'],
       'finance keeps the ticket desk it always had');
     const granted=send(store,admin,{type:'member_permission_save',username:'fin-one',actions:['settle','commission_save','rate_plan_save']});
     assert.deepEqual(granted.actions,['commission_save','rate_plan_save','settle']);
     // The extra grant is listed with the member, so the page edits what is stored.
     const listed=store.read({id:admin.id}).members.find(m=>m.username==='fin-one');
     assert.deepEqual((listed.extraPermissions['TEST-KL']||[]).sort(),['commission_save','rate_plan_save','settle']);
-    assert.deepEqual(store.permissionsFor(fin,'TEST-KL').sort(),['ar_account_save','ar_adjust','ar_post','ar_report_view','ar_transfer','ar_undo_adjust','ar_undo_post','ar_undo_write_off','ar_write_off','commission_save','payment','rate_plan_save','settle','settle_bill','settle_split','settle_undo','settle_unsplit','support_create','support_reply','support_status'],
+    assert.deepEqual(store.permissionsFor(fin,'TEST-KL').sort(),['ar_account_save','ar_adjust','ar_post','ar_report_view','ar_transfer','ar_undo_adjust','ar_undo_post','ar_undo_write_off','ar_write_off','commission_save','payment','rate_plan_save','settle','settle_bill','settle_reservation','settle_split','settle_undo','settle_unsplit','support_create','support_reply','support_status'],
       'the extra grant adds to the role instead of replacing it');
     // An operator holding member_permission_save can only pass on actions it holds itself.
     const lead=send(store,admin,{type:'role_save',name:'Access lead',actions:['member_permission_save','payment']});
@@ -115,7 +115,7 @@ test('extra permissions ride on top of a role, but never above the giver own acc
       'it may not hand out an action it does not hold');
     assert.equal(attempt(store,leadUser,{type:'member_permission_save',username:'fin-one',actions:['payment']}),null);
     assert.equal(attempt(store,leadUser,{type:'member_permission_save',username:'nobody',actions:[]}),404);
-    assert.deepEqual(store.permissionsFor(fin,'TEST-KL').sort(),['ar_account_save','ar_adjust','ar_post','ar_report_view','ar_transfer','ar_undo_adjust','ar_undo_post','ar_undo_write_off','ar_write_off','commission_save','payment','settle','settle_bill','settle_split','settle_undo','settle_unsplit','support_create','support_reply','support_status'],
+    assert.deepEqual(store.permissionsFor(fin,'TEST-KL').sort(),['ar_account_save','ar_adjust','ar_post','ar_report_view','ar_transfer','ar_undo_adjust','ar_undo_post','ar_undo_write_off','ar_write_off','commission_save','payment','settle','settle_bill','settle_reservation','settle_split','settle_undo','settle_unsplit','support_create','support_reply','support_status'],
       'the grant replaces the previous one, so the earlier rate_plan_save is gone and the role is untouched');
   } finally{ store.close(); }
 });
@@ -126,7 +126,7 @@ test('the built-in roles keep the access they always had',()=>{
     assert.ok(store.actionsFor('admin').includes('role_save'));
     assert.deepEqual(store.actionsFor('viewer').sort(),['support_create','support_reply','support_status'],
       'a viewer never settles money, but the ticket desk stays open to everybody');
-    assert.deepEqual(store.actionsFor('finance').sort(),['ar_account_save','ar_adjust','ar_post','ar_report_view','ar_transfer','ar_undo_adjust','ar_undo_post','ar_undo_write_off','ar_write_off','commission_save','payment','settle','settle_bill','settle_split','settle_undo','settle_unsplit','support_create','support_reply','support_status']);
+    assert.deepEqual(store.actionsFor('finance').sort(),['ar_account_save','ar_adjust','ar_post','ar_report_view','ar_transfer','ar_undo_adjust','ar_undo_post','ar_undo_write_off','ar_write_off','commission_save','payment','settle','settle_bill','settle_reservation','settle_split','settle_undo','settle_unsplit','support_create','support_reply','support_status']);
     assert.equal(store.actionsFor('operations').includes('role_save'),false);
     // An operations account still cannot reach access management, and a viewer still
     // cannot settle, exactly as before roles could be defined per property.
