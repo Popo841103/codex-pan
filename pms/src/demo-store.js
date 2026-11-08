@@ -441,6 +441,31 @@ export function apply(state, command) {
   } else if (type === 'lock') {
     if (!order.resourceId || ['checked_out','cancelled'].includes(order.status)) reject('state');
     order.locked = !order.locked;
+  } else if (type === 'payment_reservation') {
+    const parent=next.reservations.find(r=>r.id===command.reservationId&&r.propertyId===propertyId);
+    if(!parent)reject('scope');
+    const {allocations,method}=command;
+    const total=money(command.amount);
+    if(!total||!Array.isArray(allocations)||allocations.length<2||allocations.length>parent.stayIds.length)reject('amount');
+    if(!['cash','bank','card'].includes(method))reject('input');
+    const reference=text(command.reference||'',100), note=text(command.note||'',500);
+    const seen=new Set();
+    let allocated=0;
+    for(const [index,row] of allocations.entries()){
+      const amount=money(row?.amount);
+      if(!amount||seen.has(row.orderId))reject('amount');
+      const stay=next.orders.find(o=>o.id===row.orderId&&o.propertyId===propertyId&&o.reservationId===parent.id);
+      if(!stay||!parent.stayIds.includes(stay.id))reject('scope');
+      if(stay.folioClosed||stay.splitBills)reject('bill_state');
+      if(amount>folio(stay).due)reject('balance');
+      seen.add(stay.id);
+      allocated+=amount;
+      stay.transactions.push({
+        id:command.id+':'+index,batchId:command.id,actor:command.actor||'local',
+        kind:'payment',amount,method,reference,note,at:command.at
+      });
+    }
+    if(allocated!==total)reject('amount');
   } else if (type === 'payment') {
     const amount = money(command.amount);
     if (!amount || !['payment','refund','deposit_in','deposit_out'].includes(command.kind)) reject('amount');
@@ -548,6 +573,7 @@ export function apply(state, command) {
       after:['box_stays','restore_stays'].includes(type) ? null : staySnapshot(movedTo),
       reason: typeof command.reason === 'string' ? command.reason.trim() : null } } : {}),
     ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}),
+    ...(type==='payment_reservation'?{reservationId:command.reservationId,amount:command.amount,method:command.method,allocations:command.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
     ...(settledStayIds?{reservationId:command.reservationId,settledStayIds}:{}),
     ...(type==='commission_save'?{commissionChange:{before:commissionBefore,after:order?.commission||null}}:{}), at: command.at });
   return next;

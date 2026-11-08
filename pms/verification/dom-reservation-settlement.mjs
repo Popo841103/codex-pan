@@ -30,11 +30,6 @@ const until=async(check,title)=>{for(let n=0;n<1000;n++){if(check())return;await
 try {
  const stay={productId:'room',roomTypeId:'TEST-KL-legacy-room-any',gender:'any',start:'2027-01-10',end:'2027-01-11',adults:1,children:0,infants:0,occupants:[{name:'TEST A',gender:'any'}],nightly:10000};
  store.command(operator,{key:randomUUID(),expectedRevision:0,command:{type:'create_reservation',propertyId:'TEST-KL',date:'2027-01-10',guest:'TEST group settlement',bookingKind:'individual',autoAssign:false,source:'direct',mode:'reserve',stays:[stay,stay]}});
- const [first,second]=store.read(operator).orders;
- function pay(order,revision){
-   store.command(operator,{key:randomUUID(),expectedRevision:revision,command:{type:'payment',propertyId:'TEST-KL',orderId:order.id,kind:'payment',method:'cash',amount:10000}});
- }
- pay(first,1);
  const login=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
  assert.equal(login.status,200);
  await import(new URL('../web/app.js?batch-check='+randomUUID(),import.meta.url).href);
@@ -42,10 +37,16 @@ try {
  $('#global-nav [data-view="orders"]').click();
  $('#content [data-open-reservation]').click();
  assert.equal($('#settle-reservation').disabled,true);
- pay(second,2);
- await $('#refresh').onclick();
- $('#content [data-open-reservation]').click();
+ const form=$('#reservation-payment');
+ form.elements.amount.value='200';
+ form.elements.reference.value='TEST group receipt';
+ form.querySelectorAll('[data-payment-stay]').forEach(input=>{input.value='100';});
+ await form.onsubmit({currentTarget:form,preventDefault(){}});
  assert.equal($('#settle-reservation').disabled,false);
+ const receipts=store.read(operator).orders.map(order=>order.transactions[0]);
+ assert(receipts.every(row=>row.amount===10000&&row.reference==='TEST group receipt'));
+ assert(receipts[0].batchId);
+ assert.equal(receipts[0].batchId,receipts[1].batchId);
  await $('#settle-reservation').onclick();
  await until(()=>store.read(operator).orders.every(order=>order.folioClosed),'batch closed');
  assert.equal(document.querySelector('#settle-reservation'),null);

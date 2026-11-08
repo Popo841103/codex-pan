@@ -24,3 +24,29 @@ test('batch settlement preserves individual balances and rejects offsetting stay
   assert.deepEqual(settled.orders.map(order=>order.transactions),state.orders.map(order=>order.transactions));
   assert.throws(()=>apply(settled,{...command,id:'second'}),/folio_closed/);
 });
+
+test('a group receipt allocates the exact amount atomically to its own stays', () => {
+  const state=seed();
+  const propertyId='TEST-KL';
+  state.reservations=[{id:'parent',propertyId,stayIds:['a','b']}];
+  state.orders=['a','b'].map(id=>({
+    id,propertyId,reservationId:'parent',status:'checked_out',productId:'room',
+    start:'2027-01-01',end:'2027-01-02',nightly:10000,transactions:[]
+  }));
+  const command={
+    type:'payment_reservation',id:'receipt',propertyId,reservationId:'parent',method:'bank',
+    amount:15000,at:'2027-01-02T10:00:00Z',reference:'Bank record',
+    allocations:[{orderId:'a',amount:10000},{orderId:'b',amount:5000}]
+  };
+  assert.throws(()=>apply(state,{...command,amount:16000}),/amount/);
+  assert.throws(()=>apply(state,{...command,allocations:[command.allocations[0],{orderId:'outside',amount:5000}]}),/scope/);
+  assert.throws(()=>apply(state,{...command,allocations:[command.allocations[0],{orderId:'a',amount:5000}]}),/amount/);
+  assert.throws(()=>apply(state,{...command,amount:21000,allocations:[command.allocations[0],{orderId:'b',amount:11000}]}),/balance/);
+  assert(state.orders.every(o=>o.transactions.length===0));
+  const result=apply(state,command);
+  const [a,b]=result.orders.map(o=>o.transactions[0]);
+  assert.deepEqual([a.amount,b.amount],[10000,5000]);
+  assert.deepEqual([a.batchId,b.batchId],['receipt','receipt']);
+  assert.notEqual(a.id,b.id);
+  assert.equal(b.reference,'Bank record');
+});

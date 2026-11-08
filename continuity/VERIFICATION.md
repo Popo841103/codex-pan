@@ -232,3 +232,7 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 ### 主订单批量结账
 
 在 `pms` 运行 `node --test test/reservation-settlement.test.js test/role-permissions.test.js` 和 `node verification/dom-reservation-settlement.mjs node_modules/jsdom/lib/api.js`。发布后核对 `/healthz` 和 `/web/app.js` 的 `settle-reservation`。主机检查 `grep -n settle_reservation /opt/jovian-pms-test/current/server/store.js`。
+
+### 主订单合并收款
+
+沿用主订单批量结账测试及 DOM 脚本，先登记一笔合并收款，再核验两个账页的分配流水和批次号。线上检查 `/web/app.js` 的 `reservation-payment`，主机检查 `grep -n payment_reservation /opt/jovian-pms-test/current/server/store.js`。
