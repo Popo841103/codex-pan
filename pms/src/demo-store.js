@@ -543,16 +543,30 @@ export function apply(state, command) {
 const text = (value, max) => { if(typeof value !== 'string' || value.length > max) reject('input'); return value; };
 const money = value => { if (!Number.isSafeInteger(value) || value < 0 || value > 100000000) reject('amount'); return value; };
 const validSource = value => { if (!['direct','walkin','booking','airbnb','agoda','tripcom','expedia','traveloka','tiket','bookingengine','chinesesite','rednote','neppan','hostelworld','tujia','vrbo','xiaozhu','temairazu','rakuten','klook','other'].includes(value)) reject('input'); return value; };
+function roomChargeFor(order, nights) {
+  return order.nightlyRates?order.nightlyRates.reduce((n,r)=>n+r.amount,0):nights*(order.nightly||0);
+}
+const signedFolioExtra = row => (row.kind==='charge'?1:-1)*row.quantity*row.unitAmount;
 export function folio(order) {
   const nights = Math.round((Date.parse(order.end)-Date.parse(order.start))/86400000);
-  const roomCharge=order.nightlyRates?order.nightlyRates.reduce((n,r)=>n+r.amount,0):nights*(order.nightly||0);
-  const extras=(order.extraCharges||[]).reduce((n,r)=>n+(r.kind==='charge'?1:-1)*r.quantity*r.unitAmount,0);
+  const roomCharge=roomChargeFor(order,nights);
+  const extras=(order.extraCharges||[]).reduce((n,r)=>n+signedFolioExtra(r),0);
   const charge = order.finalCharge ?? roomCharge+extras;
   const transactions = order.transactions || [];
   const sum = kind => transactions.filter(t=>t.kind===kind).reduce((n,t)=>n+t.amount,0);
   const paid = sum('payment')-sum('refund');
   const transferred = (order.arMoves||[]).reduce((sum,row)=>sum+row.amount,0);
   return { nights, charge, paid, ...(transferred?{transferred}:{}), due: charge-paid-transferred, deposit:sum('deposit_in')-sum('deposit_out') };
+}
+
+export function folioSplitLines(order) {
+  const totals=folio(order);
+  const lines=[
+    {key:'room',kind:'room',amount:roomChargeFor(order,totals.nights)},
+    ...(order.extraCharges||[]).map((row,index)=>({key:'extra:'+index,kind:row.kind,name:row.name,amount:signedFolioExtra(row)}))
+  ].filter(line=>line.amount!==0);
+  return lines.length>=2 && lines.every(line=>Number.isSafeInteger(line.amount)) &&
+    lines.reduce((sum,line)=>sum+line.amount,0)===totals.charge ? lines : [];
 }
 
 function validRange(start,end){
@@ -574,12 +588,24 @@ function changeSplitBills(order, command) {
   if (type === 'settle_split') {
     if (order.splitBills || order.folioClosed) reject('bill_state');
     if (!Array.isArray(command.bills) || command.bills.length < 2 || command.bills.length > 20) reject('bill_total');
+    const byLine = command.mode === 'lines';
+    if (command.mode !== undefined && !byLine) reject('bill_total');
+    const remaining = new Map(byLine ? folioSplitLines(order).map(line=>[line.key,line]) : []);
     const bills = command.bills.map((row, index) => {
       const label = text(row?.label,120).trim();
       if (!label) reject('bill_total');
-      return {id:id+':'+index,label,charge:money(row.charge),paid:money(row.paid),closedBy:null};
+      if (byLine && (!Array.isArray(row.lineKeys)||!row.lineKeys.length)) reject('bill_total');
+      const lines = byLine ? row.lineKeys.map(key=>{
+        const line=remaining.get(key);
+        if (!line) reject('bill_total');
+        remaining.delete(key);
+        return line;
+      }) : null;
+      const charge=lines ? lines.reduce((sum,line)=>sum+line.amount,0) : row.charge;
+      if (lines && charge<0) reject('bill_total');
+      return {id:id+':'+index,label,charge:money(charge),paid:money(row.paid),closedBy:null,...(lines?{lines}:{})};
     });
-    if (bills.reduce((sum,b) => sum+b.charge,0) !== totals.charge ||
+    if (remaining.size || bills.reduce((sum,b) => sum+b.charge,0) !== totals.charge ||
         bills.reduce((sum,b) => sum+b.paid,0) !== totals.paid) reject('bill_total');
     order.splitBills = bills;
     event.bills = structuredClone(bills);

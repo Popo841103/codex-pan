@@ -224,3 +224,7 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 ### 渠道佣金月结
 
 运行 `node --test test/commission-period.test.js test/role-permissions.test.js` 与 `node verification/dom-commission-period.mjs node_modules/jsdom/lib/api.js`。公网检查 `/healthz`、`/web/financial-ui.js` 的 `commissionPeriodPanel` 以及 `/src/demo-store.js` 的 `closeCommissionMonth`。主机佐证 `grep -n commission_close_month /opt/jovian-pms-test/current/server/store.js`。
+
+### 按消费明细拆账
+
+在 `pms` 执行 `node --test test/folio-split.test.js`。将 jsdom 路径传给 `node verification/dom-folio-split.mjs node_modules/jsdom/lib/api.js --lines`，另执行不带 `--lines` 的原手填流程。发布后检查 `/healthz` 和 `/web/app.js` 的 `split-lines-form`。主机检查 `grep -n folioSplitLines /opt/jovian-pms-test/current/src/demo-store.js` 和 `grep -n settle_split /opt/jovian-pms-test/current/server/store.js`。

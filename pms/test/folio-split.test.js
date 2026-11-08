@@ -17,6 +17,25 @@ test('split preserves value, settles each bill independently and links a reversa
 });
 
 import {Store} from '../server/store.js';
+test('line split derives child amounts and preserves discounts and deposits',()=>{
+ const s=initial();
+ s.orders[0].extraCharges=[
+   {kind:'charge',label:'Breakfast',quantity:2,unitAmount:1500},
+   {kind:'discount',label:'Breakfast discount',quantity:1,unitAmount:500}
+ ];
+ const funded=apply(s,c('payment',{orderId:'TEST-order',kind:'deposit_in',amount:2000,method:'cash'}));
+ const cmd=c('settle_split',{orderId:'TEST-order',mode:'lines',bills:[
+   {label:'Room',lineKeys:['room'],paid:0},
+   {label:'Breakfast',lineKeys:['extra:0','extra:1'],paid:0}
+ ]});
+ const result=apply(funded,cmd).orders[0];
+ assert.deepEqual(result.splitBills.map(b=>b.charge),[10000,2500]);
+ assert.equal(result.splitBills[1].lines[1].amount,-500);
+ assert.equal(result.transactions[0].amount,2000);
+ for (const keys of [['extra:0'],['room','extra:0','extra:1'],['extra:0','extra:1','missing'],['extra:1']]) {
+   assert.throws(()=>apply(funded,{...cmd,bills:[cmd.bills[0],{...cmd.bills[1],lineKeys:keys}]}),/bill_total/);
+ }
+});
 test('shared split respects property permissions, revision and idempotency',()=>{
  const db=new Store(':memory:');
  try {

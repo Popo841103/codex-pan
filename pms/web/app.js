@@ -12,7 +12,7 @@ import {communicationWords,createCommunications} from './communication-ui.js';
 import { isBoxed, blockType, inventoryState } from '../src/inventory-actions.js';
 import { calendarActionWords, bindCalendarActions } from './calendar-actions.js';
 import { Backend } from './backend.js';
-import { seed, apply, preview, folio } from '../src/demo-store.js';
+import { seed, apply, preview, folio, folioSplitLines } from '../src/demo-store.js';
 import { upgradeCatalog, saleResources, typeName } from '../src/catalog.js';
 import { catalogWords, catalogPage, bindCatalog } from './catalog-ui.js';
 import { dashboardWords, dashboardPage, shortcuts } from './dashboard-ui.js';
@@ -398,6 +398,44 @@ function openDetail(id) {
         act({type:'settle_split',bills});
       } catch (error) { $('#detail-error').textContent=errorText(error); }
     };
+  }
+  if ($('#split-lines-form')) {
+    const form=$('#split-lines-form');
+    const rows=$('#split-line-bills');
+    const assignments=[...form.querySelectorAll('[data-split-line]')];
+    const update=()=>{
+      const bills=[...rows.children];
+      for (const select of assignments) {
+        const previous=select.value;
+        select.innerHTML='<option value="">—</option>'+bills.map((row,index)=>
+          '<option value="'+index+'">'+escape(row.querySelector('[name="label"]').value.trim()||t('splitBill')+' '+(index+1))+'</option>').join('');
+        select.value=previous;
+      }
+      for (const [index,row] of bills.entries()) {
+        const charge=assignments.filter(select=>select.value===String(index)).reduce((sum,select)=>sum+Number(select.dataset.amount),0);
+        row.querySelector('output').textContent=currency(charge);
+      }
+    };
+    rows.addEventListener('input',update);
+    assignments.forEach(select=>select.onchange=update);
+    $('#split-line-add').onclick=()=>{
+      if(rows.children.length>=Math.min(20,assignments.length))return;
+      rows.insertAdjacentHTML('beforeend',splitLineBillRow());
+      update();
+    };
+    form.onsubmit=e=>{
+      e.preventDefault();
+      try {
+        if (assignments.some(select=>select.value==='')) throw new Error('bill_total');
+        const bills=[...rows.children].map((row,index)=>({
+          label:row.querySelector('[name="label"]').value,
+          paid:toMinor(row.querySelector('[name="paid"]').value),
+          lineKeys:assignments.filter(select=>select.value===String(index)).map(select=>select.dataset.splitLine)
+        }));
+        act({type:'settle_split',mode:'lines',bills});
+      } catch(error){$('#detail-error').textContent=errorText(error);}
+    };
+    update();
   }
   $('#detail-body').querySelectorAll('[data-split-command]').forEach(form => {
     form.onsubmit = e => {
@@ -881,12 +919,25 @@ function splitBillRow() {
     '<label>'+t('charge')+'<input name="charge" type="number" step=".01" min="0" required></label>'+
     '<label>'+t('paid')+'<input name="paid" type="number" step=".01" min="0" value="0" required></label></div>';
 }
+function splitLineName(line) { return line.kind==='room'?t('room'):line.name; }
+function splitLineBillRow() {
+  return '<div class="form-row"><label>'+t('splitBill')+'<input name="label" required maxlength="120"></label>'+
+    '<label>'+t('paid')+'<input name="paid" type="number" step=".01" min="0" value="0" required></label>'+
+    '<div>'+t('charge')+' <output></output></div></div>';
+}
 function splitBillPanel(order, totals) {
-  if (!order.splitBills) return '<details><summary>'+t('settle_split')+'</summary><form id="split-form"><p>'+t('splitNote')+'</p><div id="split-rows">'+splitBillRow()+splitBillRow()+'</div><button id="split-add" type="button">+ '+t('splitBill')+'</button> <button>'+t('settle_split')+'</button></form></details>';
+  if (!order.splitBills) {
+    const lines=folioSplitLines(order);
+    const lineForm=lines.length?'<details><summary>'+t('splitByLines')+'</summary><form id="split-lines-form"><p>'+t('splitLineNote')+'</p>'+
+      '<div id="split-line-bills">'+splitLineBillRow()+splitLineBillRow()+'</div><button id="split-line-add" type="button">+ '+t('splitBill')+'</button>'+
+      lines.map(line=>'<label>'+escape(splitLineName(line))+' · '+currency(line.amount)+'<select required data-split-line="'+escape(line.key)+'" data-amount="'+line.amount+'"></select></label>').join('')+
+      '<button>'+t('splitByLines')+'</button></form></details>':'';
+    return '<details><summary>'+t('settle_split')+'</summary><form id="split-form"><p>'+t('splitNote')+'</p><div id="split-rows">'+splitBillRow()+splitBillRow()+'</div><button id="split-add" type="button">+ '+t('splitBill')+'</button> <button>'+t('settle_split')+'</button></form></details>'+lineForm;
+  }
   const action = (type,billId,enabled,reason=false) => '<form data-split-command="'+type+'" data-bill-id="'+escape(billId||'')+'">'+
     (reason?'<label>'+t('folioReopenReason')+'<input name="reason" required maxlength="500"></label>':'')+
     '<button '+(enabled&&can(type)?'':'disabled')+'>'+t(type)+'</button></form>';
-  const rows=order.splitBills.map(bill=>'<tr><td>'+escape(bill.label)+'</td><td>'+currency(bill.charge)+'</td><td>'+currency(bill.paid)+(bill.arAmount?'<small>'+escape(t('ar_post'))+' · '+currency(bill.arAmount)+'</small>':'')+'</td><td>'+currency(bill.charge-bill.paid-(bill.arAmount||0))+'</td><td>'+t(bill.closedBy?'folioClosed':'folioOpen')+'</td><td>'+
+  const rows=order.splitBills.map(bill=>'<tr><td>'+escape(bill.label)+(bill.lines||[]).map(line=>'<small>'+escape(splitLineName(line))+' · '+currency(line.amount)+'</small>').join('')+'</td><td>'+currency(bill.charge)+'</td><td>'+currency(bill.paid)+(bill.arAmount?'<small>'+escape(t('ar_post'))+' · '+currency(bill.arAmount)+'</small>':'')+'</td><td>'+currency(bill.charge-bill.paid-(bill.arAmount||0))+'</td><td>'+t(bill.closedBy?'folioClosed':'folioOpen')+'</td><td>'+
     (bill.closedBy?action('settle_undo',bill.id,true,true):action('settle_bill',bill.id,bill.charge===bill.paid&&totals.deposit===0))+'</td></tr>').join('');
   return '<section><h3>'+t('splitBill')+'</h3><div class="table-wrap"><table><thead><tr>'+['splitBill','charge','paid','due','status','action'].map(key=>'<th>'+t(key)+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
     action('settle_unsplit',null,order.splitBills.every(b=>!b.closedBy),true)+'</section>';
@@ -895,6 +946,9 @@ function splitBillPanel(order, totals) {
 Object.assign(words.zh,{"settle_split":"拆账","settle_bill":"子账单结账","settle_undo":"撤销子账单结账","settle_unsplit":"撤销拆账","splitBill":"子账单","splitNote":"各账单的费用和已收款分别加总为当前账页金额。押金仍单独核算。","bill_total":"分配金额与账页总额不符。","bill_state":"当前账单状态不允许此操作。"});
 Object.assign(words.en,{"settle_split":"Split bills","settle_bill":"Settle bill","settle_undo":"Reverse bill settlement","settle_unsplit":"Undo split","splitBill":"Bill","splitNote":"Allocate the full charge and receipts across bills. Deposits remain separate.","bill_total":"Allocations must match the folio totals.","bill_state":"This bill state does not allow the action."});
 Object.assign(words.ms,{"settle_split":"Pecah bil","settle_bill":"Selesaikan bil","settle_undo":"Balikkan penyelesaian bil","settle_unsplit":"Batal pecahan","splitBill":"Bil","splitNote":"Agihkan semua caj dan terimaan. Deposit kekal berasingan.","bill_total":"Agihan mesti sepadan dengan jumlah folio.","bill_state":"Status bil tidak membenarkan tindakan ini."});
+Object.assign(words.zh,{splitByLines:'按消费明细拆账',splitLineNote:'为每项房费、消费或折扣选一张子账单。已收款需另行分配，押金独立核算。'});
+Object.assign(words.en,{splitByLines:'Split by charge lines',splitLineNote:'Assign each room charge, extra or discount to a bill. Allocate existing receipts separately. Deposits remain separate.'});
+Object.assign(words.ms,{splitByLines:'Pecah mengikut butiran caj',splitLineNote:'Pilih satu bil bagi setiap caj bilik, caj tambahan atau diskaun. Agihkan bayaran diterima secara berasingan. Deposit kekal berasingan.'});
 $('#content').addEventListener('change',e=>{
   if (view==='arLedger' && e.target.id==='ar-select') {
     arSelection.set(propertyId,e.target.value);

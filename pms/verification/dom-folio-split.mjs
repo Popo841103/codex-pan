@@ -28,19 +28,29 @@ const $=selector=>{const node=document.querySelector(selector);assert(node,`Miss
 const set=(selector,value)=>{const node=$(selector);if(node.type==='checkbox')node.checked=value;else node.value=value;node.dispatchEvent(new dom.window.Event('input',{bubbles:true}));node.dispatchEvent(new dom.window.Event('change',{bubbles:true}));};
 const until=async(check,title)=>{for(let n=0;n<1000;n++){if(check())return;await new Promise(resolve=>setTimeout(resolve,10));}throw Error('Timed out: '+title+'; UI error: '+(document.querySelector('#reservation-error')?.textContent||'')+'; DOM errors: '+errors.map(e=>e.message).join('; '));};
 try {
- store.command(operator,{key:randomUUID(),expectedRevision:0,command:{type:'create_reservation',propertyId:'TEST-KL',id:'test-edit-locales',date:'2027-01-10',guest:'TEST locale editor',bookingKind:'individual',companyName:'',autoAssign:false,source:'direct',mode:'reserve',stays:[{productId:'room',roomTypeId:'TEST-KL-legacy-room-any',gender:'any',start:'2027-01-10',end:'2027-01-12',adults:1,children:0,infants:0,occupants:[{name:'TEST A',gender:'any'}],nightly:10000}]}});
+ const byLine=process.argv.includes('--lines');
+ store.command(operator,{key:randomUUID(),expectedRevision:0,command:{type:'create_reservation',propertyId:'TEST-KL',id:'test-edit-locales',date:'2027-01-10',guest:'TEST locale editor',bookingKind:'individual',companyName:'',autoAssign:false,source:'direct',mode:'reserve',stays:[{productId:'room',roomTypeId:'TEST-KL-legacy-room-any',gender:'any',start:'2027-01-10',end:'2027-01-12',adults:1,children:0,infants:0,occupants:[{name:'TEST A',gender:'any'}],nightly:byLine?5000:10000,...(byLine?{extraCharges:[{kind:'charge',name:'TEST Extras',quantity:1,unitAmount:12000},{kind:'discount',name:'TEST Discount',quantity:1,unitAmount:2000}]}:{})}]}});
  const orderForCash=store.read(operator).orders[0];store.command(operator,{key:'cash-dom-payment',expectedRevision:1,command:{type:'payment',propertyId:'TEST-KL',orderId:orderForCash.id,kind:'payment',method:'cash',amount:10000}});store.command(operator,{key:'cash-dom-deposit',expectedRevision:2,command:{type:'payment',propertyId:'TEST-KL',orderId:orderForCash.id,kind:'deposit_in',method:'cash',amount:5000}});
  const login=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});assert.equal(login.status,200);
  await import(new URL('../web/app.js?locale-check='+randomUUID(),import.meta.url).href);
  $('[data-property="TEST-KL"]').click();$('#global-nav [data-view="orders"]').click();
  $('#content [data-open-reservation]').click();$('#utility-body [data-open-stay]').click();$('#detail-tab-bill').click();
 
- const rows=[...document.querySelectorAll('[data-split-row]')];
+ const rows=[...document.querySelectorAll(byLine?'#split-line-bills > div':'[data-split-row]')];
  for(const [index,label,charge,paid] of [[0,'TEST A','100','100'],[1,'TEST B','100','0']]){
-   for(const [field,value] of Object.entries({label,charge,paid})) rows[index].querySelector('[name="'+field+'"]').value=value;
+   for(const [field,value] of Object.entries(byLine?{label,paid}:{label,charge,paid})) rows[index].querySelector('[name="'+field+'"]').value=value;
  }
- $('#split-form button:last-child').click();
+ if(byLine){
+   set('[data-split-line="room"]','0');
+   set('[data-split-line="extra:0"]','1');
+   set('[data-split-line="extra:1"]','1');
+ }
+ $(byLine?'#split-lines-form button:last-child':'#split-form button:last-child').click();
  await until(()=>document.querySelector('[data-split-command="settle_bill"]'),'split rendered');
+ if(byLine){
+   assert.deepEqual(store.read(operator).orders[0].splitBills.map(b=>b.charge),[10000,10000]);
+   assert.match($('[data-split-command="settle_bill"]').closest('table').textContent,/TEST Discount/);
+ }
  assert.equal(document.querySelectorAll('[data-split-command="settle_bill"] button:disabled').length,2);
  set('#payment-form [name="kind"]','deposit_out');set('#payment-form [name="amount"]','50');$('#payment-form button').click();
  await until(()=>document.querySelector('[data-split-command="settle_bill"] button:enabled'),'deposit returned');
