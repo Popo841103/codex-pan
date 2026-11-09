@@ -36,8 +36,6 @@ test('legacy state upgrades additively without changing resource IDs, atoms or i
 test('new dorm beds use their physical room for same-room allocation and begin dirty',()=>{
   let state=fixture();state=book(state);
   state=apply(state,command('assign',{orderId:'test-booking',resourceId:'test-dorm-unit-1'}));
-  assert.throws(()=>apply(state,command('checkin',{orderId:'test-booking'})),/dirty/);
-  state=apply(state,command('clean',{resourceId:'test-dorm-unit-1'}));
   state=apply(state,command('checkin',{orderId:'test-booking'}));
   assert.equal(state.orders[0].status,'checked_in');
   assert.equal(state.resources.find(r=>r.id==='test-dorm-unit-2').cleaning,'dirty');
@@ -106,14 +104,15 @@ test('suite check-in observes child cleaning, overdue occupation and physical bl
   const blocked=apply(fixture(),command('block',{resourceId:'test-dorm-unit-1',start:'2027-01-10',end:'2027-01-12'}));
   assert.throws(()=>book(blocked,{productId:'suite',roomTypeId:'test-suite'}),/No continuous allocation/);
 });
-test('suite checkout dirties components and their next guest must wait for cleaning',()=>{
+test('suite checkout dirties components without blocking staff from checking in the next guest',()=>{
   let state=fixture();state=apply(state,command('clean',{resourceId:'test-whole'}));
   state=book(state,{productId:'suite',roomTypeId:'test-suite',resourceId:'test-whole'});
   state=apply(state,command('checkin',{orderId:'test-booking'}));
   state=apply(state,command('checkout',{orderId:'test-booking',date:'2027-01-12'}));
   assert.equal(state.resources.find(r=>r.id==='test-dorm-unit-1').cleaning,'dirty');
   state=book(state,{id:'next',resourceId:'test-dorm-unit-1',start:'2027-01-12',end:'2027-01-13'});
-  assert.throws(()=>apply(state,command('checkin',{orderId:'next',date:'2027-01-12'})),/dirty/);
+  state=apply(state,command('checkin',{orderId:'next',date:'2027-01-12'}));
+  assert.equal(state.orders.find(o=>o.id==='next').status,'checked_in');
 });
 const user = (store,role,propertyIds=[pid])=>store.createUser({username:`test-${role}-${randomUUID().slice(0,8)}`,password:'test-only-password',role,propertyIds});
 const typeCommand=()=>({type:'room_type_save',propertyId:pid,productId:'room',gender:'any',maxGuests:2,names:{zh:'测试新房型',en:'TEST new type',ms:'UJIAN baharu'}});

@@ -26,15 +26,16 @@ test('one conflicting room rolls back the entire parent and all children',()=>{
  assert.throws(()=>apply(state,request({stays:[row(),row({roomTypeId:'TEST-PG-legacy-room-any'})]})),/scope/);
  assert.equal(state.orders.length,0);
 });
-test('direct check-in is atomic across dirty units, missing occupants and future dates',()=>{
+test('direct check-in allows dirty units while rejecting missing occupants and future dates',()=>{
  let state=seed();state.resources.find(r=>r.id==='TEST-KL-R2').cleaning='dirty';
- assert.throws(()=>apply(state,request({mode:'checkin',stays:[row({resourceId:'TEST-KL-R1'}),row({resourceId:'TEST-KL-R2'})]})),/dirty/);
+ const checkedIn=apply(state,request({mode:'checkin',stays:[row({resourceId:'TEST-KL-R1'}),row({resourceId:'TEST-KL-R2'})]}));
+ assert(checkedIn.orders.every(order=>order.status==='checked_in'));
  assert.equal(state.orders.length,0);
  assert.throws(()=>apply(seed(),request({mode:'checkin',stays:[row({occupants:[{name:'',gender:'any'}]})]})),/occupant_names/);
  assert.throws(()=>apply(seed(),request({mode:'checkin',stays:[row({start:'2027-01-11',end:'2027-01-12'})]})),/date/);
  const valid=apply(seed(),request({mode:'checkin',autoAssign:true}));assert(valid.orders.every(o=>o.status==='checked_in'&&o.resourceId));
 });
-test('a reserved child needs occupant names and clean allocation before partial check-in',()=>{
+test('a reserved child needs occupant names and an allocation before partial check-in',()=>{
  let state=apply(seed(),request({autoAssign:true,stays:[row({occupants:[{name:'',gender:'any'}]}),row()]}));
  const first=state.orders[0];assert.throws(()=>apply(state,cmd('checkin',{orderId:first.id})),/occupant_names/);
  state=apply(state,cmd('edit',{orderId:first.id,guest:first.guest,start:first.start,end:first.end,nightly:first.nightly,source:first.source,occupants:[{name:'TEST completed',gender:'any'}]}));

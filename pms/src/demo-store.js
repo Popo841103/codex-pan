@@ -508,7 +508,6 @@ export function apply(state, command) {
     if (order.status !== 'confirmed' || !order.resourceId) reject('state');
     if(order.occupants){prepareStay(next,propertyId,order);if(order.occupants.some(p=>!p.name))reject('occupant_names');}
     resource = next.resources.find(r => r.id === order.resourceId);
-    if (!isClean(next, resource)) reject('dirty');
     // Explicit simulated business date; do not use browser UTC date as property date.
     if (command.date < order.start || command.date >= order.end) reject('date');
     if (inHouse(resource)) reject('occupied');

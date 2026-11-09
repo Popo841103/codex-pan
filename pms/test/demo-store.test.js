@@ -30,11 +30,13 @@ test('cross-store writes rejected, check-in requires allocation and date',()=>{
  const assigned=apply(s,cmd('assign',{orderId:'one',resourceId:'TEST-KL-B1'}));
  assert.throws(()=>apply(assigned,cmd('checkin',{orderId:'one',date:'2027-01-09'})));
 });
-test('maintenance cannot displace fixed reservation; dirty target cannot check in',()=>{
+test('maintenance cannot displace fixed reservation; cleaning status does not prevent staff check-in',()=>{
  let s=create(seed());s=apply(s,cmd('assign',{orderId:'one',resourceId:'TEST-KL-B1'}));
  assert.throws(()=>apply(s,cmd('block',{id:'block',resourceId:'TEST-KL-B1',start:'2027-01-10',end:'2027-01-11'})));
  s.resources.find(r=>r.id==='TEST-KL-B1').cleaning='dirty';
- assert.throws(()=>apply(s,cmd('checkin',{orderId:'one'})));
+ const checkedIn=apply(s,cmd('checkin',{orderId:'one'}));
+ assert.equal(checkedIn.orders[0].status,'checked_in');
+ assert.equal(checkedIn.resources.find(r=>r.id==='TEST-KL-B1').cleaning,'dirty');
 });
 test('same physical resource cannot host two currently checked-in guests',()=>{
  let s=create(seed());s=apply(s,cmd('assign',{orderId:'one',resourceId:'TEST-KL-B1'}));s=apply(s,cmd('checkin',{orderId:'one'}));
