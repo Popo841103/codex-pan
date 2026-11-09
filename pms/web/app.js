@@ -548,6 +548,7 @@ function homeShortcuts(){
 }
 function groupPaymentHistory(stays){
   const groups=new Map();
+  const reversed=new Set(stays.flatMap(stay=>(stay.transactions||[]).map(row=>row.reversesBatchId).filter(Boolean)));
   for(const stay of stays){
     for(const entry of stay.transactions||[]){
       if(entry.kind!=='payment'||!entry.batchId)continue;
@@ -562,11 +563,12 @@ function groupPaymentHistory(stays){
   return '<section id="reservation-payment-history"><h3>'+t('groupPaymentHistory')+'</h3>'+
     groupsByDate.map(({entry,amount,rows})=>'<details><summary>'+escape(entry.at.slice(0,16))+' UTC · '+
       currency(amount)+' · '+t(entry.method)+(entry.reference?' · '+escape(entry.reference):'')+'</summary>'+
-      '<p>'+escape(entry.batchId)+'</p><ul>'+rows.map(({stay,amount})=>{
+      '<p>'+escape(entry.batchId)+(reversed.has(entry.batchId)?' · '+t('groupPaymentReversed'):'')+'</p><ul>'+rows.map(({stay,amount})=>{
         const label=state.resources.find(r=>r.id===stay.resourceId)?.label||t('unassigned');
         return '<li>'+escape(label)+' · '+escape(stay.start)+' → '+escape(stay.end)+' · '+currency(amount)+
           ' <button type="button" data-open-stay="'+escape(stay.id)+'">'+t('details')+'</button></li>';
-      }).join('')+'</ul></details>').join('')+'</section>';
+      }).join('')+'</ul>'+(!reversed.has(entry.batchId)&&can('undo_reservation_payment')&&rows.every(({stay})=>!stay.folioClosed&&!stay.splitBills)?
+        '<form data-undo-group-payment="'+escape(entry.batchId)+'"><label>'+t('folioReopenReason')+'<input name="reason" required maxlength="500"></label><button>'+t('undo_reservation_payment')+'</button></form>':'')+'</details>').join('')+'<p role="alert" id="group-payment-history-error"></p></section>';
 }
 function groupPaymentForm(stays){
   const eligible=stays.filter(stay=>!stay.folioClosed&&!stay.splitBills&&folio(stay).due>0);
@@ -594,6 +596,16 @@ function openReservation(id){
   });
   const batch=canBatch&&pending.length?'<p>'+t('batchSettlementNote')+'</p><button id="settle-reservation" '+(ready?'':'disabled')+'>'+t('settle_reservation')+'</button><p role="alert" id="batch-settle-error"></p>':'';
   openUtility('reservationDetails',`<h3>${escape(parent.guest)}</h3><p>${t(parent.bookingKind)} ${escape(parent.companyName||'')}</p><p>${t('reservationNo')}: ${escape(parent.id)}</p><div class="folio-grid">${Object.entries(summary.totals).map(([key,value])=>`<div><span>${t(key)}</span><strong>${currency(value)}</strong></div>`).join('')}</div><div class="actions">${['box_stays','restore_stays'].map(action=>`<button data-parent-box="${action}" ${can(action)&&summary.stays.some(o=>o.status==='confirmed'&&!o.locked&&isBoxed(o)===(action==='restore_stays'))?'':'disabled'}>${t(action)}</button>`).join('')}</div>${groupPaymentForm(summary.stays)}${groupPaymentHistory(summary.stays)}${batch}<h3>${t('partialState')}</h3><p>${t('openBalances')}: ${summary.unsettledStays}</p><p>${Object.entries(summary.counts).map(([key,value])=>`${t(key)}: ${value}`).join(' · ')}</p>${summary.stays.map(stay=>`<section class="stay-card"><div class="panel-head"><strong>${escape(state.resources.find(r=>r.id===stay.resourceId)?.label||t('unassigned'))}</strong><button data-open-stay="${escape(stay.id)}">${t('details')}</button></div><p>${stay.start} ${escape(stay.arrivalTime||'15:00')} → ${stay.end} ${escape(stay.departureTime||'12:00')} · ${t(stay.status)} · ${t(inventoryState(stay))}</p><p>${t('guestCount')}: ${(stay.adults||1)+(stay.children||0)+(stay.infants||0)} · ${t('charge')}: ${currency(folio(stay).charge)} · ${t('due')}: ${currency(folio(stay).due)}</p></section>`).join('')}<h3>${t('reminders')}</h3><p class="muted">${t('reminderNote')}</p>${parent.reminders.map(r=>`<p>${escape(r.when)} · ${escape(r.text)}</p>`).join('')}`);
+  $('#utility-body').querySelectorAll('[data-undo-group-payment]').forEach(form=>form.onsubmit=async event=>{
+    event.preventDefault();
+    try{
+      await commit({type:'undo_reservation_payment',reservationId:id,batchId:form.dataset.undoGroupPayment,reason:form.elements.reason.value});
+      openReservation(id);
+    }catch(error){
+      const alert=$('#group-payment-history-error');
+      if(alert)alert.textContent=errorText(error);
+    }
+  });
   if($('#reservation-payment'))$('#reservation-payment').onsubmit=async event=>{
     event.preventDefault();
     const form=event.currentTarget;
@@ -1018,9 +1030,9 @@ function splitBillPanel(order, totals) {
 Object.assign(words.zh,{"settle_split":"拆账","settle_bill":"子账单结账","settle_undo":"撤销子账单结账","settle_unsplit":"撤销拆账","splitBill":"子账单","splitNote":"各账单的费用和已收款分别加总为当前账页金额。押金仍单独核算。","bill_total":"分配金额与账页总额不符。","bill_state":"当前账单状态不允许此操作。"});
 Object.assign(words.en,{"settle_split":"Split bills","settle_bill":"Settle bill","settle_undo":"Reverse bill settlement","settle_unsplit":"Undo split","splitBill":"Bill","splitNote":"Allocate the full charge and receipts across bills. Deposits remain separate.","bill_total":"Allocations must match the folio totals.","bill_state":"This bill state does not allow the action."});
 Object.assign(words.ms,{"settle_split":"Pecah bil","settle_bill":"Selesaikan bil","settle_undo":"Balikkan penyelesaian bil","settle_unsplit":"Batal pecahan","splitBill":"Bil","splitNote":"Agihkan semua caj dan terimaan. Deposit kekal berasingan.","bill_total":"Agihan mesti sepadan dengan jumlah folio.","bill_state":"Status bil tidak membenarkan tindakan ini."});
-Object.assign(words.zh,{groupPaymentHistory:'合并收款记录',payment_reservation:'主订单合并收款',settle_reservation:'主订单批量结账',batchSettlementNote:'各住宿项须分别结清房费和押金。拆分的账单请到对应住宿项处理。'});
-Object.assign(words.en,{groupPaymentHistory:'Group payment history',payment_reservation:'Record group payment',settle_reservation:'Settle reservation folios',batchSettlementNote:'Each stay must clear its own balance and deposit. Settle split bills from the individual stay.'});
-Object.assign(words.ms,{groupPaymentHistory:'Sejarah bayaran tempahan',payment_reservation:'Rekod bayaran tempahan',settle_reservation:'Selesaikan folio tempahan',batchSettlementNote:'Setiap penginapan mesti menjelaskan baki dan deposit sendiri. Selesaikan bil pecahan pada penginapan berkenaan.'});
+Object.assign(words.zh,{undo_reservation_payment:'冲销合并收款',groupPaymentReversed:'已冲销',groupPaymentHistory:'合并收款记录',payment_reservation:'主订单合并收款',settle_reservation:'主订单批量结账',batchSettlementNote:'各住宿项须分别结清房费和押金。拆分的账单请到对应住宿项处理。'});
+Object.assign(words.en,{undo_reservation_payment:'Reverse group payment',groupPaymentReversed:'Reversed',groupPaymentHistory:'Group payment history',payment_reservation:'Record group payment',settle_reservation:'Settle reservation folios',batchSettlementNote:'Each stay must clear its own balance and deposit. Settle split bills from the individual stay.'});
+Object.assign(words.ms,{undo_reservation_payment:'Balikkan bayaran tempahan',groupPaymentReversed:'Dibalikkan',groupPaymentHistory:'Sejarah bayaran tempahan',payment_reservation:'Rekod bayaran tempahan',settle_reservation:'Selesaikan folio tempahan',batchSettlementNote:'Setiap penginapan mesti menjelaskan baki dan deposit sendiri. Selesaikan bil pecahan pada penginapan berkenaan.'});
 Object.assign(words.zh,{splitByLines:'按消费明细拆账',splitLineNote:'为每项房费、消费或折扣选一张子账单。已收款需另行分配，押金独立核算。'});
 Object.assign(words.en,{splitByLines:'Split by charge lines',splitLineNote:'Assign each room charge, extra or discount to a bill. Allocate existing receipts separately. Deposits remain separate.'});
 Object.assign(words.ms,{splitByLines:'Pecah mengikut butiran caj',splitLineNote:'Pilih satu bil bagi setiap caj bilik, caj tambahan atau diskaun. Agihkan bayaran diterima secara berasingan. Deposit kekal berasingan.'});

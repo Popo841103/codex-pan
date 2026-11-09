@@ -49,4 +49,12 @@ test('a group receipt allocates the exact amount atomically to its own stays', (
   assert.deepEqual([a.batchId,b.batchId],['receipt','receipt']);
   assert.notEqual(a.id,b.id);
   assert.equal(b.reference,'Bank record');
+  const undo={...command,type:'undo_reservation_payment',id:'undo',batchId:'receipt',reason:'Duplicate posting'};
+  const reversed=apply(result,undo);
+  assert.deepEqual(reversed.orders.map(o=>o.transactions.map(t=>t.kind)),[['payment','refund'],['payment','refund']]);
+  assert.deepEqual(reversed.orders.map(o=>o.transactions[1].reverses),[a.id,b.id]);
+  assert.throws(()=>apply(reversed,undo),/bill_state/);
+  result.orders[1].folioClosed=true;
+  assert.throws(()=>apply(result,undo),/bill_state/);
+  assert.equal(result.orders[0].transactions.length,1);
 });

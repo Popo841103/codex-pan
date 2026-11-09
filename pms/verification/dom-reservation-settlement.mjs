@@ -50,6 +50,16 @@ try {
  assert.equal(history.querySelectorAll('[data-open-stay]').length,2);
  assert(receipts[0].batchId);
  assert.equal(receipts[0].batchId,receipts[1].batchId);
+ const undo=$('[data-undo-group-payment]');
+ undo.elements.reason.value='TEST correction';
+ await undo.onsubmit({preventDefault(){}});
+ assert(store.read(operator).orders.every(order=>order.transactions.at(-1).kind==='refund'));
+ assert.equal(document.querySelector('[data-undo-group-payment]'),null);
+ assert.equal($('#settle-reservation').disabled,true);
+ const corrected=$('#reservation-payment');
+ corrected.elements.amount.value='200';
+ corrected.querySelectorAll('[data-payment-stay]').forEach(input=>{input.value='100';});
+ await corrected.onsubmit({currentTarget:corrected,preventDefault(){}});
  await $('#settle-reservation').onclick();
  await until(()=>store.read(operator).orders.every(order=>order.folioClosed),'batch closed');
  assert.equal(document.querySelector('#settle-reservation'),null);

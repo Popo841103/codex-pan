@@ -441,6 +441,30 @@ export function apply(state, command) {
   } else if (type === 'lock') {
     if (!order.resourceId || ['checked_out','cancelled'].includes(order.status)) reject('state');
     order.locked = !order.locked;
+  } else if (type === 'undo_reservation_payment') {
+    const parent=next.reservations.find(r=>r.id===command.reservationId&&r.propertyId===propertyId);
+    if(!parent)reject('scope');
+    const batchId=text(command.batchId,100);
+    const reason=text(command.reason,500).trim();
+    if(!batchId||!reason)reject('reason');
+    const originals=[];
+    for(const stay of next.orders){
+      if(stay.propertyId!==propertyId||stay.reservationId!==parent.id||!parent.stayIds.includes(stay.id))continue;
+      const index=stay.transactions.findIndex(row=>row.kind==='payment'&&row.batchId===batchId);
+      if(index<0)continue;
+      const original=stay.transactions[index];
+      if(stay.folioClosed||stay.splitBills||stay.transactions.slice(index+1).some(row=>row.kind==='refund'))reject('bill_state');
+      if(folio(stay).paid<original.amount)reject('balance');
+      originals.push({stay,original});
+    }
+    if(originals.length<2)reject('bill_state');
+    for(const [index,{stay,original}] of originals.entries()){
+      stay.transactions.push({
+        id:command.id+':'+index,batchId:command.id,reverses:original.id,reversesBatchId:batchId,
+        actor:command.actor||'local',kind:'refund',amount:original.amount,method:original.method,
+        reference:original.reference,note:reason,at:command.at
+      });
+    }
   } else if (type === 'payment_reservation') {
     const parent=next.reservations.find(r=>r.id===command.reservationId&&r.propertyId===propertyId);
     if(!parent)reject('scope');
@@ -572,6 +596,7 @@ export function apply(state, command) {
       after:['box_stays','restore_stays'].includes(type) ? null : staySnapshot(movedTo),
       reason: typeof command.reason === 'string' ? command.reason.trim() : null } } : {}),
     ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}),
+    ...(type==='undo_reservation_payment'?{reservationId:command.reservationId,reversesBatchId:command.batchId,reason:command.reason.trim()}:{}),
     ...(type==='payment_reservation'?{reservationId:command.reservationId,amount:command.amount,method:command.method,allocations:command.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
     ...(settledStayIds?{reservationId:command.reservationId,settledStayIds}:{}),
     ...(type==='commission_save'?{commissionChange:{before:commissionBefore,after:order?.commission||null}}:{}), at: command.at });
