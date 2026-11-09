@@ -45,6 +45,9 @@ try {
  assert.equal($('#settle-reservation').disabled,false);
  const receipts=store.read(operator).orders.map(order=>order.transactions[0]);
  assert(receipts.every(row=>row.amount===10000&&row.reference==='TEST group receipt'));
+ const history=$('#reservation-payment-history');
+ assert.match(history.textContent,/TEST group receipt/);
+ assert.equal(history.querySelectorAll('[data-open-stay]').length,2);
  assert(receipts[0].batchId);
  assert.equal(receipts[0].batchId,receipts[1].batchId);
  await $('#settle-reservation').onclick();
