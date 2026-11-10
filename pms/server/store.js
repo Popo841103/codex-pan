@@ -1249,7 +1249,7 @@ export class Store {
         ...(cmd.type.startsWith('ar_')?{arEventId:cmd.id}:{}),
         ...(cmd.type==='ar_close_month'?{arPeriod:{month:cmd.month,id:cmd.id}}:{}),
         ...(['settle_split','settle_bill','settle_undo','settle_unsplit'].includes(cmd.type)?{billEvent:next.orders.find(o=>o.id===cmd.orderId)?.folioEvents?.at(-1)}:{}),
-        ...(cmd.type==='transfer_folio_credit'?{reservationId:cmd.reservationId,fromId:cmd.fromId,toId:cmd.toId,amount:cmd.amount,reason:cmd.reason.trim()}:{}),
+        ...(cmd.type==='transfer_folio_credit'?{reservationId:cmd.reservationId,fromId:cmd.fromId,toId:cmd.toId,amount:next.orders.find(o=>o.id===cmd.toId)?.folioTransfers?.at(-1)?.amount,reverses:cmd.reverses,reason:cmd.reason.trim()}:{}),
         ...(cmd.type==='undo_reservation_payment'?{reservationId:cmd.reservationId,reversesBatchId:cmd.batchId,reason:cmd.reason.trim()}:{}),
         ...(cmd.type==='payment_reservation'?{reservationId:cmd.reservationId,amount:cmd.amount,method:cmd.method,allocations:cmd.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
         ...(cmd.type==='settle_reservation'?{reservationId:cmd.reservationId,settledStayIds:next.orders.filter(o=>o.folioEvents?.at(-1)?.batchId===cmd.id).map(o=>o.id)}:{}),

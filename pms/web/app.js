@@ -576,12 +576,17 @@ function folioCreditPanel(stays){
   const label=o=>state.resources.find(r=>r.id===o.resourceId)?.label||t('unassigned');
   const options=orders=>orders.map(o=>'<option value="'+escape(o.id)+'">'+escape(label(o))+
     ' · '+escape(o.start)+' · '+escape(o.id.slice(0,8))+' · '+currency(Math.abs(folio(o).due))+'</option>').join('');
-  const entries=stays.flatMap(o=>(o.folioTransfers||[]).filter(row=>row.amount>0));
+  const reversed=new Set(stays.flatMap(o=>(o.folioTransfers||[]).map(row=>row.reverses).filter(Boolean)));
+  const latest=o=>(o?.folioTransfers||[]).findLast(row=>!row.reverses&&!reversed.has(row.id));
+  const entries=stays.flatMap(o=>(o.folioTransfers||[]).filter(row=>row.amount>0&&!row.reverses));
   const history=entries.length?'<h3>'+t('transfer_folio_credit')+'</h3><ul>'+entries.map(row=>{
     const source=stays.find(o=>o.id===row.fromId), target=stays.find(o=>o.id===row.toId);
     return '<li>'+escape(row.businessDate)+' · '+escape(source?label(source):row.fromId)+' → '+
-      escape(target?label(target):row.toId)+' · '+currency(row.amount)+' · '+escape(row.reason)+'</li>';
-  }).join('')+'</ul>':'';
+      escape(target?label(target):row.toId)+' · '+currency(row.amount)+' · '+escape(row.reason)+
+      (reversed.has(row.id)?' · '+t('groupPaymentReversed'):'')+
+      (can('transfer_folio_credit')&&eligible.includes(source)&&eligible.includes(target)&&latest(source)?.id===row.id&&latest(target)?.id===row.id?
+        '<form data-credit-reverse="'+escape(row.id)+'" data-from="'+escape(row.fromId)+'" data-to="'+escape(row.toId)+'"><label>'+t('folioReopenReason')+'<input name="reason" maxlength="500" required></label><button>'+t('reverseFolioCredit')+'</button></form>':'')+'</li>';
+  }).join('')+'</ul><p id="folio-credit-reverse-error" role="alert"></p>':'';
   if(!can('transfer_folio_credit')||!from.length||!to.length)return history;
   return history+'<details><summary>'+t('transfer_folio_credit')+'</summary><form id="folio-credit-transfer">'+
     '<label>'+t('creditFrom')+'<select name="fromId">'+options(from)+'</select></label>'+
@@ -623,6 +628,17 @@ function openReservation(id){
       openReservation(id);
     }catch(error){
       const alert=$('#group-payment-history-error');
+      if(alert)alert.textContent=errorText(error);
+    }
+  });
+  $('#utility-body').querySelectorAll('[data-credit-reverse]').forEach(form=>form.onsubmit=async event=>{
+    event.preventDefault();
+    try{
+      await commit({type:'transfer_folio_credit',reservationId:id,fromId:form.dataset.from,toId:form.dataset.to,
+        reverses:form.dataset.creditReverse,reason:form.elements.reason.value});
+      openReservation(id);
+    }catch(error){
+      const alert=$('#folio-credit-reverse-error');
       if(alert)alert.textContent=errorText(error);
     }
   });
@@ -1062,9 +1078,9 @@ function splitBillPanel(order, totals) {
 Object.assign(words.zh,{"settle_split":"拆账","settle_bill":"子账单结账","settle_undo":"撤销子账单结账","settle_unsplit":"撤销拆账","splitBill":"子账单","splitNote":"各账单的费用和已收款分别加总为当前账页金额。押金仍单独核算。","bill_total":"分配金额与账页总额不符。","bill_state":"当前账单状态不允许此操作。"});
 Object.assign(words.en,{"settle_split":"Split bills","settle_bill":"Settle bill","settle_undo":"Reverse bill settlement","settle_unsplit":"Undo split","splitBill":"Bill","splitNote":"Allocate the full charge and receipts across bills. Deposits remain separate.","bill_total":"Allocations must match the folio totals.","bill_state":"This bill state does not allow the action."});
 Object.assign(words.ms,{"settle_split":"Pecah bil","settle_bill":"Selesaikan bil","settle_undo":"Balikkan penyelesaian bil","settle_unsplit":"Batal pecahan","splitBill":"Bil","splitNote":"Agihkan semua caj dan terimaan. Deposit kekal berasingan.","bill_total":"Agihan mesti sepadan dengan jumlah folio.","bill_state":"Status bil tidak membenarkan tindakan ini."});
-Object.assign(words.zh,{transfer_folio_credit:'转移多收款',creditFrom:'转出账页',creditTo:'转入账页',undo_reservation_payment:'冲销合并收款',groupPaymentReversed:'已冲销',groupPaymentHistory:'合并收款记录',payment_reservation:'主订单合并收款',settle_reservation:'主订单批量结账',batchSettlementNote:'各住宿项须分别结清房费和押金。拆分的账单请到对应住宿项处理。'});
-Object.assign(words.en,{transfer_folio_credit:'Transfer overpayment',creditFrom:'From folio',creditTo:'To folio',undo_reservation_payment:'Reverse group payment',groupPaymentReversed:'Reversed',groupPaymentHistory:'Group payment history',payment_reservation:'Record group payment',settle_reservation:'Settle reservation folios',batchSettlementNote:'Each stay must clear its own balance and deposit. Settle split bills from the individual stay.'});
-Object.assign(words.ms,{transfer_folio_credit:'Pindahkan lebihan bayaran',creditFrom:'Folio sumber',creditTo:'Folio penerima',undo_reservation_payment:'Balikkan bayaran tempahan',groupPaymentReversed:'Dibalikkan',groupPaymentHistory:'Sejarah bayaran tempahan',payment_reservation:'Rekod bayaran tempahan',settle_reservation:'Selesaikan folio tempahan',batchSettlementNote:'Setiap penginapan mesti menjelaskan baki dan deposit sendiri. Selesaikan bil pecahan pada penginapan berkenaan.'});
+Object.assign(words.zh,{reverseFolioCredit:'撤销多收款转移',transfer_folio_credit:'转移多收款',creditFrom:'转出账页',creditTo:'转入账页',undo_reservation_payment:'冲销合并收款',groupPaymentReversed:'已冲销',groupPaymentHistory:'合并收款记录',payment_reservation:'主订单合并收款',settle_reservation:'主订单批量结账',batchSettlementNote:'各住宿项须分别结清房费和押金。拆分的账单请到对应住宿项处理。'});
+Object.assign(words.en,{reverseFolioCredit:'Reverse overpayment transfer',transfer_folio_credit:'Transfer overpayment',creditFrom:'From folio',creditTo:'To folio',undo_reservation_payment:'Reverse group payment',groupPaymentReversed:'Reversed',groupPaymentHistory:'Group payment history',payment_reservation:'Record group payment',settle_reservation:'Settle reservation folios',batchSettlementNote:'Each stay must clear its own balance and deposit. Settle split bills from the individual stay.'});
+Object.assign(words.ms,{reverseFolioCredit:'Balikkan pindahan lebihan bayaran',transfer_folio_credit:'Pindahkan lebihan bayaran',creditFrom:'Folio sumber',creditTo:'Folio penerima',undo_reservation_payment:'Balikkan bayaran tempahan',groupPaymentReversed:'Dibalikkan',groupPaymentHistory:'Sejarah bayaran tempahan',payment_reservation:'Rekod bayaran tempahan',settle_reservation:'Selesaikan folio tempahan',batchSettlementNote:'Setiap penginapan mesti menjelaskan baki dan deposit sendiri. Selesaikan bil pecahan pada penginapan berkenaan.'});
 Object.assign(words.zh,{splitByLines:'按消费明细拆账',splitLineNote:'为每项房费、消费或折扣选一张子账单。已收款需另行分配，押金独立核算。'});
 Object.assign(words.en,{splitByLines:'Split by charge lines',splitLineNote:'Assign each room charge, extra or discount to a bill. Allocate existing receipts separately. Deposits remain separate.'});
 Object.assign(words.ms,{splitByLines:'Pecah mengikut butiran caj',splitLineNote:'Pilih satu bil bagi setiap caj bilik, caj tambahan atau diskaun. Agihkan bayaran diterima secara berasingan. Deposit kekal berasingan.'});

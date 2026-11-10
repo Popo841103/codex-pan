@@ -83,6 +83,13 @@ try {
  assert.deepEqual(updated.map(order=>order.folioTransfers[0].amount),[-5000,5000]);
  assert.deepEqual(updated.map(order=>order.transactions.length),[1,0]);
  assert.equal(document.querySelector('#folio-credit-transfer'),null);
+ const reverse=$('[data-credit-reverse]');
+ reverse.elements.reason.value='TEST undo transfer';
+ await reverse.onsubmit({preventDefault(){}});
+ const restored=store.read(operator).orders.filter(order=>order.reservationId===created.id);
+ assert.deepEqual(restored.map(order=>order.folioTransfers.reduce((sum,row)=>sum+row.amount,0)),[0,0]);
+ assert.equal(document.querySelector('[data-credit-reverse]'),null);
+ assert($('#folio-credit-transfer'));
  console.log('Reservation settlement, receipt reversal and credit transfer DOM passed');
 }finally {
  global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();dom.window.close();

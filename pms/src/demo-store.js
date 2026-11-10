@@ -450,12 +450,27 @@ export function apply(state, command) {
     if(!from||!to)reject('scope');
     if([from,to].some(o=>o.folioClosed||o.splitBills||o.arMoves?.length))reject('bill_state');
     if(!isDate(next.businessDate))reject('business_date');
-    const amount=money(command.amount);
     const reason=text(command.reason,500).trim();
     if(!reason)reject('reason');
-    const credit=folio(from);
-    if(!amount||amount>Math.min(-credit.due,credit.paid+Math.min(credit.folioCredit||0,0),folio(to).due))reject('balance');
     const entry={id:command.id,fromId:from.id,toId:to.id,businessDate:next.businessDate,at:command.at,actor:command.actor||'local',reason};
+    let amount;
+    if(command.reverses!==undefined){
+      const originalId=text(command.reverses,100);
+      const originals=[from,to].map(stay=>{
+        const history=stay.folioTransfers||[];
+        const reversed=new Set(history.map(row=>row.reverses).filter(Boolean));
+        return history.findLast(row=>!row.reverses&&!reversed.has(row.id));
+      });
+      const [out,incoming]=originals;
+      if(!out||!incoming||out.id!==originalId||incoming.id!==originalId||
+        out.fromId!==from.id||out.toId!==to.id||incoming.amount<=0||out.amount!==-incoming.amount)reject('bill_state');
+      entry.reverses=originalId;
+      amount=-incoming.amount;
+    }else{
+      amount=money(command.amount);
+      const credit=folio(from);
+      if(!amount||amount>Math.min(-credit.due,credit.paid+Math.min(credit.folioCredit||0,0),folio(to).due))reject('balance');
+    }
     (from.folioTransfers??=[]).push({...entry,amount:-amount});
     (to.folioTransfers??=[]).push({...entry,amount});
   } else if (type === 'undo_reservation_payment') {
@@ -613,7 +628,7 @@ export function apply(state, command) {
       after:['box_stays','restore_stays'].includes(type) ? null : staySnapshot(movedTo),
       reason: typeof command.reason === 'string' ? command.reason.trim() : null } } : {}),
     ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}),
-    ...(type==='transfer_folio_credit'?{reservationId:command.reservationId,fromId:command.fromId,toId:command.toId,amount:command.amount,reason:command.reason.trim()}:{}),
+    ...(type==='transfer_folio_credit'?{reservationId:command.reservationId,fromId:command.fromId,toId:command.toId,amount:next.orders.find(o=>o.id===command.toId)?.folioTransfers?.at(-1)?.amount,reverses:command.reverses,reason:command.reason.trim()}:{}),
     ...(type==='undo_reservation_payment'?{reservationId:command.reservationId,reversesBatchId:command.batchId,reason:command.reason.trim()}:{}),
     ...(type==='payment_reservation'?{reservationId:command.reservationId,amount:command.amount,method:command.method,allocations:command.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
     ...(settledStayIds?{reservationId:command.reservationId,settledStayIds}:{}),

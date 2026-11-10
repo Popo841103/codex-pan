@@ -77,4 +77,10 @@ test('transfer applies an overpayment to another stay without new cash',()=>{
   assert.deepEqual(moved.orders.map(o=>o.transactions),state.orders.map(o=>o.transactions));
   assert.deepEqual(moved.orders.map(o=>o.folioTransfers[0].id),['move','move']);
   assert.throws(()=>apply(moved,{...command,id:'repeat'}),/balance/);
+  const undo={...command,id:'undo-move',reverses:'move',reason:'Correct allocation'};
+  const restored=apply(moved,undo);
+  assert.deepEqual(restored.orders.map(o=>folio(o).due),[-5000,10000]);
+  assert.deepEqual(restored.orders.map(o=>o.transactions),state.orders.map(o=>o.transactions));
+  assert.deepEqual(restored.orders.map(o=>o.folioTransfers.at(-1).reverses),['move','move']);
+  assert.throws(()=>apply(restored,{...undo,id:'duplicate'}),/bill_state/);
 });
