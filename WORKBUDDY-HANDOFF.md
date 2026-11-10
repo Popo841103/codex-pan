@@ -2,6 +2,8 @@
 
 Repository Popo841103/codex-pan; release branch jovian-pms-test. Pushes touching pms/** automatically run Ubuntu checks then deploy the existing test service. Preserve production accounts, database, guest and financial records. Never reset or replace data. Do not edit the deployment workflow or expose credentials.
 
+最新续跑发布（2026-11-11）：`7e41bf3`，Actions `42851378626`成功，Node463/463、Python5/5、DOM28/28。对照矩阵已补齐1–9节114入口；原A7“清单未找到”已由本批取代。完整范围和剩余缺口见本文末尾中文续跑节。
+
 Latest verified deployed baseline: `40df39059a0e0de2ce056bd7fcb31a04cac49b81` (2026-11-10 internal operations A1–A9), Actions `42836859905` / job `129901265793`, Ubuntu Node449/449 and Python5/5, actual deploy successful. Backup `/var/backups/jovian-pms-test/update-8Fpq4WBO` remains the publisher's existing backup format: offline encryption tools are available but have NOT been wired into the deployment workflow. Local DOM27/27. Public GET health and three changed browser/source files match local SHA256. See the Chinese batch section at the end and `pms/verification/internal-operations-audit.md` for exact scope, A6 operational boundary and the unavailable shared A7 inventory. Existing folio closure, deposits, guest data and night-audit/AR protections remain. Historical release entries below describe their own batches.
 
 Implemented since the older handoff: composer rate-plan selection with server re-quote and snapshot; multi-date/weekday rate batches; fixed/delta/percent pricing; min/max/CTA/CTD; scoped history; one-level derived plans; safe archive; cancellation policy snapshots and Malaysia deadline previews; standalone rate/availability calendar accounting for shared suite/bed atoms and overdue occupancy; business revenue grouping by date/channel/room type; cash ledger kind/method filters, counts and trusted actors; manual payment/deposit separation. Cancel previews do not automatically charge or refund. Existing orders keep agreed prices.
@@ -623,3 +625,32 @@ SmartOrder 权限目录是历史实见；具体分录结构及自动差异规则
 - **刻意未做**：真实订单/资金/生产数据/锁/身份操作、线上账号更改或重置、供应商抓取/结算/银行/短信电邮推送、真实设备联调；日历Overview/Reserve/Combined Room/Share、自动夜审/00:00交班/跨午夜截账/补跑、无人归属流水、清空或历史批量夜审/一键结账、自动重报价/附加费移日、Booking Engine Configure/税费/跟踪代码/倍率/身份提交、购买/开门/密码、NOBEDS/支付/TTHotel继续不做。跨夜审暂存恢复与AR保护保留；未新增runtime文件，未改部署工作流。
 
 发布补证：Actions `42836859905`（job `129901265793`）Verify及Deploy成功，Ubuntu449/449、Python5/5；备份 `update-8Fpq4WBO`。公网GET `/healthz` 200且test-only；三份变更JS与本地SHA256一致，17个web JS和21个直接导入模块全部200；server路径仍404。仅只读资产核验，后端为源码/合成测试/发布重启推断，无线上业务交互验收。
+
+
+
+## 全目录对照与内部运营查询续跑（2026-11-11，马来西亚/中国 UTC+8）
+
+基线运行时 `40df390`、文档 `9d94165`；本批运行时 **`7e41bf3a4d1232dcffbd9f50a377930c4edd5719`**。保留并审查上次中断的5个运行时文件和2个测试脚本，补建中文 `pms/verification/parity-matrix.md`，修正目录连续编辑稳定ID、DOM旧选择器、iCal共享空间/关房遗漏；没有回退既有线上功能。
+
+参考目录此次在本机只读获得，**A7“第9节未找到”的历史说明已被本批对照取代**。矩阵逐条列出1–9节114个编号入口，另附8个非编号流程/全局入口；编号统计：**已有32、部分62、缺失5、禁止或需外部接入15**。这是保守的功能差距表，不代表完整同款或供应商接通；参考资料、截图、客人资料与金额均未复制入库。
+
+| 本批推进的21个入口 | JOVIAN入口与实际范围 |
+|---|---|
+| 2.7–2.9、2.12–2.13 | 统计→运营查询工作台：房价变更快照、每日/未来库存、计划到离清洁日历和当前清洁列表；库存沿用共享原子分配，不把不同产品重复相加，不虚构派工/历史清洁状态。 |
+| 3.6–3.7 | 同工作台→iCal：匿名占用文件下载与粘贴全天fixture严格预览；覆盖共享套房/关房，未分房或逾期区间不确定时拒绝导出；没有公开订阅、网络抓取或保存导入。 |
+| 4.11、5.2 | 工作台→客户住宿详情/内部账单，或住宿详情底部→内部账单；完整费用/净实收/押金分开，非税务发票，不按同名合并独立住宿记录。 |
+| 5.3–5.5 | 客户→内部目录：标签组、标签、公司目录/已有AR引用；追加版本和标签绑定/解绑历史，没有公司储值或自动挂账。 |
+| 6.1–6.6 | 工作台→营收、交易、渠道、销售（预订类型/公司）、住宿汇总及备忘录历史，13个查询均可搜索并导出同筛选CSV。备注历史从本版本起，旧记录不补日期；不是独立财务快记账。 |
+| 7.3、7.5–7.6 | 客户 / 设置→房型与房间 / 工作台→内部目录：钟点房、餐食、物品定义与价格（MYR分）；钟点定义不创建小时库存，餐食不产生权益/核销，旧住宿不重报价。 |
+
+三语zh/en/ms；目录修改和标签维护由服务端强制账号admin，门店/父项/整数金额/小时范围校验；本地及SQLite走同一reducer，保留追加审计与原版本。营收、销售、备注按记录营业日，交易按马来西亚自然日；押金独列。内部账单完整展示住宿快照，不冒充区间会计账单。CSV采用同一结果、UTF8 BOM、引号/换行转义及公式前缀防护。所有查询/预览不增加revision/audit。
+
+**验证和发布：** Linux本地Node24 **463/463**（基线449，新增14），Python **5/5**；26个DOM脚本及folio `--lines`/`--amend`分支共 **28/28**；37个运行时JS与3个部署shell语法、`git diff --check`通过。新脚本覆盖六目录连续版本编辑、客户标签、13个查询/CSV、三语、离线ICS、账单及切店无旧结果。Node覆盖门店隔离、管理员限制、双状态一致、日期口径、共享空间、严格ICS、CSV和查询纯读。先前DOM旧按钮选择器失败已修正，完整重跑28/28。Ubuntu门禁未弱化，Windows既有私有文件权限规则未改。
+
+`gh run watch 42851378626 --exit-status --interval 5` 返回成功；Actions [42851378626](https://github.com/Popo841103/codex-pan/actions/runs/42851378626)，job `129952661926`，Verify和Deploy均成功，2026-11-10 16:07:57 UTC完成（本地11月11日00:07:57）。CI同样Node463/463、Python5/5。发布器原有备份 `update-vxBcjMlu`；不代表已自动加密。
+
+**剩余缺口（下一优先）**：2.10/2.11餐食权益及可撤销核销、4.13统一失败预订列表、2.8/2.9库存全部分项/筛选、6.8–6.12交班/经理/账簿/权责经营/客账报表完整维度、7.25/9.21节假日、7.26清洁检查项；独立客户档案、按小时预订、公司储值、真实iCal同步及已核验汇率/渠道倍率仍未完成。矩阵保留“部分/缺失”，未以简化查询宣称完整财务系统。
+
+**边界**：没有重置数据、修改既有账号/数据库或真实订单/资金/门锁，没有新增运行时文件或修改发布工作流。用户全部Do NOT项继续不做；特别是日历Overview/Reserve/Combined Room/Share，自动夜审/00:00交班/跨午夜截账/补跑、无人归属流水、清空/历史批量夜审或一键结账、自动重报价/移附加费、Booking Engine Configure内部、税费/跟踪代码/划线倍率/身份提交、锁购买/远开/密码、NOBEDS/支付/TTHotel。跨夜审暂存恢复及AR保护保留并通过既有回归。
+
+公网GET、证据等级及复现详见continuity/VERIFICATION.md本批章节。
