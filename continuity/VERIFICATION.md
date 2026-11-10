@@ -282,3 +282,16 @@ Windows Node 427/429，余两项为已知私有文件权限用例。Python 5/5�
 - 公网复核仅检查健康及静态标识；不对真实订单、资金或门锁执行操作。后端源文件不对外；后端依据源码、合成测试及 Actions 判定。
 
 发布：Actions [42795933551](https://github.com/Popo841103/codex-pan/actions/runs/42795933551) 成功，Ubuntu Node 433/433、Python 5/5。公网 `/healthz` 返回 `ok:true`、`data:test-only`；`/web/app.js` 已验证 `data-reservation-box`、`data-box-tab`、`data-box-cancel`、`data-box-restore`、`toggle-lock`、`data-stay-reversal`、`data-stay-drag`、`confirm-room-drag`；`/web/workspace-ui.js` 的预订引擎与夜审工作台标识仍在。
+
+
+## 前台工具与显示规则审计补全（2026-11-10）
+
+基线运行时 `e69f4a4`（Actions [42798753554](https://github.com/Popo841103/codex-pan/actions/runs/42798753554) 成功）已逐项审计。本批运行时 `c57d73f4589ec030e9a8466300d37b7652f9d4e8`，Actions [42825710371](https://github.com/Popo841103/codex-pan/actions/runs/42825710371) 的 Verify PMS 与 Deploy 均成功。逐项表见 `pms/verification/front-desk-audit.md`：原批次 1、3、6–11 完成，2、4、5 为文案部分完成，本批补齐；11 项在本次要求边界内均完成。
+
+- **入口**：房态 → 日历 → 房态日志 / 智能锁列表 / 批量打印；住宿项详情底部 → 计划任务 / 打印中心 / 自助入住预览；设置 → 房态显示与前台住宿规则（也可从日历 → 显示设置进入）。分组用于日历筛选，显示设置可选择按房型、房间、分组排列。
+- **规则**：房态日志仅查询，房号、操作日期、动作、操作人筛选与八列完整，保留关房/开房/置净/置脏/停用快照，不修改旧日志。操作日期按马来西亚自然日，关房起止按原库存日期；不拿营业日替代。未记录历史字段留空。智能锁 Private Door/Common Door 均可空，支持搜索输入，明确未开通；计划任务仅 All 空列表。打印中心仅两个页签和基础设置提示；批量打印仅过滤计数；自助入住仅外观且生成/确认禁用。三语独立 No Data 替换误导的创建订单提示，英文标题补全 Print Center。
+- **规则**：管理员创建/改名分组并拖入房间；房型、房间、分组拖动排序影响对应日历显示。付款方式与既有渠道默认全部启用，可拖动排序/停用，账页与新预订使用保存后的选项。仅既有渠道枚举，不宣称连接 OTA。预发房卡默认关闭、分钟禁用且 0；开启接受整数 0–1440 分钟（相对入住时间），关闭归零。只保存门店设置，不实际发卡，不是智能锁密码。共享后端沿用授权及同一 reducer，双状态机一致性由合成测试覆盖。
+- **验证**：Linux 本地 Node 24 `npm test --prefix pms` 439/439，Python 5/5；Ubuntu Actions 同为 Node 439/439、Python 5/5。25 个 DOM 脚本及 folio 的两种参数分支，共 27/27；38 个运行时 JS 语法及 CI 三个部署 shell 语法通过。增强 `dom-front-desk-tools.mjs` 覆盖所有工具只读、不增加 revision/audit、三种日历行序、分组创建/改名、选项停用/排序、房卡开关与订单/资金记录不变；新增两项 Node 测试覆盖共享/本地设置与五类日志快照一致及旧历史不变。
+- **证据等级**：上述交互为本地进程内 jsdom + 内存 SQLite + 合成账号/订单验证，不是线上登录浏览器验收。公网 GET `/healthz` 200 返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`；GET 静态 JS 的新标识实见。后端 `/server/` 不公开，运行时行为依据源码、合成服务测试及发布重启推断，未取得主机佐证或供应商联调证据。
+- **线上标识**：`/web/app.js` 命中 `referenceNoData`、`Print Center`、`data-room-status-logs`、`data-smart-lock`、`data-batch-print`、`data-registration-count`、`data-scheduled-task`、`data-print-center`、`data-self-checkin-preview`、`roomTypeOrder`、`groupOrder`；`/web/workspace-ui.js` 命中 `data-operations-display`、`data-layout-list`、`data-group-name`、`advanceEnabled`、`advanceMinutes`、`no key card is issued`；`/web/reservation-ui.js` 命中 `sourceOptions`；公开 `/src/demo-store.js` 命中 `saveDisplayPreferences`、`advanceCard`、`roomStatusRows`，`/src/inventory-actions.js` 命中 `export function roomStatusRows`。全部 17 个 web JS 与 app.js 的 21 个实际直接导入模块均通过 GET 200 检查。
+- **刻意未做**：打印、模板设置内部、生成/复制/发送自助代码或链接、任务类型/自动发送、门锁设置字段/购买/远程开门/密码、真实发卡、NOBEDS/支付/TTHotel；未操作真实订单、资金或门锁，未修改线上账号或重置数据。日历 Overview/Reserve/Combined Room/Share、自动夜审/00:00 交班/跨午夜截账/补跑、无人归属流水、清空夜审、历史批量夜审/一键结账、计划自动重报价、附加费自动移日、Booking Engine Configure/税费/跟踪代码/倍率编辑/身份提交继续不做。跨夜审暂存恢复与 AR 保护保留。没有改部署工作流或新增运行时模块。
