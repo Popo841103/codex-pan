@@ -1,3 +1,4 @@
+import {operationsPanel} from './workspace-ui.js';
 import {directoryPanel} from './workspace-ui.js';
 import {directoryEntries} from '../src/demo-store.js';
 import {parityReport,parityCsv,occupancyIcal,previewIcal} from '../src/financial-reports.js';
@@ -196,7 +197,7 @@ function render() {
   }
   $('#content').insertAdjacentHTML('beforeend',internalOperationsPanel({state,propertyId,lang,username:backend.user?.username||'local',admin:backend.shared?backend.user?.role==='admin':true,view,escape}));
   if(view==='parityWorkspace')runParityQuery();
-  if(['customers','resourcesSettings','parityWorkspace'].includes(view))$('#content').insertAdjacentHTML('beforeend',directoryPanel({state,propertyId,lang,admin:backend.shared?backend.user?.role==='admin':true,escape}));
+  if(['customers','resourcesSettings','parityWorkspace'].includes(view)){const admin=backend.shared?backend.user?.role==='admin':true;$('#content').insertAdjacentHTML('beforeend',directoryPanel({state,propertyId,lang,admin,escape})+operationsPanel({state,propertyId,lang,admin,escape}));updateInspectionItems();}
   loadInternalContent(document.querySelector('[data-internal-command="booking_content_save"]'));
   updateBell();
 }
@@ -1408,7 +1409,8 @@ function runParityQuery(){
  try{const data=Object.fromEntries(new FormData(form));
   const report=parityReport(state,{...data,propertyId,businessDate:businessDate()});
   $('[data-parity-results]').innerHTML=parityReportTable(report,lang,escape);
-  const note=['housekeepingCalendar','housekeepingList'].includes(data.kind)?rateLabel('计划周转不是任务；未生成派工、检查员或历史清洁状态。','Planned turnover is not a task; no assignments, inspectors or historical cleanliness are inferred.','Pertukaran dirancang bukan tugas; tiada tugasan, pemeriksa atau kebersihan sejarah disimpulkan.'):
+  const note=['shiftAccrual','managerBusiness','ledgerRecords','accrualOperating','guestBalances'].includes(data.kind)?rateLabel('本页只按已记录营业日选账，交易另列马来西亚自然日；旧交易缺营业日不倒填。权责经营的月累计截至所选结束日，押金独列负债。客账期末=期初+费用−净收款−AR−账单转入，缺日期时仅为已知账项余额。完整住宿账簿页为当前整单快照。班次仅筛选已交班窗口内有时间记录的操作，房晚不凭空分班；接待日志只含当前可读最近500条，房卡及储值未接通。','This page selects only recorded business dates and separately displays Malaysia transaction days; missing legacy business dates are not inferred. Month-to-date ends on the selected end date; deposits are separate liabilities. Guest closing = opening + charges − net receipts − AR − folio credit, covering known dated items only. Full stay ledger is a current complete snapshot. Shift filters use completed handover windows for timestamped events; nights are not assigned to shifts. Reception is limited to the latest 500 visible audit entries; room cards and stored value are unconnected.','Halaman ini memilih hari perniagaan direkod dan memaparkan hari transaksi Malaysia berasingan; tarikh lama tiada tidak diteka. Jumlah bulanan berakhir pada tarikh akhir dipilih; deposit ialah liabiliti berasingan. Baki akhir = awal + caj − terimaan bersih − AR − kredit folio untuk item bertarikh diketahui. Lejar penuh ialah petikan semasa. Syif menggunakan jendela serahan lengkap bagi rekod bermasa; malam tidak ditugaskan kepada syif. Penerimaan terhad kepada 500 audit terkini yang terlihat; kad bilik dan nilai tersimpan belum disambung.'):
+   ['housekeepingCalendar','housekeepingList'].includes(data.kind)?rateLabel('计划周转不是任务；未生成派工、检查员或历史清洁状态。','Planned turnover is not a task; no assignments, inspectors or historical cleanliness are inferred.','Pertukaran dirancang bukan tugas; tiada tugasan, pemeriksa atau kebersihan sejarah disimpulkan.'):
    data.kind==='rateHistory'?rateLabel('按受影响房价日筛选；操作时间另列，原快照保留。','Filtered by affected rate date; recorded time is separate and original snapshots remain.','Ditapis mengikut tarikh kadar terjejas; masa rekod berasingan dan petikan asal kekal.'):
    data.kind==='invoice'?rateLabel('完整住宿项费用快照，不按查询区间切割账项；仅内部核对，无税务提交。搜索住宿项编号可查看单项。','Full stay charges, not sliced by query dates; internal review only, no tax submission. Search a stay ID for one invoice.','Caj penuh penginapan, tidak dipotong mengikut julat; semakan dalaman sahaja, tiada penyerahan cukai. Cari ID penginapan untuk satu invois.'):
    data.kind==='salesSummary'?rateLabel('按已记录的预订类型和公司分组；没有业务员归属时不推断。','Groups recorded booking types and companies; salesperson attribution is not inferred.','Kumpulan jenis tempahan dan syarikat direkod; jurujual tidak disimpulkan.'):
@@ -1438,7 +1440,7 @@ $('#content').addEventListener('change',event=>{
 $('#content').addEventListener('submit',async event=>{
  const form=event.target;if(!form.matches('[data-directory-save],[data-customer-tag]'))return;
  event.preventDefault();const data=Object.fromEntries(new FormData(form)),button=form.querySelector('button');button.disabled=true;
- try{if(form.matches('[data-directory-save]')){for(const k of ['unitAmount','baseAmount','minHours','unitHours','maxHours'])if(k in data)data[k]=Number(data[k]);await commit({type:'directory_entry_save',kind:form.dataset.directorySave,...data});}
+ try{if(form.matches('[data-directory-save]')){for(const k of ['unitAmount','baseAmount','minHours','unitHours','maxHours'])if(k in data)data[k]=Number(data[k]);if('active' in data)data.active=data.active==='true';await commit({type:'directory_entry_save',kind:form.dataset.directorySave,...data});}
  else await commit({type:'customer_tag_set',...data,active:data.active==='true'});render();}
  catch(error){form.querySelector('output').textContent=errorText(error);button.disabled=false;}
 });
@@ -1449,3 +1451,24 @@ $('#detail-body').addEventListener('click',event=>{
  const report=parityReport(state,{propertyId,from:o.start,to:o.start,kind:'invoice',search:o.id});report.rows=report.rows.filter(r=>r.orderId===o.id);
  openUtility(parityLabel('invoice',lang),'<section data-internal-invoice-view><p>'+rateLabel('内部费用核对，无税务提交。金额为MYR分；押金单独列示。','Internal charge review, no tax submission. Amounts are MYR cents; deposits are separate.','Semakan caj dalaman, tiada penyerahan cukai. Amaun dalam sen MYR; deposit berasingan.')+'</p>'+parityReportTable(report,lang,escape)+'</section>');
 });
+
+$('#content').addEventListener('submit',async event=>{
+ const form=event.target;if(!form.matches('[data-operations-command]'))return;event.preventDefault();const data=Object.fromEntries(new FormData(form)),type=form.dataset.operationsCommand;
+ if('quantity'in data)data.quantity=Number(data.quantity);
+ if(type==='inspection_record'){data.results=[...form.querySelectorAll('[data-inspection-item]')].filter(i=>!i.dataset.roomType||i.dataset.roomType===state.resources.find(r=>r.id===data.resourceId)?.roomTypeId).map(i=>({itemId:i.dataset.inspectionItem,passed:i.checked}));for(const k of Object.keys(data))if(k.startsWith('inspection:'))delete data[k];}
+ const button=form.querySelector('button');button.disabled=true;
+ try{await commit({type,...data});render();}catch(error){form.querySelector('output').textContent=errorText(error);button.disabled=false;}
+});
+
+$('#content').addEventListener('change',event=>{
+ if(event.target.name!=='taskId'||!event.target.closest('[data-operations-command="housekeeping_task"]'))return;
+ const form=event.target.form,row=(state.operationsHistory||[]).filter(r=>r.propertyId===propertyId&&r.taskId===event.target.value).at(-1);if(!row)return;
+ for(const key of ['resourceId','date','assignee','status','note'])form.elements[key].value=row[key]||'';
+});
+
+function updateInspectionItems(){
+ const form=document.querySelector('[data-operations-command="inspection_record"]');if(!form)return;
+ const roomTypeId=state.resources.find(r=>r.id===form.elements.resourceId.value&&r.propertyId===propertyId)?.roomTypeId;
+ for(const input of form.querySelectorAll('[data-inspection-item]')){const applies=!input.dataset.roomType||input.dataset.roomType===roomTypeId;input.disabled=!applies;input.closest('label').hidden=!applies;}
+}
+$('#content').addEventListener('change',event=>{if(event.target.matches('[data-operations-command="inspection_record"] [name=resourceId]'))updateInspectionItems();});

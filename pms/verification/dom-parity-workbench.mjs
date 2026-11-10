@@ -70,7 +70,7 @@ try {
  const ical=$('[data-parity-ical]');ical.elements.resourceId.value=resource.id;$('[data-parity-ical-export]').click();const ics=await csvBlob.text();assert(!ics.includes('TEST parity DOM'));assert(ics.includes('BEGIN:VEVENT'));
  ical.elements.ics.value=ics;ical.querySelector('button[type="submit"],button:not([type])').click();assert($('[data-ical-preview]').textContent.includes('2027-02-01 → 2027-02-03'));
  ical.elements.ics.value=ics.replace('SUMMARY:Unavailable','RRULE:FREQ=DAILY');ical.querySelector('button:not([type])').click();assert.equal($('[data-ical-preview]').textContent,'');
- for(const language of ['en','ms','zh']){$('#language').value=language;$('#language').dispatchEvent(new dom.window.Event('change',{bubbles:true}));assert($('[data-parity-workspace]'));assert.equal($('[data-parity-query] select').options.length,13);}
+ for(const language of ['en','ms','zh']){$('#language').value=language;$('#language').dispatchEvent(new dom.window.Event('change',{bubbles:true}));assert($('[data-parity-workspace]'));assert.equal($('[data-parity-query] select').options.length,23);}
  URL.createObjectURL=originalCreate;URL.revokeObjectURL=originalRevoke;dom.window.HTMLAnchorElement.prototype.click=originalAnchor;
  $('#global-nav [data-view="orders"]').click();$('[data-open-stay="'+created.id+'"]').click();$('[data-internal-invoice]').click();assert($('[data-internal-invoice-view]').textContent.includes('24690'));$('#utility-dialog').close();$('#detail-dialog').close();
  assert.equal(store.read(operator).revisions['TEST-KL'],revision);assert.equal(store.read(operator).audit.length,auditCount);assert.deepEqual(store.read(operator).orders,before.orders);

@@ -16,7 +16,7 @@ test('all 13 queries are pure, property scoped and expose only their declared co
 test('date validation bounds inventory work and rejects unsupported report kinds',()=>{
  for(const extra of [{from:'2027-02-30'},{to:'2026-01-01'},{kind:'unknown'},{to:'2029-01-01'},{from:'2027-01-01',to:'2027-02-01'}])assert.throws(()=>query(seed(),'futureInventory',extra),/report/);
  assert.throws(()=>query(seed(),'dailyInventory',{businessDate:''}),/report/);
- assert.throws(()=>query(seed(),'dailyInventory',{source:'booking'}),/report/);
+ assert(query(seed(),'dailyInventory',{source:'booking'}).rows.every(r=>r.channelOccupied===0));
 });
 test('daily and future inventories use availability allocation including unassigned and boxed stays',()=>{
  let s=fixture();const roomTypeId=s.orders[0].roomTypeId;

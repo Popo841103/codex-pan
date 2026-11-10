@@ -1,3 +1,4 @@
+import {mealEntitlements,housekeepingTasks} from './demo-store.js';
 import {isBoxed} from './inventory-actions.js';
 import {replayReceivables,commissionPeriod,folioTransferCredit} from './demo-store.js';
 import {localDay,comparisonDay} from './dashboard.js';
@@ -562,7 +563,7 @@ export function receivableReports(state,q){
 import {rateAvailability} from './rate-availability.js';
 import {saleResources} from './catalog.js';
 import {folio,directoryEntries} from './demo-store.js';
-export const parityKinds=['dailyInventory','futureInventory','housekeepingCalendar','housekeepingList','rateHistory','customerDetails','revenueSummary','transactionSummary','channelSummary','salesSummary','accommodationSummary','quickNoteSummary','invoice'];
+export const parityKinds=['dailyInventory','futureInventory','housekeepingCalendar','housekeepingList','rateHistory','customerDetails','revenueSummary','transactionSummary','channelSummary','salesSummary','accommodationSummary','quickNoteSummary','invoice','mealRedemption','mealSummary','holidays','inspections','failedReservations','shiftAccrual','managerBusiness','ledgerRecords','accrualOperating','guestBalances'];
 export function parityReport(state,q){
  const orders=scope(state,q);
  if(!parityKinds.includes(q.kind))throw Error('report_input');
@@ -573,18 +574,24 @@ export function parityReport(state,q){
  const allSource=!q.source||q.source==='all';
  let columns=[],rows=[],unallocated=0;
  if(['dailyInventory','futureInventory'].includes(q.kind)){
-  if(!validDate(q.businessDate)||!allSource)throw Error('report_input');
-  columns=['date','roomTypeId','productId','capacity','occupied','available'];
+  if(!validDate(q.businessDate))throw Error('report_input');
+  columns=['date','roomTypeId','productId','capacity','sellable','occupied','staying','departing','arriving','unassigned','boxed','cancelled','hold','maintenance','outOfService','linkedClosed','clean','dirty','available','channelOccupied'];
   const dates=q.kind==='dailyInventory'?[q.from]:days;
+  const allOrders=state.orders.filter(o=>o.propertyId===q.propertyId);
   for(const date of dates)for(const type of (state.roomTypes||[]).filter(r=>r.propertyId===q.propertyId&&!r.archived&&(!q.roomTypeId||r.id===q.roomTypeId))){
-   rows.push({date,roomTypeId:type.id,productId:type.productId,capacity:saleResources(state,q.propertyId).filter(r=>r.roomTypeId===type.id).length,occupied:selected.filter(o=>o.roomTypeId===type.id&&occupiesInventory(o)&&o.start<=date&&o.end>date).length,available:rateAvailability(state,q.propertyId,type.id,date,q.businessDate)});
+   const resources=saleResources(state,q.propertyId).filter(r=>r.roomTypeId===type.id),stays=allOrders.filter(o=>o.roomTypeId===type.id),active=stays.filter(o=>occupiesInventory(o)&&o.start<=date&&(o.end>date||o.status==='checked_in'&&o.end<=q.businessDate&&date>=q.businessDate));
+   const blocks=(state.blocks||[]).filter(b=>b.propertyId===q.propertyId&&b.start<=date&&b.end>date);
+   const blocked=(r,kind)=>blocks.some(b=>(b.blockType||'maintenance')===kind&&r.atoms.some(a=>b.atoms.includes(a)));
+   const shared=resources.filter(r=>allOrders.some(o=>o.resourceId!==r.id&&occupiesInventory(o)&&o.start<=date&&(o.end>date||o.status==='checked_in'&&o.end<=q.businessDate&&date>=q.businessDate)&&saleResources(state,q.propertyId).some(u=>u.id===o.resourceId&&u.atoms.some(a=>r.atoms.includes(a)))));
+   rows.push({date,roomTypeId:type.id,productId:type.productId,capacity:resources.length,sellable:resources.filter(r=>!blocked(r,'maintenance')&&!blocked(r,'out_of_service')&&!shared.includes(r)).length,occupied:active.length,staying:active.filter(o=>o.end!==date).length,departing:stays.filter(o=>!isBoxed(o)&&o.status!=='cancelled'&&o.end===date).length,arriving:stays.filter(o=>occupiesInventory(o)&&o.start===date).length,unassigned:active.filter(o=>!o.resourceId).length,boxed:stays.filter(o=>isBoxed(o)&&o.start<=date&&o.end>date).length,cancelled:stays.filter(o=>o.status==='cancelled'&&o.start<=date&&o.end>date).length,hold:resources.filter(r=>blocked(r,'hold')).length,maintenance:resources.filter(r=>blocked(r,'maintenance')).length,outOfService:resources.filter(r=>blocked(r,'out_of_service')).length,linkedClosed:shared.length,clean:resources.filter(r=>r.cleaning==='clean').length,dirty:resources.filter(r=>r.cleaning==='dirty').length,available:rateAvailability(state,q.propertyId,type.id,date,q.businessDate),channelOccupied:allSource?active.length:active.filter(o=>o.source===q.source).length});
   }
  }else if(['housekeepingCalendar','housekeepingList'].includes(q.kind)){
   if(!allSource)throw Error('report_input');
-  columns=['date','roomTypeId','resourceId','cleaning','arrivals','departures'];
+  columns=['date','roomTypeId','resourceId','cleaning','arrivals','departures','tasks','assignees','lastInspection','inspectionPassed'];
   for(const date of q.kind==='housekeepingList'?['']:days)for(const r of saleResources(state,q.propertyId).filter(r=>!q.roomTypeId||r.roomTypeId===q.roomTypeId)){
    const stays=selected.filter(o=>o.resourceId===r.id&&!isBoxed(o)&&o.status!=='cancelled');
-   rows.push({date,roomTypeId:r.roomTypeId,resourceId:r.id,cleaning:date?'':r.cleaning||'',arrivals:date?stays.filter(o=>o.start===date).length:'',departures:date?stays.filter(o=>o.end===date).length:''});
+   const tasks=housekeepingTasks(state,q.propertyId).filter(t=>t.resourceId===r.id&&(!date||t.date===date)),inspection=(state.operationsHistory||[]).filter(i=>i.propertyId===q.propertyId&&i.resourceId===r.id&&i.type==='inspection_record'&&(!date||i.businessDate===date)).at(-1);
+   rows.push({date,roomTypeId:r.roomTypeId,resourceId:r.id,cleaning:date?'':r.cleaning||'',arrivals:date?stays.filter(o=>o.start===date).length:'',departures:date?stays.filter(o=>o.end===date).length:'',tasks:tasks.map(t=>t.taskId+':'+t.status).join(' / '),assignees:[...new Set(tasks.map(t=>t.assignee).filter(Boolean))].join(' / '),lastInspection:inspection?.at||'',inspectionPassed:inspection?inspection.results.every(i=>i.passed):''});
   }
  }else if(q.kind==='rateHistory'){
   columns=['date','at','actor','batchId','roomTypeId','planCode','before','after'];
@@ -593,10 +600,10 @@ export function parityReport(state,q){
   columns=['orderId','guest','phone','email','country','tags','start','end','status','charge','paid','due','deposit'];
   rows=selected.filter(o=>o.start<=q.to&&o.end>=q.from).map(o=>({orderId:o.id,guest:o.guest,phone:o.phone||'',email:o.email||'',country:o.country||'',tags:activeStayTags(state,q.propertyId,o.id).join(' / '),start:o.start,end:o.end,status:o.status,...folio(o)}));
  }else if(q.kind==='revenueSummary'||q.kind==='channelSummary'){
-  const report=accommodationBreakdown(state,{...q,propertyId:q.propertyId},q.kind==='channelSummary'?'source':'date');unallocated=report.unallocatedCharges.length;
+  const report=accommodationBreakdown({...state,orders:selected},{...q,propertyId:q.propertyId},q.kind==='channelSummary'?'source':'date');unallocated=report.unallocatedCharges.length;
   columns=['key','total','roomFee','extras','unitNights'];rows=report.groups;
  }else if(q.kind==='transactionSummary'){
-  const report=cashflowReport(state,q);columns=['method','payment','refund','deposit_in','deposit_out','netAccommodation','netDeposit'];rows=report.methods;
+  const report=cashflowReport({...state,orders:selected},q);columns=['method','payment','refund','deposit_in','deposit_out','netAccommodation','netDeposit'];rows=report.methods;
  }else if(q.kind==='salesSummary'){
   columns=['bookingKind','companyName','total','unitNights'];const groups=new Map();
   for(const o of selected){const parent=(state.reservations||[]).find(r=>r.id===o.reservationId&&r.propertyId===q.propertyId);const bookingKind=parent?.bookingKind||'',companyName=parent?.companyName||'';const key=JSON.stringify([bookingKind,companyName]);
@@ -604,6 +611,7 @@ export function parityReport(state,q){
    unallocated+=orderChargeLines(o).unallocated.length;
   }rows=[...groups.values()];
  }else if(q.kind==='accommodationSummary'){
+  if(q.roomTypeId)throw Error('report_input');
   const report=roomBusinessSummary(state,q);columns=['key','productId','revenue','soldNights','sellableNights','occupancy','adr','revpar'];
   rows=report.rows.flatMap(r=>r.byProduct.map(p=>({key:r.key,productId:p.productId,revenue:p.revenue,soldNights:p.sold+p.unassigned,sellableNights:p.supplyNights,occupancy:p.occ??'',adr:p.adr??'',revpar:p.revpar??''}))); // retain product and atom-aware denominators
  }else if(q.kind==='quickNoteSummary'){
@@ -617,9 +625,68 @@ export function parityReport(state,q){
    rows.push({orderId:o.id,kind:'folio',...folio(o)});
   }
  }
- if(q.roomTypeId&&['revenueSummary','channelSummary','transactionSummary','accommodationSummary'].includes(q.kind))throw Error('report_input');
+ if(['mealRedemption','mealSummary'].includes(q.kind)){
+  columns=['usageDate','orderId','mealId','name','category','pricingMethod','consumptionTiming','quantity','redeemed','remaining','unitAmount','source','roomTypeId','resourceId','status'];
+  rows=mealEntitlements(state,q.propertyId).filter(e=>inRange(e.usageDate,q)).flatMap(e=>{const o=selected.find(o=>o.id===e.orderId);return o?[{...e,source:o.source,roomTypeId:o.roomTypeId,resourceId:o.resourceId,status:o.status}]:[];});
+  if(q.kind==='mealSummary'){columns=['usageDate','mealId','name','quantity','redeemed','remaining'];const groups=new Map();for(const r of rows){const key=r.usageDate+'|'+r.mealId,g=groups.get(key)||{...r,quantity:0,redeemed:0,remaining:0};for(const k of ['quantity','redeemed','remaining'])g[k]+=r[k];groups.set(key,g);}rows=[...groups.values()];}
+ }else if(q.kind==='holidays'){
+  columns=['date','name','eventType','source','heat','active','actor','at'];rows=directoryEntries(state,q.propertyId,'holiday').filter(r=>inRange(r.date,q));
+ }else if(q.kind==='inspections'){
+  columns=['businessDate','at','actor','resourceId','name','passed','note'];rows=(state.operationsHistory||[]).filter(r=>r.propertyId===q.propertyId&&r.type==='inspection_record'&&inRange(r.businessDate,q)).flatMap(r=>r.results.map(i=>({...r,...i})));unallocated=(state.operationsHistory||[]).filter(r=>r.propertyId===q.propertyId&&r.type==='inspection_record'&&!r.businessDate).length;
+ }else if(q.kind==='failedReservations'){
+  columns=['date','requestId','source','status','reason','start','end'];
+  rows=(state.bookingRequests||[]).filter(r=>r.propertyId===q.propertyId&&['declined','failed','expired','withdrawn'].includes(r.status)).map(r=>({date:localDay(r.decidedAt||r.createdAt),requestId:r.id,source:'website',status:r.status,reason:r.decisionNote||r.reason||'',start:r.start,end:r.end})).filter(r=>inRange(r.date,q));
+  rows.push(...(state.operationsHistory||[]).filter(r=>r.propertyId===q.propertyId&&r.type==='reservation_failure_record'&&inRange(r.date,q)).map(r=>({...r,requestId:r.reference})));
+ }else if(['shiftAccrual','managerBusiness','ledgerRecords','accrualOperating','guestBalances'].includes(q.kind)){
+  columns=['businessDate','orderId','source','roomTypeId','kind','amount','method','actor','at','localDate'];
+  const charges=selected.flatMap(o=>orderChargeLines(o).lines).filter(r=>inRange(r.date,q));
+  const transactions=selected.flatMap(o=>(o.transactions||[]).map(t=>({...t,orderId:o.id,source:o.source,roomTypeId:o.roomTypeId,localDate:localDay(t.at)})));
+  unallocated=selected.reduce((n,o)=>n+orderChargeLines(o).unallocated.length,0)+transactions.filter(t=>!validDate(t.businessDate)).length;
+  rows=charges.map(r=>({...r,businessDate:r.date}));
+  rows.push(...transactions.filter(t=>inRange(t.businessDate,q)));
+  for(const o of selected)for(const m of o.arMoves||[])if(inRange(m.businessDate,q))rows.push({...m,orderId:o.id,source:o.source,roomTypeId:o.roomTypeId,kind:'ar_transfer'});
+  for(const o of selected)for(const m of o.folioTransfers||[])if(inRange(m.businessDate,q))rows.push({...m,orderId:o.id,source:o.source,roomTypeId:o.roomTypeId,kind:'folio_transfer'});
+  if(q.actor)rows=rows.filter(r=>r.actor===q.actor);
+  if(q.method)rows=rows.filter(r=>r.method===q.method);
+  if(q.shiftTypeId){const windows=(state.handovers||[]).filter(h=>h.propertyId===q.propertyId&&h.shiftTypeId===q.shiftTypeId);rows=rows.filter(r=>r.at&&windows.some(h=>Date.parse(r.at)>=Date.parse(h.from)&&Date.parse(r.at)<Date.parse(h.to)));}
+  if(q.kind==='shiftAccrual'||q.kind==='managerBusiness'){
+   rows.push(...(state.audit||[]).filter(a=>a.propertyId===q.propertyId&&inRange(a.postingBusinessDate,q)&&(!q.actor||a.actor===q.actor)&&['create','create_reservation','checkin','checkout','cancel','undo_checkin','undo_checkout'].includes(a.type)).map(a=>({...a,businessDate:a.postingBusinessDate,kind:'reception:'+a.type})));
+  }
+  if(q.kind==='guestBalances'){
+   columns=['orderId','source','roomTypeId','opening','charge','paid','ar','folioCredit','closing','deposit'];
+   rows=selected.map(o=>{const balance=d=>{let charge=0,paid=0,deposit=0,ar=0,folioCredit=0;for(const l of orderChargeLines(o).lines)if(l.date<=d)charge+=l.amount;for(const t of o.transactions||[])if(validDate(t.businessDate)&&t.businessDate<=d){if(t.kind==='payment')paid+=t.amount;if(t.kind==='refund')paid-=t.amount;if(t.kind==='deposit_in')deposit+=t.amount;if(t.kind==='deposit_out')deposit-=t.amount;}for(const m of o.arMoves||[])if(m.businessDate<=d)ar+=m.amount;folioCredit=folioTransferCredit(o,date=>date<=d);return {charge,paid,ar,folioCredit,due:charge-paid-ar-folioCredit,deposit};};const a=balance(previousDay(q.from)),b=balance(q.to);return {orderId:o.id,source:o.source,roomTypeId:o.roomTypeId,opening:a.due,charge:b.charge-a.charge,paid:b.paid-a.paid,ar:b.ar-a.ar,folioCredit:b.folioCredit-a.folioCredit,closing:b.due,deposit:b.deposit};});
+  }
+ }
+
+ if(q.kind==='rateHistory'){
+  if(q.operationFrom&&!validDate(q.operationFrom)||q.operationTo&&!validDate(q.operationTo))throw Error('report_input');
+  rows=rows.filter(r=>(!q.operationFrom||localDay(r.at)>=q.operationFrom)&&(!q.operationTo||localDay(r.at)<=q.operationTo)&&(!q.planCode||r.planCode===q.planCode)&&(!q.actor||r.actor===q.actor)&&(!q.adjustmentItem||JSON.parse(r.before||'{}')[q.adjustmentItem]!==JSON.parse(r.after)[q.adjustmentItem]));
+ }
+ if(['shiftAccrual','managerBusiness'].includes(q.kind)){
+  if(q.section==='cashierSummary'){
+   columns=['kind','method','amount'];const groups=new Map();for(const r of rows.filter(r=>['payment','refund','deposit_in','deposit_out'].includes(r.kind))){const key=r.kind+'|'+r.method,g=groups.get(key)||{kind:r.kind,method:r.method,amount:0};g.amount+=r.amount;groups.set(key,g);}rows=[...groups.values()];
+  }else if(q.section==='reception'){
+   columns=['businessDate','at','actor','orderId','kind'];rows=rows.filter(r=>r.kind?.startsWith('reception:'));
+  }else if(q.section==='roomCards'){
+   // No card issuance provider is connected: absence is a capability state, not zero activity.
+   columns=['status'];rows=[{status:'room_card_not_connected'}];
+  }else rows=rows.filter(r=>!r.kind?.startsWith('reception:'));
+  if(q.shiftTypeId){const windows=(state.handovers||[]).filter(h=>h.propertyId===q.propertyId&&h.shiftTypeId===q.shiftTypeId);if(q.section==='reception')rows=rows.filter(r=>windows.some(h=>Date.parse(r.at)>=Date.parse(h.from)&&Date.parse(r.at)<Date.parse(h.to)));}
+ }
+ if(q.kind==='accrualOperating'){
+  const first=q.to.slice(0,7)+'-01';
+  const month=parityReport(state,{...q,kind:'ledgerRecords',from:first,to:q.to,search:'',section:''});
+  const groups=new Map();for(const [list,key] of [[rows,'periodAmount'],[month.rows,'monthAmount']])for(const r of list){if(!r.kind)continue;const side=['payment','refund','ar_transfer','folio_transfer'].includes(r.kind)?'credit':['deposit_in','deposit_out'].includes(r.kind)?'deposit':'debit',id=side+'|'+r.kind+'|'+(r.method||''),g=groups.get(id)||{side,kind:r.kind,method:r.method||'',periodAmount:0,monthAmount:0};g[key]+=(['refund','deposit_out'].includes(r.kind)?-1:1)*(r.amount||0);groups.set(id,g);}columns=['side','kind','method','periodAmount','monthAmount'];rows=[...groups.values()];
+ }
+ if(q.kind==='ledgerRecords'&&q.section==='staySummary'){
+  columns=['orderId','source','roomTypeId','guest','start','end','status','charge','paid','deposit','due','ar','createdAt','createdBy'];
+  rows=selected.filter(o=>o.start<=q.to&&o.end>=q.from).map(o=>({orderId:o.id,source:o.source,roomTypeId:o.roomTypeId,guest:o.guest,start:o.start,end:o.end,status:o.status,...folio(o),ar:(o.arMoves||[]).reduce((n,m)=>n+m.amount,0),createdAt:o.createdAt,createdBy:o.createdBy}));
+ }
+ if(q.kind==='failedReservations'&&!allSource)rows=rows.filter(r=>r.source===q.source);
+ if(q.status)rows=rows.filter(r=>r.status===q.status);
  const query=String(q.search||'').trim().toLowerCase();rows=rows.filter(r=>!query||columns.some(k=>String(r[k]??'').toLowerCase().includes(query))).map(r=>Object.fromEntries(columns.map(k=>[k,r[k]??''])));
- return {kind:q.kind,from:q.from,to:q.to,columns,rows,unallocated};
+ if(q.kind==='futureInventory'&&q.layout==='matrix'){const sourceRows=rows,metrics=columns.filter(k=>!['date','roomTypeId','productId'].includes(k));columns=['roomTypeId','productId','metric',...days];rows=[];for(const id of [...new Set(sourceRows.map(r=>r.roomTypeId))])for(const metric of metrics){const selected=sourceRows.filter(r=>r.roomTypeId===id);rows.push(Object.fromEntries(columns.map(k=>[k,k==='roomTypeId'?id:k==='productId'?selected[0].productId:k==='metric'?metric:selected.find(r=>r.date===k)?.[metric]??''])));}}
+ return {kind:q.kind,from:q.from,to:q.to,columns,rows,unallocated,totals:Object.fromEntries(columns.filter(k=>!['dailyInventory','futureInventory','housekeepingCalendar','housekeepingList','ledgerRecords','managerBusiness','shiftAccrual','accrualOperating'].includes(q.kind)).filter(k=>rows.some(r=>typeof r[k]==='number')).filter(k=>!['unitAmount','occupancy','adr','revpar'].includes(k)).map(k=>[k,rows.reduce((n,r)=>n+(typeof r[k]==='number'?r[k]:0),0)]))};
 }
 function activeStayTags(state,propertyId,orderId){
  const latest=new Map();for(const r of state.customerTagHistory||[])if(r.propertyId===propertyId&&r.orderId===orderId)latest.set(r.tagId,r.active);

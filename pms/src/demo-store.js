@@ -1,3 +1,4 @@
+import {localDay} from './dashboard.js';
 import {changeRates} from './rates.js';
 import { isBoxed, occupiesInventory, operationalBlock, changeOrderBox, roomStatusRows } from './inventory-actions.js';
 // Trustworthy business day: one persisted date per property, advanced only by night audit.
@@ -402,7 +403,8 @@ export function apply(state, command) {
   };
   if(order&&['settle','ar_post'].includes(type)&&order.status==='confirmed')restoreForSettlement([order]);
   if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
-  if(['directory_entry_save','customer_tag_set'].includes(type)){changeDirectory(next,command);}
+  if(operationsActions.includes(type)){changeOperations(next,command);}
+  else if(['directory_entry_save','customer_tag_set'].includes(type)){changeDirectory(next,command);}
   else if(batchActions.includes(type)){
     changeBatchState(next,command);
   } else if(type==='night_audit_handle_all'){
@@ -568,7 +570,7 @@ export function apply(state, command) {
     for(const [index,{stay,original}] of originals.entries()){
       stay.transactions.push({
         id:command.id+':'+index,batchId:command.id,reverses:original.id,reversesBatchId:batchId,
-        actor:command.actor||'local',kind:'refund',amount:original.amount,method:original.method,
+        actor:command.actor||'local',kind:'refund',businessDate:next.businessDate||null,amount:original.amount,method:original.method,
         reference:original.reference,note:reason,at:command.at
       });
     }
@@ -593,7 +595,7 @@ export function apply(state, command) {
       allocated+=amount;
       stay.transactions.push({
         id:command.id+':'+index,batchId:command.id,actor:command.actor||'local',
-        kind:'payment',amount,method,reference,note,at:command.at
+        kind:'payment',businessDate:next.businessDate||null,amount,method,reference,note,at:command.at
       });
     }
     if(allocated!==total)reject('amount');
@@ -613,7 +615,7 @@ export function apply(state, command) {
         bill.paid += command.kind === 'payment' ? amount : -amount;
       } else if (command.billId) reject('bill_state');
     }
-    order.transactions.push({ ...(bill ? {billId:bill.id} : {}), id:command.id, actor:command.actor||'local', kind:command.kind, amount, method:command.method, reference:text(command.reference||'',100),note:text(command.note||'',500), at:command.at });
+    order.transactions.push({ ...(bill ? {billId:bill.id} : {}), id:command.id, actor:command.actor||'local', kind:command.kind, businessDate:next.businessDate||null, amount, method:command.method, reference:text(command.reference||'',100),note:text(command.note||'',500), at:command.at });
   } else if (type === 'commission_save') {
     // A channel commission is the amount the channel actually billed, entered by
     // finance from that invoice. No rate is configured and none is ever inferred.
@@ -735,12 +737,13 @@ export function apply(state, command) {
   preview(next, propertyId);
   const statusRows=roomStatusRows(state,next,command);
   const movedTo = next.orders.find(o => o.id === (order?.id || command.id)) || null;
-  next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, orderId: order?.id || null, resourceId: resource?.id || null, resourceIds: command.resourceIds, cleaning:command.cleaning, actor: command.actor || 'local',
+  next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, postingBusinessDate:next.businessDate||null, orderId: order?.id || null, resourceId: resource?.id || null, resourceIds: command.resourceIds, cleaning:command.cleaning, actor: command.actor || 'local',
     ...(stayBefore || ['create','box_stays','restore_stays'].includes(type) ? { stayChange:{ before:stayBefore,
       after:['box_stays','restore_stays'].includes(type) ? null : staySnapshot(movedTo),
       reason: typeof command.reason === 'string' ? command.reason.trim() : null } } : {}),
     ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}),
     ...(['directory_entry_save','customer_tag_set'].includes(type)?{directoryChange:type==='directory_entry_save'?next.directoryHistory.at(-1):next.customerTagHistory.at(-1)}:{}),
+    ...(operationsActions.includes(type)?{operationsChange:next.operationsHistory.at(-1)}:{}),
     ...(type==='memo_save'?{memoChange:next.memoHistory.at(-1)}:{}),
     ...(type==='transfer_folio_credit'?{reservationId:command.reservationId,fromId:command.fromId,toId:command.toId,amount:next.orders.find(o=>o.id===command.toId)?.folioTransfers?.at(-1)?.amount,reverses:command.reverses,reason:command.reason.trim()}:{}),
     ...(type==='undo_reservation_payment'?{reservationId:command.reservationId,reversesBatchId:command.batchId,reason:command.reason.trim()}:{}),
@@ -1307,7 +1310,7 @@ export function reminderForAccount(state,notice,username,at=new Date().toISOStri
 
 // Append-only internal directories. These definitions never price an existing
 // stay or create meal entitlements, hourly bookings, charges or AR postings.
-export const directoryKinds=['tagGroup','tag','corporate','meal','item','hourly'];
+export const directoryKinds=['tagGroup','tag','corporate','meal','item','hourly','holiday','inspectionItem','mealCategory'];
 export function directoryEntries(state,propertyId,kind){
  const latest=new Map();for(const row of state.directoryHistory||[])if(row.propertyId===propertyId&&(!kind||row.kind===kind))latest.set(row.entryId,row);return [...latest.values()];
 }
@@ -1333,11 +1336,71 @@ function changeDirectory(state,c){
  if(['meal','item','hourly'].includes(c.kind)){
   if(!Number.isSafeInteger(c.unitAmount)||c.unitAmount<0||c.unitAmount>100000000)reject('amount');row.unitAmount=c.unitAmount;
  }
+ if(c.kind==='meal'){
+  if(c.categoryId&&!rows.some(r=>r.kind==='mealCategory'&&r.entryId===c.categoryId))reject('scope');
+  const pricingMethod=c.pricingMethod||'unit';if(!['unit','person','room'].includes(pricingMethod)||c.active!==undefined&&typeof c.active!=='boolean')reject('input');
+  Object.assign(row,{categoryId:c.categoryId||'',pricingMethod,consumptionTiming:'usage_date',active:c.active??true});
+ }
  if(c.kind==='hourly'){
   if(!state.roomTypes.some(r=>r.propertyId===propertyId&&r.id===c.roomTypeId&&!r.archived))reject('scope');
   for(const key of ['minHours','unitHours','maxHours'])if(!Number.isSafeInteger(c[key])||c[key]<1||c[key]>24)reject('input');
   if(c.minHours>c.maxHours||c.unitHours>c.maxHours||!Number.isSafeInteger(c.baseAmount)||c.baseAmount<0||c.baseAmount>100000000)reject('input');
   Object.assign(row,{roomTypeId:c.roomTypeId,minHours:c.minHours,unitHours:c.unitHours,maxHours:c.maxHours,baseAmount:c.baseAmount});
  }
+ if(c.kind==='holiday'){
+  if(!isDate(c.date)||!['holiday','event'].includes(c.eventType)||!['low','medium','high'].includes(c.heat)||typeof c.active!=='boolean')reject('input');
+  Object.assign(row,{date:c.date,eventType:c.eventType,heat:c.heat,active:c.active,source:'manual'});
+ }
+ if(c.kind==='inspectionItem'){if(typeof c.active!=='boolean')reject('input');if(c.roomTypeId&&!state.roomTypes.some(r=>r.propertyId===propertyId&&r.id===c.roomTypeId&&!r.archived))reject('scope');Object.assign(row,{active:c.active,roomTypeId:c.roomTypeId||''});}
  (state.directoryHistory??=[]).push(row);
 }
+
+// Internal operations: append-only entitlements, reversals and inspection evidence.
+export const operationsActions=['meal_grant','meal_redeem','meal_reverse','inspection_record','housekeeping_task','reservation_failure_record'];
+export function mealEntitlements(state,propertyId){
+ return (state.operationsHistory||[]).filter(r=>r.propertyId===propertyId&&r.type==='meal_grant').map(r=>{
+ const events=(state.operationsHistory||[]).filter(e=>e.propertyId===propertyId&&e.entitlementId===r.id);
+ const redeemed=events.filter(e=>e.type==='meal_redeem'&&!events.some(v=>v.type==='meal_reverse'&&v.redemptionId===e.id)).reduce((n,e)=>n+e.quantity,0);
+ return {...r,redeemed,remaining:r.quantity-redeemed};
+ });
+}
+function changeOperations(state,c){
+ const row={id:c.id,propertyId:c.propertyId,at:c.at,actor:c.actor||'local',type:c.type,businessDate:state.businessDate||null};
+ if(c.type==='meal_grant'){
+ const o=state.orders.find(o=>o.propertyId===c.propertyId&&o.id===c.orderId);
+ const meal=directoryEntries(state,c.propertyId,'meal').find(m=>m.entryId===c.mealId);
+ if(!o||!meal||meal.active===false||o.status==='cancelled'||isBoxed(o))reject('scope');
+ if(!isDate(c.usageDate)||c.usageDate<o.start||c.usageDate>=o.end||!Number.isSafeInteger(c.quantity)||c.quantity<1||c.quantity>1000)reject('input');
+ Object.assign(row,{orderId:o.id,mealId:meal.entryId,name:meal.name,category:directoryEntries(state,c.propertyId,'mealCategory').find(r=>r.entryId===meal.categoryId)?.name||'',pricingMethod:meal.pricingMethod||'unit',consumptionTiming:'usage_date',unitAmount:meal.unitAmount,usageDate:c.usageDate,quantity:c.quantity});
+ }else if(c.type==='meal_redeem'){
+ const e=mealEntitlements(state,c.propertyId).find(e=>e.id===c.entitlementId),o=state.orders.find(o=>o.id===e?.orderId&&o.propertyId===c.propertyId);
+ if(!e||!o||o.status==='cancelled'||isBoxed(o))reject('scope');
+ if(e.usageDate!==localDay(c.at)||!Number.isSafeInteger(c.quantity)||c.quantity<1||c.quantity>e.remaining)reject('input');
+ Object.assign(row,{entitlementId:e.id,orderId:e.orderId,usageDate:e.usageDate,quantity:c.quantity});
+ }else if(c.type==='meal_reverse'){
+ const r=(state.operationsHistory||[]).find(r=>r.propertyId===c.propertyId&&r.id===c.redemptionId&&r.type==='meal_redeem');
+ if(!r||(state.operationsHistory||[]).some(e=>e.redemptionId===r.id))reject('scope');
+ if(typeof c.reason!=='string'||!c.reason.trim()||c.reason.length>500)reject('input');
+ Object.assign(row,{redemptionId:r.id,entitlementId:r.entitlementId,orderId:r.orderId,usageDate:r.usageDate,reason:c.reason.trim()});
+ }else if(c.type==='reservation_failure_record'){
+ if(!isDate(c.date)||typeof c.reason!=='string'||!c.reason.trim()||c.reason.length>500||typeof c.reference!=='string'||!c.reference.trim()||c.reference.length>100)reject('input');
+ Object.assign(row,{date:c.date,reason:c.reason.trim(),reference:c.reference.trim(),source:'internal',status:'failed'});
+ }else if(c.type==='housekeeping_task'){
+ if(!state.resources.some(r=>r.propertyId===c.propertyId&&r.id===c.resourceId&&!r.archived)||!isDate(c.date)||!['open','in_progress','done','cancelled'].includes(c.status)||typeof c.note!=='string'||c.note.length>500||typeof c.assignee!=='string'||c.assignee.length>100)reject('input');
+ const before=c.taskId?housekeepingTasks(state,c.propertyId).find(t=>t.taskId===c.taskId):null;
+ if(c.taskId&&!before)reject('scope');
+ if(before&&['done','cancelled'].includes(before.status)||!before&&c.status!=='open')reject('state');
+ Object.assign(row,{taskId:before?.taskId||c.id,resourceId:c.resourceId,date:c.date,status:c.status,note:c.note,assignee:c.assignee});
+ }else{
+ if(!state.resources.some(r=>r.propertyId===c.propertyId&&r.id===c.resourceId&&!r.archived))reject('scope');
+ const resource=state.resources.find(r=>r.propertyId===c.propertyId&&r.id===c.resourceId);
+ const items=directoryEntries(state,c.propertyId,'inspectionItem').filter(r=>r.active!==false&&(!r.roomTypeId||r.roomTypeId===resource.roomTypeId));
+ if(!items.length||!Array.isArray(c.results)||c.results.length!==items.length||new Set(c.results.map(r=>r.itemId)).size!==items.length)reject('input');
+ for(const item of items)if(!c.results.some(r=>r.itemId===item.entryId&&typeof r.passed==='boolean'))reject('input');
+ if(typeof c.note!=='string'||c.note.length>500)reject('input');
+ Object.assign(row,{resourceId:c.resourceId,note:c.note,results:items.map(i=>({itemId:i.entryId,name:i.name,passed:c.results.find(r=>r.itemId===i.entryId).passed}))});
+ }
+ (state.operationsHistory??=[]).push(row);
+}
+
+export function housekeepingTasks(state,propertyId){const tasks=new Map();for(const r of state.operationsHistory||[])if(r.propertyId===propertyId&&r.type==='housekeeping_task')tasks.set(r.taskId,r);return [...tasks.values()];}
