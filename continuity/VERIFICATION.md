@@ -250,3 +250,5 @@ Actions 42754425077 成功，Linux Node 424/424、Python 5/5。外部实见 `/he
 合成测试覆盖缩短、平移、续住同时改价、已夜审晚保护及应付与逐夜入账明细一致。运行 `node --test test/reservations.test.js test/business-day.test.js` 和 `node verification/dom-folio-split.mjs <jsdom> --amend`。发布后检查 `/healthz`、`/web/app.js` 的 `data-amend-pricing`、`/web/financial-ui.js` 的 `data-movement-charge`。NOBEDS、支付和 TTHotel 仍未配置。
 
 Windows Node 423/425，通过的范围包括本批；其余为两项既有权限测试。Python 5/5，改期续住 DOM 通过。
+
+Actions 42757051292 成功，Linux Node 425/425、Python 5/5。公网健康检查和两个页面标识实见通过。测试覆盖合成数据，未在真实门店执行改期。
