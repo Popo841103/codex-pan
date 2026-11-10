@@ -21,6 +21,15 @@ test('commission closes by recorded month, freezes invoice values and rejects ch
  assert.throws(()=>send(s,'rewrite','commission_save',{...invoice,amount:999}),/commission_period/);
  assert.throws(()=>send(s,'repeat','commission_close_month',{month:'2027-01'}),/commission_period/);
  assert.throws(()=>send(s,'purge','purge_test_orders',{prefix:'TEST'}),/commission_period/);
+ const correction={...invoice,amount:1200,reference:'CREDIT-1',correction:true,note:'Supplier credit memo'};
+ s=send(s,'correction','commission_save',correction);
+ assert.equal(s.orders[0].commission.amount,1500);
+ assert.equal(s.orders[0].commissionCorrections[0].amount,-300);
+ assert.equal(s.commissionPeriods[0].total,1500);
+ assert.throws(()=>send(s,'repeat-correction','commission_save',correction),/commission_input/);
+ s=send({...s,businessDate:'2027-03-01'},'close-feb','commission_close_month',{month:'2027-02'});
+ assert.equal(s.commissionPeriods[1].total,-300);
+ assert.equal(s.commissionPeriods[1].entries[0].originalPeriod,'2027-01');
 });
 
 import {Store} from '../server/store.js';

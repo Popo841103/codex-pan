@@ -549,9 +549,20 @@ export function apply(state, command) {
     if (note.length > 500) reject('commission_input');
     if (typeof command.settled !== 'boolean') reject('commission_input');
     const period=commissionPeriod(order.commission)||(isDate(next.businessDate)?next.businessDate.slice(0,7):commissionPeriod({at:command.at}));
-    if(isCommissionClosed(next,propertyId,period))reject('commission_period');
-    order.commission = {amount: command.amount, reference, note, at: command.at, actor: command.actor || 'local',...(period?{period}:{}),
+    if(command.correction===true){
+      if(!order.commission||!isCommissionClosed(next,propertyId,period)||!isDate(next.businessDate))reject('commission_period');
+      const currentMonth=next.businessDate.slice(0,7);
+      if(isCommissionClosed(next,propertyId,currentMonth))reject('commission_period');
+      const history=order.commissionCorrections??=[];
+      const previous=history.at(-1)?.correctedAmount??order.commission.amount;
+      if(!note||command.amount===previous||reference===order.commission.reference||history.some(row=>row.reference===reference))reject('commission_input');
+      history.push({id:command.id,period:currentMonth,originalPeriod:period,reference,note,
+        amount:command.amount-previous,correctedAmount:command.amount,at:command.at,actor:command.actor||'local'});
+    }else{
+      if(isCommissionClosed(next,propertyId,period))reject('commission_period');
+      order.commission = {amount: command.amount, reference, note, at: command.at, actor: command.actor || 'local',...(period?{period}:{}),
       settledAt: command.settled ? command.at : null, settledBy: command.settled ? (command.actor || 'local') : null};
+    }
   } else if (type === 'cancel') {
     if (order.status !== 'confirmed' || !command.reason?.trim()) reject('state');
     order.finalCharge = money(command.finalCharge);
@@ -632,6 +643,7 @@ export function apply(state, command) {
     ...(type==='undo_reservation_payment'?{reservationId:command.reservationId,reversesBatchId:command.batchId,reason:command.reason.trim()}:{}),
     ...(type==='payment_reservation'?{reservationId:command.reservationId,amount:command.amount,method:command.method,allocations:command.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
     ...(settledStayIds?{reservationId:command.reservationId,settledStayIds}:{}),
+    ...(type==='commission_save'&&command.correction===true?{commissionCorrection:order.commissionCorrections.at(-1)}:{}),
     ...(type==='commission_save'?{commissionChange:{before:commissionBefore,after:order?.commission||null}}:{}), at: command.at });
   return next;
 }
@@ -1004,10 +1016,15 @@ function closeCommissionMonth(state,command){
     settledAt:o.commission.settledAt,settledBy:o.commission.settledBy
   }));
   if(entries.some(e=>!e.settledAt))reject('commission_pending');
+  for(const order of recorded){
+    for(const row of order.commissionCorrections||[]){
+      if(row.period===month)entries.push({...row,orderId:order.id,source:order.source||'direct'});
+    }
+  }
   const grouped=new Map();
   let total=0;
   for(const e of entries){
-    money(e.amount);
+    money(e.originalPeriod?Math.abs(e.amount):e.amount);
     if(!grouped.has(e.source))grouped.set(e.source,{source:e.source,count:0,amount:0});
     const row=grouped.get(e.source);
     row.count++;

@@ -1254,6 +1254,7 @@ export class Store {
         ...(cmd.type==='payment_reservation'?{reservationId:cmd.reservationId,amount:cmd.amount,method:cmd.method,allocations:cmd.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
         ...(cmd.type==='settle_reservation'?{reservationId:cmd.reservationId,settledStayIds:next.orders.filter(o=>o.folioEvents?.at(-1)?.batchId===cmd.id).map(o=>o.id)}:{}),
         ...(cmd.type==='commission_close_month'?{commissionPeriod:{id:cmd.id,month:cmd.month}}:{}),
+        ...(cmd.type==='commission_save'&&cmd.correction===true?{commissionCorrection:next.orders.find(o=>o.id===cmd.orderId)?.commissionCorrections?.at(-1)}:{}),
         ...(cmd.type==='commission_save'?{commissionChange:{before:before.orders.find(o=>o.id===cmd.orderId)?.commission||null,after:next.orders.find(o=>o.id===cmd.orderId)?.commission||null}}:{}),
         // A handover's cash count and a variance approval are business facts, so the
         // durable audit keeps the figures and the reason. It never carries a guest name.

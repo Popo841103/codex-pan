@@ -827,6 +827,15 @@ $('#content').addEventListener('submit',async event=>{
 });
 // A channel commission is a real figure read off an invoice, never a calculated rate.
 $('#content').addEventListener('submit',async event=>{
+  if(event.target.matches('[data-commission-correct]')){
+    event.preventDefault();
+    const form=event.target;
+    try{
+      await commit({type:'commission_save',correction:true,settled:true,orderId:form.dataset.commissionCorrect,
+        amount:toMinor(form.elements.amount.value),reference:form.elements.reference.value,note:form.elements.note.value});
+    }catch(error){$('#message').textContent=errorText(error);}
+    return;
+  }
   if(event.target.id==='commission-close-form'){
     event.preventDefault();
     try{await commit({type:'commission_close_month',month:new FormData(event.target).get('month')});}

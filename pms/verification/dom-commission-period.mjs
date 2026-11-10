@@ -58,7 +58,15 @@ try {
  await until(()=>store.read(operator).commissionPeriods.length===1&&document.querySelector('[data-commission-period="2027-01"]')?.textContent.includes('TEST-INV-MONTH'),'frozen commission displayed');
  assert.equal(store.read(operator).commissionPeriods[0].total,1750);
  assert.equal(document.querySelectorAll('#commission-form [name="orderId"] option').length,0);
- console.log('Commission month DOM passed');
+ const correction=$('[data-commission-correct]');
+ correction.elements.amount.value='12.50';
+ correction.elements.reference.value='TEST-CREDIT-MONTH';
+ correction.elements.note.value='TEST credit memo';
+ correction.querySelector('button').click();
+ await until(()=>store.read(operator).orders[0].commissionCorrections?.length===1,'commission correction recorded');
+ assert.equal(store.read(operator).orders[0].commissionCorrections[0].amount,-500);
+ assert.equal(store.read(operator).commissionPeriods[0].total,1750);
+ console.log('Commission month and correction DOM passed');
 }finally {
   global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();dom.window.close();
 }
