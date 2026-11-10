@@ -68,7 +68,7 @@ test('claims have database uniqueness; a failed allocation rolls back all state'
  const {store,admin}=fixture(t),a=execute(store,admin,create({resourceId:'TEST-KL-R1'}));
  assert.throws(()=>execute(store,admin,create({resourceId:'TEST-KL-R1'}),1),e=>code(e,'inventory_conflict'));
  assert.equal(store.read(admin).orders.length,1);assert.equal(store.read(admin).audit.length,1);
- assert.throws(()=>store.db.prepare('INSERT INTO claims VALUES(?,?,?,?)').run('TEST-KL','TEST-KL-R1','2027-01-10','other'),/UNIQUE/);
+ assert.throws(()=>store.db.prepare('INSERT INTO claims VALUES(?,?,?,?)').run('TEST-KL','TEST-KL-R1','2027-01-10@00','other'),/UNIQUE/);
  assert.equal(store.read(admin).orders[0].id,a.id);
 });
 test('separate worker connections race for last room without overselling',async t=>{

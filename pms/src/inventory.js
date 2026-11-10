@@ -1,13 +1,24 @@
 // Pure test-environment planner. Production writes require database transactions.
 export class InventoryConflict extends Error {}
 const fail = message => { throw new InventoryConflict(message); };
-const overlaps = (a, b) => a.start < b.end && b.start < a.end;
+const overlaps = (a, b) => {
+  if (!(a.start < b.end && b.start < a.end)) return false;
+  // Only explicitly timed hourly bookings may share a local day. Legacy stays,
+  // overnight accommodation and operational blocks keep the full-day boundary.
+  if (a.hourly?.inventoryPolicy==='hour_slots' && b.hourly?.inventoryPolicy==='hour_slots')
+    return a.hourly.startTime < b.hourly.endTime && b.hourly.startTime < a.hourly.endTime;
+  return true;
+};
 const shares = (a, b) => a.atoms.some(atom => b.atoms.includes(atom));
 function validateInterval(item) {
   for (const value of [item.start, item.end]) {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) fail('Invalid business date');
     const time = Date.parse(`${value}T00:00:00Z`);
     if (!Number.isFinite(time) || new Date(time).toISOString().slice(0, 10) !== value) fail('Invalid business date');
+  }
+  if(item.hourly?.inventoryPolicy==='hour_slots'){
+    const h=item.hourly;
+    if(!/^([01]\d|2[0-3]):00$/.test(h.startTime)||!/^([01]\d|2[0-3]|24):00$/.test(h.endTime)||h.startTime>=h.endTime||h.usageDate!==item.start||Date.parse(item.end)-Date.parse(item.start)!==86400000)fail('Invalid hourly interval');
   }
   if (item.start >= item.end) fail('Stay must contain at least one night');
 }
@@ -56,5 +67,5 @@ export function planInventory({ propertyId, resources, demands, blocks = [] }) {
   }
   if (!search(0)) fail('No continuous allocation satisfies inventory constraints');
   return chosen.map(({ demand, resource }) => ({ demandId: demand.id, resourceId: resource.id,
-    roomId: resource.roomId, atoms: [...resource.atoms], start: demand.start, end: demand.end }));
+    roomId: resource.roomId, atoms: [...resource.atoms], start: demand.start, end: demand.end, ...(demand.hourly?{hourly:demand.hourly}:{}) }));
 }

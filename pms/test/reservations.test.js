@@ -77,7 +77,7 @@ test('one SQLite transaction, revision, receipt and audit record cover all stays
   store.seedTestProperties();const admin=store.createUser({username:'test-parent-admin',password:'test-password-only',role:'admin',propertyIds:[pid]});
   const input={key:randomUUID(),expectedRevision:0,command:request()};const saved=store.command(admin,input);assert.equal(store.command(admin,input).replayed,true);
   const state=store.read(admin);assert.equal(state.orders.length,2);assert.equal(state.reservations.length,1);assert.equal(state.audit.length,1);assert.equal(state.revisions[pid],1);
-  assert.equal(state.audit[0].reservationId,saved.id);assert.equal(state.audit[0].stayIds.length,2);assert.equal(store.db.prepare('SELECT COUNT(*) AS n FROM claims').get().n,4);
+  assert.equal(state.audit[0].reservationId,saved.id);assert.equal(state.audit[0].stayIds.length,2);assert.equal(store.db.prepare("SELECT COUNT(DISTINCT atom || ':' || substr(night,1,10)) AS n FROM claims").get().n,4);
   const before=JSON.stringify(state);assert.throws(()=>store.command(admin,{key:randomUUID(),expectedRevision:1,command:request({stays:[row({resourceId:'TEST-KL-R1'}),row({resourceId:'TEST-KL-R1'})]})}),/inventory_conflict/);
   assert.equal(JSON.stringify(store.read(admin)),before);
   for(const role of ['finance','viewer']) {const user=store.createUser({username:'test-parent-'+role,password:'test-password-only',role,propertyIds:[pid]});assert.throws(()=>store.command(user,{...input,key:randomUUID(),expectedRevision:1}),/forbidden/);}

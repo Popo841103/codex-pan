@@ -171,7 +171,7 @@ export function nightInventory(state,propertyId,date){
   for(const r of outOfService)blocked[r.productId]++;
   for(const r of insideSuite)withinSuite[r.productId]++;
   for(const o of (state.orders||[])){
-    if(o.propertyId!==propertyId||!occupiesInventory(o))continue;
+    if(o.propertyId!==propertyId||!occupiesInventory(o)||o.hourly)continue;
     if(!o.start||!o.end||!(date>=o.start&&date<o.end))continue;
     const pid=PRODUCTS.includes(o.productId)?o.productId:'room',value=nightPrice(o,date);
     const res=o.resourceId?sellable.find(r=>r.id===o.resourceId)||(state.resources||[]).find(r=>r.id===o.resourceId):null;
@@ -587,7 +587,8 @@ export function parityReport(state,q){
    const blocks=(state.blocks||[]).filter(b=>b.propertyId===q.propertyId&&b.start<=date&&b.end>date);
    const blocked=(r,kind)=>blocks.some(b=>(b.blockType||'maintenance')===kind&&r.atoms.some(a=>b.atoms.includes(a)));
    const shared=resources.filter(r=>allOrders.some(o=>o.resourceId!==r.id&&occupiesInventory(o)&&o.start<=date&&(o.end>date||o.status==='checked_in'&&o.end<=q.businessDate&&date>=q.businessDate)&&saleResources(state,q.propertyId).some(u=>u.id===o.resourceId&&u.atoms.some(a=>r.atoms.includes(a)))));
-   rows.push({date,roomTypeId:type.id,productId:type.productId,capacity:resources.length,sellable:resources.filter(r=>!blocked(r,'maintenance')&&!blocked(r,'out_of_service')&&!shared.includes(r)).length,occupied:active.length,staying:active.filter(o=>o.end!==date).length,departing:stays.filter(o=>!isBoxed(o)&&o.status!=='cancelled'&&o.end===date).length,arriving:stays.filter(o=>occupiesInventory(o)&&o.start===date).length,unassigned:active.filter(o=>!o.resourceId).length,boxed:stays.filter(o=>isBoxed(o)&&o.start<=date&&o.end>date).length,cancelled:stays.filter(o=>o.status==='cancelled'&&o.start<=date&&o.end>date).length,hold:resources.filter(r=>blocked(r,'hold')).length,maintenance:resources.filter(r=>blocked(r,'maintenance')).length,outOfService:resources.filter(r=>blocked(r,'out_of_service')).length,linkedClosed:shared.length,clean:resources.filter(r=>r.cleaning==='clean').length,dirty:resources.filter(r=>r.cleaning==='dirty').length,available:rateAvailability(state,q.propertyId,type.id,date,q.businessDate),channelOccupied:allSource?active.length:active.filter(o=>o.source===q.source).length});
+   const units=list=>new Set(list.map(o=>o.resourceId||o.id)).size;
+   rows.push({date,roomTypeId:type.id,productId:type.productId,capacity:resources.length,sellable:resources.filter(r=>!blocked(r,'maintenance')&&!blocked(r,'out_of_service')&&!shared.includes(r)).length,occupied:units(active),staying:units(active.filter(o=>o.end!==date)),departing:stays.filter(o=>!isBoxed(o)&&o.status!=='cancelled'&&o.end===date).length,arriving:stays.filter(o=>occupiesInventory(o)&&o.start===date).length,unassigned:active.filter(o=>!o.resourceId).length,boxed:stays.filter(o=>isBoxed(o)&&o.start<=date&&o.end>date).length,cancelled:stays.filter(o=>o.status==='cancelled'&&o.start<=date&&o.end>date).length,hold:resources.filter(r=>blocked(r,'hold')).length,maintenance:resources.filter(r=>blocked(r,'maintenance')).length,outOfService:resources.filter(r=>blocked(r,'out_of_service')).length,linkedClosed:shared.length,clean:resources.filter(r=>r.cleaning==='clean').length,dirty:resources.filter(r=>r.cleaning==='dirty').length,available:rateAvailability(state,q.propertyId,type.id,date,q.businessDate),channelOccupied:allSource?units(active):units(active.filter(o=>o.source===q.source))});
   }
  }else if(['housekeepingCalendar','housekeepingList'].includes(q.kind)){
   if(!allSource)throw Error('report_input');

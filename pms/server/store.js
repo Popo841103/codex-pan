@@ -60,7 +60,7 @@ export class Store {
     this.db = new DatabaseSync(path);
     // Persistent triggers reject writes from an older runtime after a code rollback.
     // Registration belongs to this connection; old code cannot accidentally inherit it.
-    this.db.function('jovian_writer_generation', { deterministic: true }, () => 9);
+    this.db.function('jovian_writer_generation', { deterministic: true }, () => 10);
     this.db.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY);
       INSERT OR IGNORE INTO schema_version VALUES(1);
@@ -73,6 +73,8 @@ export class Store {
         WHEN jovian_writer_generation() < 8 BEGIN SELECT RAISE(ABORT,'incompatible_runtime'); END;
       CREATE TRIGGER IF NOT EXISTS properties_runtime_guard_v9 BEFORE UPDATE OF body ON properties
         WHEN jovian_writer_generation() < 9 BEGIN SELECT RAISE(ABORT,'incompatible_runtime'); END;
+      CREATE TRIGGER IF NOT EXISTS properties_runtime_guard_v10 BEFORE UPDATE OF body ON properties
+        WHEN jovian_writer_generation() < 10 BEGIN SELECT RAISE(ABORT,'incompatible_runtime'); END;
       CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, salt TEXT NOT NULL, password_hash TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('admin','operations','finance','viewer')), active INTEGER NOT NULL DEFAULT 1);
       CREATE TABLE IF NOT EXISTS user_properties (user_id TEXT NOT NULL REFERENCES users(id), property_id TEXT NOT NULL REFERENCES properties(id),
@@ -1140,7 +1142,7 @@ export class Store {
       result.shiftTypes.push(...(body.shiftTypes||[]).map(entry=>({...entry,propertyId:id})));
       result.handovers.push(...(body.handovers||[]).map(entry=>({...entry,propertyId:id})));
       const visibleNotice=n=>fresh.role==='admin'||!n.recipient||n.recipient===fresh.username||n.actor===fresh.username;
-      for(const field of ['receptionHistory','completionHistory','operationsHistory','directoryHistory','customerTagHistory','memoHistory','noticeScopes','staffNotices','noticeWithdrawals','commissionRates','listingDrafts','contentHistory']){
+      for(const field of ['deskHistory','receptionHistory','completionHistory','operationsHistory','directoryHistory','customerTagHistory','memoHistory','noticeScopes','staffNotices','noticeWithdrawals','commissionRates','listingDrafts','contentHistory']){
         result[field]??=[];result[field].push(...(body[field]||[]).filter(r=>r.propertyId===id&&
           (field!=='staffNotices'||visibleNotice(r))&&(field!=='noticeWithdrawals'||(body.staffNotices||[]).some(n=>n.id===r.noticeId&&visibleNotice(n)))));
       }
@@ -1218,7 +1220,7 @@ export class Store {
       // A property override decides what this account may do here, not its account role.
       // The override may name a built-in role or one this property defined itself.
       const allowed=this.permissionsFor(rowUser,propertyId);
-      const batchAdmin=['customer_link','meal_grant','meal_reverse','directory_entry_save','customer_tag_set','commission_close_month','notice_scope_save','commission_rate_save','listing_draft_save','booking_content_save'];
+      const batchAdmin=['desk_setting_save','ical_import','ical_revoke','corporate_link','customer_link','meal_grant','meal_reverse','directory_entry_save','customer_tag_set','commission_close_month','notice_scope_save','commission_rate_save','listing_draft_save','booking_content_save'];
       if(batchAdmin.includes(command.type)&&rowUser.role!=='admin')error(403,'forbidden');
       if(command.type==='housekeeping_task'&&command.assignee&&!this.db.prepare('SELECT 1 FROM users u JOIN user_properties p ON p.user_id=u.id WHERE u.username=? AND p.property_id=? AND u.active=1').get(command.assignee,propertyId))error(400,'scope');
       if(['notice_scope_save','notice_send'].includes(command.type)){const account=command.username||command.recipient;if(account&&!this.db.prepare('SELECT 1 FROM users u JOIN user_properties p ON p.user_id=u.id WHERE u.username=? AND p.property_id=? AND u.active=1').get(account,propertyId))error(400,'scope');}
@@ -1226,7 +1228,7 @@ export class Store {
       if(command.type==='create_reservation'&&command.mode==='checkin'&&!allowed.includes('checkin'))error(403,'forbidden');
       // Rewriting nights already closed by a night audit stays an administrator-only override.
       if(command.auditOverride===true&&rowUser.role!=='admin')error(403,'forbidden');
-      if(!allowed.includes(({create_hourly:'create',customer_link:'room_type_save',quick_entry:'payment',item_charge:'edit',housekeeping_task:'clean',reservation_failure_record:'create',meal_grant:'room_type_save',meal_redeem:'checkin',meal_reverse:'room_type_save',inspection_record:'clean',directory_entry_save:'room_type_save',customer_tag_set:'room_type_save',notice_scope_save:'notice_rule_save',commission_rate_save:'commission_close_month',listing_draft_save:'room_type_save',booking_content_save:'site_save',notice_send:'memo_save',notice_withdraw:'memo_save',undo_checkin:'checkin',undo_checkout:'checkout',restore_cancel:'cancel'})[command.type]||command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
+      if(!allowed.includes(({desk_setting_save:'room_type_save',ical_import:'block',ical_revoke:'unblock',corporate_link:'room_type_save',desk_task_save:'memo_save',create_hourly:'create',customer_link:'room_type_save',quick_entry:'payment',item_charge:'edit',housekeeping_task:'clean',reservation_failure_record:'create',meal_grant:'room_type_save',meal_redeem:'checkin',meal_reverse:'room_type_save',inspection_record:'clean',directory_entry_save:'room_type_save',customer_tag_set:'room_type_save',notice_scope_save:'notice_rule_save',commission_rate_save:'commission_close_month',listing_draft_save:'room_type_save',booking_content_save:'site_save',notice_send:'memo_save',notice_withdraw:'memo_save',undo_checkin:'checkin',undo_checkout:'checkout',restore_cancel:'cancel'})[command.type]||command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
       // A request is decided once. Replaying the same key answers from the receipt above;
@@ -1245,16 +1247,17 @@ export class Store {
       // Database occupancy constraints include internal, unassigned reservations.
       this.db.prepare('DELETE FROM claims WHERE property_id=?').run(propertyId);
       const insert=this.db.prepare('INSERT INTO claims VALUES(?,?,?,?)');
-      const add=(atoms,start,end,owner)=>{
+      const add=(atoms,start,end,owner,hourly)=>{
         for(let day=start;day<end;day=new Date(Date.parse(day+'T00:00:00Z')+86400000).toISOString().slice(0,10))
-          for(const atom of atoms)insert.run(propertyId,atom,day,owner);
+          for(const atom of atoms)for(let hour=hourly?.inventoryPolicy==='hour_slots'?Number(hourly.startTime.slice(0,2)):0;hour<(hourly?.inventoryPolicy==='hour_slots'?Number(hourly.endTime.slice(0,2)):24);hour++)insert.run(propertyId,atom,day+'@'+String(hour).padStart(2,'0'),owner);
       };
-      for(const p of preview(next,propertyId))add(p.atoms,p.start,p.end,p.demandId);
+      for(const p of preview(next,propertyId))add(p.atoms,p.start,p.end,p.demandId,p.hourly);
       // Overlapping operational blocks are allowed, but cannot overlap a reservation.
-      for(const b of next.blocks)for(let day=b.start;day<b.end;day=new Date(Date.parse(day+'T00:00:00Z')+86400000).toISOString().slice(0,10))for(const atom of b.atoms){
-        const prior=this.db.prepare('SELECT owner FROM claims WHERE property_id=? AND atom=? AND night=?').get(propertyId,atom,day);
+      for(const b of next.blocks)for(let day=b.start;day<b.end;day=new Date(Date.parse(day+'T00:00:00Z')+86400000).toISOString().slice(0,10))for(const atom of b.atoms)for(let hour=0;hour<24;hour++){
+        const slot=day+'@'+String(hour).padStart(2,'0');
+        const prior=this.db.prepare('SELECT owner FROM claims WHERE property_id=? AND atom=? AND night=?').get(propertyId,atom,slot);
         if(prior&&!prior.owner.startsWith('block:'))error(409,'inventory_conflict');
-        if(!prior)insert.run(propertyId,atom,day,`block:${b.id}`);
+        if(!prior)insert.run(propertyId,atom,slot,`block:${b.id}`);
       }
       const revision=row.revision+1;
       const localAudit=next.audit[0];

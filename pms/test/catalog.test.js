@@ -140,7 +140,7 @@ test('database suite reservation claims every component and conflicting child wr
     const suite=execute({type:'suite_save',label:'TEST DB suite',roomTypeId:type.id,roomIds:['TEST-KL-R1','TEST-KL-R2']});
     const booked=execute({type:'create',guest:'TEST DB Guest',productId:'suite',roomTypeId:type.id,resourceId:suite.id,gender:'any',start:'2027-01-10',end:'2027-01-12'});
     const claims=store.db.prepare('SELECT * FROM claims ORDER BY atom,night').all();
-    assert.equal(claims.length,4);assert(claims.every(c=>c.owner===booked.id));
+    assert.equal(claims.length,4*24);assert(claims.every(c=>/^\d{4}-\d{2}-\d{2}@\d{2}$/.test(c.night)));assert(claims.every(c=>c.owner===booked.id));
     const before=JSON.stringify(store.read(admin));
     assert.throws(()=>execute({type:'create',guest:'TEST conflict',productId:'room',resourceId:'TEST-KL-R1',gender:'any',start:'2027-01-10',end:'2027-01-11'}),/inventory_conflict/);
     assert.equal(JSON.stringify(store.read(admin)),before);

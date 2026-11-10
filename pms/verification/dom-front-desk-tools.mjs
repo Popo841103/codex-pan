@@ -91,7 +91,8 @@ try {
   assert.equal($('[data-registration-count]').textContent.trim(),'0');
   set('[data-batch-print] [name="status"]','confirmed');
   assert.equal($('[data-registration-count]').textContent.trim(),'1');
-  assert.equal($('[data-batch-print]').querySelectorAll('button').length,0);
+  assert.equal($('[data-batch-print]').querySelectorAll('[data-stay-print-card]').length,1);
+  let batchPrinted=false;dom.window.print=()=>{batchPrinted=document.body.classList.contains('stay-print');};$('[data-batch-print] [data-stay-print]').click();assert(batchPrinted);assert(!document.body.classList.contains('stay-print'));
   set('[data-batch-print] [name="date"]','2027-01-21');
   assert.equal($('[data-registration-count]').textContent.trim(),'0');
   close();
@@ -105,6 +106,8 @@ try {
     if(key==='print'){
       $('[data-print-tab="registration"]').click();
       assert.equal($('[data-print-tab="registration"]').getAttribute('aria-selected'),'true');
+      assert($('[data-stay-print-card]').textContent.includes(read().orders.find(o=>o.id===stay.id).guest));
+      let stayPrinted=false;dom.window.print=()=>{stayPrinted=document.body.classList.contains('stay-print');};$('[data-print-center] [data-stay-print]').click();assert(stayPrinted);
     }
     if(key==='self-checkin'){
       const buttons=$('[data-self-checkin-preview]').querySelectorAll('button');

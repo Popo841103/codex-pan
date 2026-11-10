@@ -38,7 +38,7 @@ test('bulk commands use one transaction, receipt and audit event; finance cannot
  const result=store.command(admin,request);assert.equal(store.command(admin,request).replayed,true);
  const state=store.read(admin);assert.equal(state.revisions['TEST-KL'],1);assert.equal(state.blocks.length,1);assert.equal(state.audit.length,1);assert.equal(state.audit[0].resourceIds.length,2);
  assert.throws(()=>store.command(finance,{...request,key:'finance-request'}),/forbidden/);
- assert.equal(store.db.prepare('SELECT COUNT(*) n FROM claims').get().n,6);
+ assert.equal(store.db.prepare("SELECT COUNT(DISTINCT atom || ':' || substr(night,1,10)) n FROM claims").get().n,6);
  const before=JSON.stringify(store.read(admin));
  assert.throws(()=>store.command(admin,{key:'invalid-request',expectedRevision:1,command:command('bulk_clean',{resourceIds:['TEST-KL-R3','TEST-PG-R1'],cleaning:'dirty'})}),/scope/);
  assert.equal(JSON.stringify(store.read(admin)),before);assert.ok(result.id);

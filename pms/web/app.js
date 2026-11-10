@@ -1,4 +1,5 @@
-import {completionPanel,operationsPanel} from './workspace-ui.js';
+import {deskReplies,deskSettings,deskTasks,hourlyInventory} from '../src/demo-store.js';
+import {deskPanel,completionPanel,operationsPanel} from './workspace-ui.js';
 import {directoryPanel} from './workspace-ui.js';
 import {directoryEntries} from '../src/demo-store.js';
 import {parityReport,parityCsv,occupancyIcal,previewIcal} from '../src/financial-reports.js';
@@ -197,7 +198,8 @@ function render() {
   }
   $('#content').insertAdjacentHTML('beforeend',internalOperationsPanel({state,propertyId,lang,username:backend.user?.username||'local',admin:backend.shared?backend.user?.role==='admin':true,view,escape}));
   if(view==='parityWorkspace')runParityQuery();
-  if(['customers','resourcesSettings','parityWorkspace'].includes(view)){const admin=backend.shared?backend.user?.role==='admin':true;$('#content').insertAdjacentHTML('beforeend',directoryPanel({state,propertyId,lang,admin,escape})+operationsPanel({state,propertyId,lang,admin,escape})+completionPanel({state,propertyId,lang,admin,escape}));updateInspectionItems();}
+  if(['home','channels'].includes(view))$('#content').insertAdjacentHTML('beforeend',deskPanel({state,propertyId,lang,admin:backend.shared?backend.user?.role==='admin':true,escape,compact:view==='home'}));
+  if(['customers','resourcesSettings','parityWorkspace'].includes(view)){const admin=backend.shared?backend.user?.role==='admin':true;$('#content').insertAdjacentHTML('beforeend',directoryPanel({state,propertyId,lang,admin,escape})+operationsPanel({state,propertyId,lang,admin,escape})+completionPanel({state,propertyId,lang,admin,escape})+deskPanel({state,propertyId,lang,admin,escape}));updateInspectionItems();}
   loadInternalContent(document.querySelector('[data-internal-command="booking_content_save"]'));
   updateBell();
 }
@@ -441,7 +443,7 @@ function openDetail(id) {
     const undoButton=e.target.closest('[data-stay-reversal]');
     if(undoButton&&!undoButton.disabled&&window.confirm(t(undoButton.dataset.stayReversal)+' — '+t('stayStateOnly')))act({type:undoButton.dataset.stayReversal});
     const previewButton=e.target.closest('[data-stay-preview]');
-    if(previewButton)showStayPreview(previewButton.dataset.stayPreview);
+    if(previewButton)showStayPreview(previewButton.dataset.stayPreview,'general',id);
   };
   $('#detail-body').onkeydown=e=>{const tab=e.target.closest('[data-detail-tab]');if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const tabs=['details','bill','audit','channel'];detailTab=e.key==='Home'?tabs[0]:e.key==='End'?tabs.at(-1):tabs[(tabs.indexOf(detailTab)+(e.key==='ArrowRight'?1:3))%4];openDetail(id);$(`#detail-tab-${detailTab}`).focus();};
   if($('#detail-box'))$('#detail-box').onclick=()=>openBoxAction([id],isBoxed(o)?'restore_stays':'box_stays',()=>openDetail(id));
@@ -671,9 +673,9 @@ $('#content').addEventListener('drop',e=>{
 });
 
 const referenceTools={
- zh:{referenceNoData:'暂无数据',roomLogs:'房态日志',smartLockList:'智能锁列表',privateDoor:'客房锁',commonDoor:'公共门',lockSearch:'搜索房型、房号、锁名或锁 ID',lockSetup:'使用前需在设置中配置锁信息。此门店尚未开通智能锁。',batchPrint:'批量打印',dateKind:'日期类型',registrationCount:'可打印登记卡数量（预览）',scheduled:'计划任务',scheduledTask:'计划任务',printCenter:'打印中心',printGeneral:'常规',registrationCard:'登记卡',printSetup:'请先完成基础设置。',setup:'设置',selfCheckinPreview:'自助入住',generateCode:'生成代码',confirmPreview:'确认',previewOnly:'仅预览',roomNo:'房号',roomTypeName:'房型名称',operationTime:'操作时间',startTime:'开始时间',endTime:'结束时间',operation:'操作内容',logDate:'操作日期',roomLogLimit:'显示当前可见的门店操作记录。未记录的历史字段显示为空。',log_blocked:'关房',log_open:'开房',log_clean:'置净',log_dirty:'置脏',log_out_of_service:'停用'},
- en:{referenceNoData:'No Data',roomLogs:'Room Status Logs',smartLockList:'Smart Lock',privateDoor:'Private Door',commonDoor:'Common Door',lockSearch:'Search room type, room number, lock name or lock ID',lockSetup:'Configure lock information in Settings before use. Smart locks are unavailable for this property.',batchPrint:'Batch Print',dateKind:'Date type',registrationCount:'Printable registration cards (preview)',scheduled:'Scheduled',scheduledTask:'Scheduled Task',printCenter:'Print Center',printGeneral:'General',registrationCard:'Registration Card',printSetup:'Complete the basic setup first.',setup:'Set up',selfCheckinPreview:'Self Check-in',generateCode:'Generate Code',confirmPreview:'Confirm',previewOnly:'Preview only',roomNo:'Room number',roomTypeName:'Room type name',operationTime:'Operation time',startTime:'Start time',endTime:'End time',operation:'Operation',logDate:'Operation date',roomLogLimit:'Shows visible property activity. Unrecorded historical fields are blank.',log_blocked:'Blocked',log_open:'Open Room',log_clean:'Clean Room',log_dirty:'Dirty Room',log_out_of_service:'Out of Service'},
- ms:{referenceNoData:'Tiada Data',roomLogs:'Log Status Bilik',smartLockList:'Kunci Pintar',privateDoor:'Pintu Bilik',commonDoor:'Pintu Bersama',lockSearch:'Cari jenis bilik, nombor bilik, nama kunci atau ID kunci',lockSetup:'Tetapkan maklumat kunci dalam Tetapan sebelum digunakan. Kunci pintar belum tersedia di hartanah ini.',batchPrint:'Cetak Pukal',dateKind:'Jenis tarikh',registrationCount:'Bilangan kad pendaftaran untuk dicetak (pratonton)',scheduled:'Berjadual',scheduledTask:'Tugas Berjadual',printCenter:'Pusat Cetakan',printGeneral:'Umum',registrationCard:'Kad Pendaftaran',printSetup:'Lengkapkan persediaan asas dahulu.',setup:'Sediakan',selfCheckinPreview:'Daftar Masuk Kendiri',generateCode:'Jana Kod',confirmPreview:'Sahkan',previewOnly:'Pratonton sahaja',roomNo:'Nombor bilik',roomTypeName:'Nama jenis bilik',operationTime:'Masa operasi',startTime:'Masa mula',endTime:'Masa tamat',operation:'Tindakan',logDate:'Tarikh tindakan',roomLogLimit:'Menunjukkan aktiviti hartanah yang boleh dilihat. Medan sejarah yang tidak direkodkan kosong.',log_blocked:'Disekat',log_open:'Buka Bilik',log_clean:'Bilik Bersih',log_dirty:'Bilik Kotor',log_out_of_service:'Tidak Beroperasi'}
+ zh:{referenceNoData:'暂无数据',roomLogs:'房态日志',smartLockList:'智能锁列表',privateDoor:'客房锁',commonDoor:'公共门',lockSearch:'搜索房型、房号、锁名或锁 ID',lockSetup:'使用前需在设置中配置锁信息。此门店尚未开通智能锁。',batchPrint:'批量打印',dateKind:'日期类型',registrationCount:'可打印内部登记卡数量',scheduled:'计划任务',scheduledTask:'计划任务',printCenter:'打印中心',printGeneral:'常规',registrationCard:'登记卡',printSetup:'请先完成基础设置。',setup:'设置',selfCheckinPreview:'自助入住',generateCode:'生成代码',confirmPreview:'确认',previewOnly:'仅预览',roomNo:'房号',roomTypeName:'房型名称',operationTime:'操作时间',startTime:'开始时间',endTime:'结束时间',operation:'操作内容',logDate:'操作日期',roomLogLimit:'显示当前可见的门店操作记录。未记录的历史字段显示为空。',log_blocked:'关房',log_open:'开房',log_clean:'置净',log_dirty:'置脏',log_out_of_service:'停用'},
+ en:{referenceNoData:'No Data',roomLogs:'Room Status Logs',smartLockList:'Smart Lock',privateDoor:'Private Door',commonDoor:'Common Door',lockSearch:'Search room type, room number, lock name or lock ID',lockSetup:'Configure lock information in Settings before use. Smart locks are unavailable for this property.',batchPrint:'Batch Print',dateKind:'Date type',registrationCount:'Printable internal registration cards',scheduled:'Scheduled',scheduledTask:'Scheduled Task',printCenter:'Print Center',printGeneral:'General',registrationCard:'Registration Card',printSetup:'Complete the basic setup first.',setup:'Set up',selfCheckinPreview:'Self Check-in',generateCode:'Generate Code',confirmPreview:'Confirm',previewOnly:'Preview only',roomNo:'Room number',roomTypeName:'Room type name',operationTime:'Operation time',startTime:'Start time',endTime:'End time',operation:'Operation',logDate:'Operation date',roomLogLimit:'Shows visible property activity. Unrecorded historical fields are blank.',log_blocked:'Blocked',log_open:'Open Room',log_clean:'Clean Room',log_dirty:'Dirty Room',log_out_of_service:'Out of Service'},
+ ms:{referenceNoData:'Tiada Data',roomLogs:'Log Status Bilik',smartLockList:'Kunci Pintar',privateDoor:'Pintu Bilik',commonDoor:'Pintu Bersama',lockSearch:'Cari jenis bilik, nombor bilik, nama kunci atau ID kunci',lockSetup:'Tetapkan maklumat kunci dalam Tetapan sebelum digunakan. Kunci pintar belum tersedia di hartanah ini.',batchPrint:'Cetak Pukal',dateKind:'Jenis tarikh',registrationCount:'Bilangan kad pendaftaran dalaman untuk dicetak',scheduled:'Berjadual',scheduledTask:'Tugas Berjadual',printCenter:'Pusat Cetakan',printGeneral:'Umum',registrationCard:'Kad Pendaftaran',printSetup:'Lengkapkan persediaan asas dahulu.',setup:'Sediakan',selfCheckinPreview:'Daftar Masuk Kendiri',generateCode:'Jana Kod',confirmPreview:'Sahkan',previewOnly:'Pratonton sahaja',roomNo:'Nombor bilik',roomTypeName:'Nama jenis bilik',operationTime:'Masa operasi',startTime:'Masa mula',endTime:'Masa tamat',operation:'Tindakan',logDate:'Tarikh tindakan',roomLogLimit:'Menunjukkan aktiviti hartanah yang boleh dilihat. Medan sejarah yang tidak direkodkan kosong.',log_blocked:'Disekat',log_open:'Buka Bilik',log_clean:'Bilik Bersih',log_dirty:'Bilik Kotor',log_out_of_service:'Tidak Beroperasi'}
 };
 for(const [locale,labels] of Object.entries(referenceTools))Object.assign(words[locale],labels);
 
@@ -731,24 +733,32 @@ function showSmartLock(tab='private',query=''){
   panel.querySelectorAll('[data-lock-tab]').forEach(button=>button.onclick=()=>showSmartLock(button.dataset.lockTab,panel.querySelector('input').value));
 }
 
+function stayPrintCard(order,tab='registration'){
+ const settings=deskSettings(state,propertyId),resource=state.resources.find(r=>r.id===order.resourceId),f=folio(order);
+ return `<article data-stay-print-card><h2>${escape(settings.print?.values.heading||t(tab==='general'?'printGeneral':'registrationCard'))}</h2><p>${escape(settings.property?.values.displayName||propertyId)}</p><dl>${[[t('guest'),order.guest],[t('roomNo'),resource?.label||'—'],[t('arrival'),order.start],[t('departure'),order.end],[t('status'),t(order.status)],...(tab==='general'?[[t('charge'),currency(f.charge)],[t('due'),currency(f.due)]]:[])].map(([k,v])=>`<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join('')}</dl><p>${rateLabel('内部文件；非税务发票，不提交身份资料。','Internal document; not a tax invoice, no identity submission.','Dokumen dalaman; bukan invois cukai, tiada penyerahan identiti.')}</p><p>${escape(settings.print?.values.footer||'')}</p></article>`;
+}
+
 function showBatchPrint(){
   const resources=saleResources(state,propertyId);
-  openUtility('batchPrint',`<section data-batch-print><div class="order-filters"><label>${t('dateKind')}<select name="dateKind"><option value="arrival">${t('arrival')}</option></select></label><label>${t('date')}<input type="date" name="date" value="${escape(calendarDate||businessDate())}"></label><label>${t('roomNo')}<select name="room"><option value="">${t('all')}</option>${resources.map(r=>`<option value="${escape(r.id)}">${escape(r.label)}</option>`).join('')}</select></label><label>${t('status')}<select name="status">${opts(['all','confirmed','checked_in','checked_out'],'all')}</select></label></div><p>${t('registrationCount')} <output data-registration-count aria-live="polite"></output></p></section>`);
+  openUtility('batchPrint',`<section data-batch-print><div class="order-filters"><label>${t('dateKind')}<select name="dateKind"><option value="arrival">${t('arrival')}</option></select></label><label>${t('date')}<input type="date" name="date" value="${escape(calendarDate||businessDate())}"></label><label>${t('roomNo')}<select name="room"><option value="">${t('all')}</option>${resources.map(r=>`<option value="${escape(r.id)}">${escape(r.label)}</option>`).join('')}</select></label><label>${t('status')}<select name="status">${opts(['all','confirmed','checked_in','checked_out'],'all')}</select></label></div><p>${t('registrationCount')} <output data-registration-count aria-live="polite"></output></p><div data-batch-print-cards></div><button data-stay-print>${rateLabel('打印筛选结果','Print filtered cards','Cetak kad ditapis')}</button></section>`);
   const panel=$('[data-batch-print]');
   const update=()=>{
     const value=name=>panel.querySelector('[name="'+name+'"]').value;
     const [date,room,status]=['date','room','status'].map(value);
-    panel.querySelector('output').textContent=state.orders.filter(o=>o.propertyId===propertyId&&o.start===date&&!isBoxed(o)&&o.status!=='cancelled'&&(!room||o.resourceId===room)&&(status==='all'||o.status===status)).length;
+    const filtered=state.orders.filter(o=>o.propertyId===propertyId&&o.start===date&&!isBoxed(o)&&o.status!=='cancelled'&&(!room||o.resourceId===room)&&(status==='all'||o.status===status));panel.querySelector('output').textContent=filtered.length;panel.querySelector('[data-batch-print-cards]').innerHTML=filtered.map(o=>stayPrintCard(o)).join('');
   };
   panel.oninput=update;panel.onchange=update;update();
 }
 
-function showStayPreview(kind,tab='general'){
+function showStayPreview(kind,tab='general',orderId){
+  const order=state.orders.find(o=>o.id===orderId&&o.propertyId===propertyId);if(!order)return;
   if(kind==='scheduled'){
-    openUtility('scheduledTask',`<section data-scheduled-task><label>${t('filters')}<select><option>${t('all')}</option></select></label><p role="status">${t('referenceNoData')}</p></section>`);
+    const tasks=deskTasks(state,propertyId).filter(r=>r.orderId===order.id);
+    openUtility('scheduledTask',`<section data-scheduled-task><p>${rateLabel('人工到期跟进；不自动执行或发送。','Manual due-date follow-up; no automatic execution or sending.','Susulan tarikh akhir manual; tiada pelaksanaan atau penghantaran automatik.')}</p><ul>${tasks.map(r=>`<li>${escape(r.dueDate)} · ${escape(r.title)} · ${escape(r.status)}</li>`).join('')}</ul><button data-open-desk>${rateLabel('前往前台工作台维护','Maintain in front desk workspace','Urus dalam ruang meja hadapan')}</button></section>`);
+    $('[data-open-desk]').onclick=()=>{$('#utility-dialog').close();$('#detail-dialog').close();view='parityWorkspace';render();const form=$('[data-desk-command="desk_task_save"]');form.closest('details').open=true;form.elements.orderId.value=order.id;};
   }else if(kind==='print'){
-    openUtility('printCenter',`<section data-print-center><div role="tablist">${[['general','printGeneral'],['registration','registrationCard']].map(([key,label])=>`<button type="button" role="tab" aria-selected="${tab===key}" data-print-tab="${key}">${t(label)}</button>`).join('')}</div><p>${t('printSetup')}</p><button type="button" disabled>${t('setup')}</button></section>`);
-    $('[data-print-center]').querySelectorAll('[data-print-tab]').forEach(button=>button.onclick=()=>showStayPreview('print',button.dataset.printTab));
+    openUtility('printCenter',`<section data-print-center><div role="tablist">${[['general','printGeneral'],['registration','registrationCard']].map(([key,label])=>`<button type="button" role="tab" aria-selected="${tab===key}" data-print-tab="${key}">${t(label)}</button>`).join('')}</div>${stayPrintCard(order,tab)}<button data-stay-print>${rateLabel('打印内部文件','Print internal document','Cetak dokumen dalaman')}</button></section>`);
+    $('[data-print-center]').querySelectorAll('[data-print-tab]').forEach(button=>button.onclick=()=>showStayPreview('print',button.dataset.printTab,order.id));
   }else if(kind==='self-checkin'){
     openUtility('selfCheckinPreview',`<section data-self-checkin-preview><p>${t('previewOnly')}</p><div class="actions"><button type="button" disabled>${t('generateCode')}</button><button type="button" data-close-checkin-preview>${t('cancel')}</button><button type="button" disabled>${t('confirmPreview')}</button></div></section>`);
     $('[data-close-checkin-preview]').onclick=()=>$('#utility-dialog').close();
@@ -1479,3 +1489,17 @@ $('#content').addEventListener('submit',async event=>{
 });
 
 $('#utility-body')?.addEventListener('click',event=>{if(event.target.closest('[data-invoice-print]')){document.body.classList.add('invoice-print');try{window.print();}finally{document.body.classList.remove('invoice-print');}}});
+
+$('#content').addEventListener('submit',async event=>{
+ const form=event.target;if(!form.matches('[data-desk-command]'))return;event.preventDefault();const button=form.querySelector('button');button.disabled=true;
+ try{const data=Object.fromEntries(new FormData(form));if('active' in data)data.active=data.active==='true';await commit({type:form.dataset.deskCommand,...data});render();}catch(error){form.querySelector('output').textContent=errorText(error);button.disabled=false;}
+});
+$('#content').addEventListener('click',event=>{if(event.target.closest('[data-desk-print]')){document.body.classList.add('desk-print');try{window.print();}finally{document.body.classList.remove('desk-print');}}});
+
+$('#content').addEventListener('click',async event=>{if(event.target.closest('[data-desk-copy]')){const section=event.target.closest('[data-desk-section]'),value=event.target.closest('[data-desk-copy]').dataset.copyText;try{await navigator.clipboard.writeText(value);section.querySelector('[data-desk-copy-status]').textContent=rateLabel('已复制','Copied','Disalin');}catch{section.querySelector('[data-desk-copy-status]').textContent=rateLabel('请手动选择正文复制','Select text to copy manually','Pilih teks untuk salin manual');}}});
+
+$('#content').addEventListener('submit',event=>{const form=event.target;if(!form.matches('[data-hour-grid]'))return;event.preventDefault();try{const rows=hourlyInventory(state,propertyId,form.elements.usageDate.value,form.elements.resourceId.value);form.querySelector('[data-hour-grid-result]').innerHTML='<table><tbody>'+rows.map(r=>'<tr><th>'+r.startTime+'–'+r.endTime+'</th><td>'+({available:rateLabel('可预订','Available','Tersedia'),reserved:rateLabel('已预订','Reserved','Ditempah'),blocked:rateLabel('关房','Blocked','Disekat'),occupied:rateLabel('在住未释放','In-house, unreleased','Dihuni, belum dilepaskan')}[r.status])+'</td><td>'+escape(r.cleaning)+'</td></tr>').join('')+'</tbody></table>';form.querySelector('output').textContent='';}catch(error){form.querySelector('[data-hour-grid-result]').textContent='';form.querySelector('output').textContent=errorText(error);}});
+
+$('#utility-body').addEventListener('click',event=>{if(event.target.closest('[data-stay-print]')){document.body.classList.add('stay-print');try{window.print();}finally{document.body.classList.remove('stay-print');}}});
+
+$('#content').addEventListener('change',event=>{if(event.target.matches('[data-desk-section="quickReply"] [name=entryId]')){const row=deskReplies(state,propertyId).find(r=>(r.entryId||r.id)===event.target.value),form=event.target.form;for(const k of ['name','text'])form.elements[k].value=row?.values[k]||'';form.elements.active.value=String(row?.active!==false);}});

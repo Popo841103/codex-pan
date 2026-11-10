@@ -1,3 +1,4 @@
+import {previewIcal} from './financial-reports.js';
 import {localDay} from './dashboard.js';
 import {changeRates} from './rates.js';
 import { isBoxed, occupiesInventory, operationalBlock, changeOrderBox, roomStatusRows } from './inventory-actions.js';
@@ -313,7 +314,7 @@ export function seed() {
 }
 export function preview(state, propertyId) {
   state = upgradeCatalog(state);
-  const demands = state.orders.filter(o => o.propertyId === propertyId && occupiesInventory(o)).map(o => ({ id: o.id, propertyId, productId: o.productId, roomTypeId: o.roomTypeId, gender: o.gender, start: o.start, end: o.end, fixedResourceId: o.resourceId || undefined, sameRoomGroup: o.group || undefined }));
+  const demands = state.orders.filter(o => o.propertyId === propertyId && occupiesInventory(o)).map(o => ({ id: o.id, propertyId, productId: o.productId, roomTypeId: o.roomTypeId, gender: o.gender, start: o.start, end: o.end, fixedResourceId: o.resourceId || undefined, hourly:o.hourly, sameRoomGroup: o.group || undefined }));
   const available = new Set(saleResources(state, propertyId).map(r => r.id));
   return planInventory({ propertyId, resources: state.resources.filter(r => r.propertyId === propertyId).map(r => ({ ...r, archived: !available.has(r.id) })), demands, blocks: state.blocks.filter(b => b.propertyId === propertyId) });
 }
@@ -404,7 +405,8 @@ export function apply(state, command) {
   };
   if(order&&['settle','ar_post'].includes(type)&&order.status==='confirmed')restoreForSettlement([order]);
   if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
-  if(completionActions.includes(type)){changeCompletion(next,command);}
+  if(deskActions.includes(type)){changeDesk(next,command);}
+  else if(completionActions.includes(type)){changeCompletion(next,command);}
   else if(operationsActions.includes(type)){changeOperations(next,command);}
   else if(['directory_entry_save','customer_tag_set'].includes(type)){changeDirectory(next,command);}
   else if(batchActions.includes(type)){
@@ -711,6 +713,7 @@ export function apply(state, command) {
         if(blockIds!==undefined&&(!Array.isArray(blockIds)||!blockIds.length||new Set(blockIds).size!==blockIds.length||blockIds.some(id=>!next.blocks.some(b=>b.id===id&&b.propertyId===propertyId))))reject('scope');
         next.blocks=next.blocks.flatMap((b,index)=>{
           if(b.propertyId!==propertyId||blockIds&&!blockIds.includes(b.id)||b.end<=command.start||b.start>=command.end||!b.atoms.some(a=>atoms.includes(a)))return [b];
+          if(b.icalImportId)reject('input');
           const parts=[],remaining=b.atoms.filter(a=>!atoms.includes(a));
           if(remaining.length)parts.push({...b,id:`${command.id}-${index}-other`,atoms:remaining});
           const hit=b.atoms.filter(a=>atoms.includes(a));
@@ -734,6 +737,7 @@ export function apply(state, command) {
   } else if (type === 'unblock') {
     const block = next.blocks.find(b => b.id === command.blockId && b.propertyId === propertyId);
     if (!block) reject('scope');
+    if(block.icalImportId)reject('input'); // Imported holds require reasoned whole-import revocation.
     next.blocks = next.blocks.filter(b => b !== block);
   } else if (!['purge_test_orders','notice_severity_save','notice_rule_save'].includes(type)) reject('input');
   preview(next, propertyId);
@@ -750,6 +754,7 @@ export function apply(state, command) {
     ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}),
     ...(['directory_entry_save','customer_tag_set'].includes(type)?{directoryChange:type==='directory_entry_save'?next.directoryHistory.at(-1):next.customerTagHistory.at(-1)}:{}),
     ...(operationsActions.includes(type)?{operationsChange:next.operationsHistory.at(-1)}:{}),
+    ...(deskActions.includes(type)?{deskChange:next.deskHistory.at(-1)}:{}),
     ...(completionActions.includes(type)?{completionChange:next.completionHistory.at(-1)}:{}),
     ...(type==='memo_save'?{memoChange:next.memoHistory.at(-1)}:{}),
     ...(type==='transfer_folio_credit'?{reservationId:command.reservationId,fromId:command.fromId,toId:command.toId,amount:next.orders.find(o=>o.id===command.toId)?.folioTransfers?.at(-1)?.amount,reverses:command.reverses,reason:command.reason.trim()}:{}),
@@ -1426,12 +1431,13 @@ function changeCompletion(state,c){
  if(c.type==='create_hourly'){
   const plan=directoryEntries(state,c.propertyId,'hourly').find(r=>r.entryId===c.hourlyId),resource=state.resources.find(r=>r.id===c.resourceId&&r.propertyId===c.propertyId&&!r.archived);
   if(!plan||!resource||resource.roomTypeId!==plan.roomTypeId)reject('scope');
-  if(state.orders.some(o=>o.propertyId===c.propertyId&&o.status==='checked_in'&&o.end<=state.businessDate&&state.resources.find(r=>r.id===o.resourceId)?.atoms.some(a=>resource.atoms.includes(a))))reject('occupied');
+  if(state.orders.some(o=>o.propertyId===c.propertyId&&o.status==='checked_in'&&(o.hourly?o.start:o.end)<=state.businessDate&&state.resources.find(r=>r.id===o.resourceId)?.atoms.some(a=>resource.atoms.includes(a))))reject('occupied');
   if(!isDate(c.usageDate)||typeof c.startTime!=='string'||!/^([01]\d|2[0-3]):00$/.test(c.startTime)||!Number.isSafeInteger(c.hours)||c.hours<plan.minHours||c.hours>plan.maxHours||Number(c.startTime.slice(0,2))+c.hours>24)reject('input');
   const amount=money(plan.baseAmount+Math.ceil((c.hours-plan.minHours)/plan.unitHours)*plan.unitAmount),end=new Date(Date.parse(c.usageDate+'T00:00:00Z')+86400000).toISOString().slice(0,10);
-  const result=apply(state,{...c,type:'create',start:c.usageDate,end,nightly:amount,roomTypeId:resource.roomTypeId,productId:resource.productId,gender:resource.gender||'any',source:'direct'});
-  const order=result.orders.find(o=>o.id===c.id);order.hourly={planId:plan.entryId,name:plan.name,minHours:plan.minHours,unitHours:plan.unitHours,baseAmount:plan.baseAmount,unitAmount:plan.unitAmount,hours:c.hours,startTime:c.startTime,endTime:String(Number(c.startTime.slice(0,2))+c.hours).padStart(2,'0')+':00',usageDate:c.usageDate,inventoryPolicy:'whole_day_hold'};
-  state.orders=result.orders;(state.completionHistory??=[]).push({id:c.id,propertyId:c.propertyId,type:c.type,orderId:c.id,at:c.at,actor:c.actor||'local',businessDate:state.businessDate||null,amount,...order.hourly});return;
+  if(state.orders.some(o=>o.id===c.id))reject('duplicate');
+  const result=apply({...state,orders:state.orders.filter(o=>!o.hourly)},{...c,type:'create',start:c.usageDate,end,nightly:amount,roomTypeId:resource.roomTypeId,productId:resource.productId,gender:resource.gender||'any',source:'direct'});
+  const order=result.orders.find(o=>o.id===c.id);order.hourly={planId:plan.entryId,name:plan.name,minHours:plan.minHours,unitHours:plan.unitHours,baseAmount:plan.baseAmount,unitAmount:plan.unitAmount,hours:c.hours,startTime:c.startTime,endTime:String(Number(c.startTime.slice(0,2))+c.hours).padStart(2,'0')+':00',usageDate:c.usageDate,inventoryPolicy:'hour_slots'};
+  state.orders=[...state.orders,order];(state.completionHistory??=[]).push({id:c.id,propertyId:c.propertyId,type:c.type,orderId:c.id,at:c.at,actor:c.actor||'local',businessDate:state.businessDate||null,amount,...order.hourly});return;
  }
  const o=state.orders.find(o=>o.id===c.orderId&&o.propertyId===c.propertyId);if(!o)reject('scope');
  const row={id:c.id,propertyId:c.propertyId,at:c.at,actor:c.actor||'local',type:c.type,orderId:o.id,businessDate:state.businessDate||null};
@@ -1455,4 +1461,65 @@ function changeCompletion(state,c){
   }
  }
  (state.completionHistory??=[]).push(row);
+}
+
+// Property-scoped internal front desk workspace. No network, timers or provider writes.
+export const deskActions=['desk_setting_save','ical_import','ical_revoke','corporate_link','desk_task_save'];
+export const deskSettingFields={
+ property:['displayName','address','phone','email','description','arrivalInstructions'],
+ frontdesk:['checkinTime','checkoutTime','welcome','checklist'],
+ quickReply:['name','text'],notification:['name','text'],channel:['name','text'],
+ print:['heading','footer']
+};
+export function deskSettings(state,propertyId){const out={};for(const r of state.deskHistory||[])if(r.propertyId===propertyId&&r.type==='desk_setting_save')out[r.section]=r;return out;}
+export function deskReplies(state,propertyId){const out=new Map();for(const r of state.deskHistory||[])if(r.propertyId===propertyId&&r.type==='desk_setting_save'&&r.section==='quickReply')out.set(r.entryId||r.id,r);return [...out.values()];}
+export function deskTasks(state,propertyId){const out=new Map();for(const r of state.deskHistory||[])if(r.propertyId===propertyId&&r.type==='desk_task_save')out.set(r.taskId,r);return [...out.values()];}
+function changeDesk(state,c){
+ const text=(v,max=1000)=>{if(typeof v!=='string'||v.length>max||/[<>\x00-\x08]/.test(v))reject('input');return v.trim();};
+ const row={id:c.id,propertyId:c.propertyId,type:c.type,actor:c.actor||'local',at:c.at,businessDate:state.businessDate||null};
+ if(c.type==='desk_setting_save'){
+  if(!Object.hasOwn(deskSettingFields,c.section))reject('input');row.section=c.section;row.values={};
+  for(const k of deskSettingFields[c.section])row.values[k]=text(c[k]??'');
+  if(c.section==='quickReply'){const prior=c.entryId?deskReplies(state,c.propertyId).find(r=>(r.entryId||r.id)===c.entryId):null;if(c.entryId&&!prior)reject('scope');if(c.active!==undefined&&typeof c.active!=='boolean')reject('input');row.entryId=prior?.entryId||prior?.id||c.id;row.active=c.active??true;}
+  for(const k of ['checkinTime','checkoutTime'])if(row.values[k]&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(row.values[k]))reject('input');
+ }else if(c.type==='ical_import'){
+  const resource=state.resources.find(r=>r.id===c.resourceId&&r.propertyId===c.propertyId&&!r.archived);if(!resource)reject('scope');
+  if(state.orders.some(o=>o.propertyId===c.propertyId&&o.status==='checked_in'&&(o.hourly?o.start:o.end)<=state.businessDate&&state.resources.find(r=>r.id===o.resourceId)?.atoms.some(a=>resource.atoms.includes(a))))reject('occupied');
+  const intervals=previewIcal(c.ics);if(!intervals.length)reject('input');
+  row.reason=text(c.reason,200);if(!row.reason)reject('input');row.resourceId=resource.id;row.intervals=intervals;row.blockIds=[];
+  for(const [i,r] of intervals.entries()){
+   if((Date.parse(r.end)-Date.parse(r.start))/86400000>366||lastAudit(state)?.businessDate>=r.start)reject('audited');
+   if(state.blocks.some(b=>b.propertyId===c.propertyId&&b.icalImportId&&b.start===r.start&&b.end===r.end&&b.atoms.some(a=>resource.atoms.includes(a))))reject('duplicate');
+   const id=c.id+':ical:'+i;row.blockIds.push(id);state.blocks.push({id,propertyId:c.propertyId,atoms:[...resource.atoms],...r,blockType:'hold',reason:row.reason,createdAt:c.at,actor:c.actor,icalImportId:c.id});
+  }
+ }else if(c.type==='ical_revoke'){
+  const entry=(state.deskHistory||[]).find(r=>r.id===c.importId&&r.type==='ical_import'&&r.propertyId===c.propertyId);
+  if(!entry)reject('scope');if((state.deskHistory||[]).some(r=>r.type==='ical_revoke'&&r.importId===entry.id))reject('duplicate');
+  row.reason=text(c.reason,200);if(!row.reason)reject('input');
+  if(entry.intervals.some(r=>lastAudit(state)?.businessDate>=r.start))reject('audited');
+  row.importId=entry.id;state.blocks=state.blocks.filter(b=>b.icalImportId!==entry.id||b.propertyId!==c.propertyId);
+ }else if(c.type==='corporate_link'){
+  const o=state.orders.find(o=>o.id===c.orderId&&o.propertyId===c.propertyId);if(!o)reject('scope');
+  const company=c.companyId?directoryEntries(state,c.propertyId,'corporate').find(r=>r.entryId===c.companyId):null;if(c.companyId&&!company)reject('scope');
+  row.reason=text(c.reason,200);if(!row.reason)reject('input');row.orderId=o.id;row.companyId=company?.entryId||null;row.companyName=company?.name||null;
+  // Internal relationship only; never rewrite agreed stay, AR or price snapshots.
+ }else{
+  const prior=c.taskId?deskTasks(state,c.propertyId).find(r=>r.taskId===c.taskId):null;if(c.taskId&&!prior)reject('scope');
+  row.taskId=prior?.taskId||c.id;row.orderId=c.orderId||null;
+  if(row.orderId&&!state.orders.some(o=>o.id===row.orderId&&o.propertyId===c.propertyId))reject('scope');
+  if(!isDate(c.dueDate)||!['open','done','cancelled'].includes(c.status))reject('input');
+  row.title=text(c.title,100);row.note=text(c.note||'');if(!row.title)reject('input');row.dueDate=c.dueDate;row.status=c.status;
+ }
+ (state.deskHistory??=[]).push(row);
+}
+
+// Pure whole-hour inventory; no clock inference and no hidden turnover.
+export function hourlyInventory(state,propertyId,usageDate,resourceId){
+ if(!isDate(usageDate))reject('date');
+ const resource=saleResources(state,propertyId).find(r=>r.id===resourceId);if(!resource)reject('scope');
+ const touches=atoms=>atoms.some(a=>resource.atoms.includes(a));
+ const plans=preview(state,propertyId).filter(p=>touches(p.atoms)&&p.start<=usageDate&&usageDate<p.end);
+ const blocked=state.blocks.some(b=>b.propertyId===propertyId&&b.start<=usageDate&&usageDate<b.end&&touches(b.atoms));
+ const inHouse=state.orders.some(o=>o.propertyId===propertyId&&o.status==='checked_in'&&(o.hourly?o.start:o.end)<=usageDate&&touches(state.resources.find(r=>r.id===o.resourceId)?.atoms||[]));
+ return Array.from({length:24},(_,hour)=>{const startTime=String(hour).padStart(2,'0')+':00',endTime=String(hour+1).padStart(2,'0')+':00';return {usageDate,resourceId,startTime,endTime,status:inHouse?'occupied':blocked?'blocked':plans.some(p=>p.hourly?.inventoryPolicy!=='hour_slots'||p.hourly.startTime<endTime&&startTime<p.hourly.endTime)?'reserved':'available',cleaning:resource.cleaning||'unknown'};});
 }
