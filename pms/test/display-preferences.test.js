@@ -45,3 +45,18 @@ test('only authorized property roles can write display preferences',()=>{
     assert.equal(state.audit[0].type,'display_preferences_save');
   } finally {store.close();}
 });
+test('saved display preferences have identical demo and shared semantics and preserve business records',()=>{
+  const store=new Store(':memory:');
+  try {
+    store.seedTestProperties();
+    const actor=store.createUser({username:'test-display-parity',password:'synthetic-parity-123',role:'admin',propertyIds:[propertyId]});
+    const before=store.read(actor);
+    const rooms=before.physicalRooms.filter(r=>r.propertyId===propertyId).map(r=>r.id);
+    const preferences={groups:[{id:'synthetic-group',name:'Synthetic group',roomIds:[rooms[0]]}],groupOrder:['synthetic-group'],roomOrder:rooms.reverse(),payments:[{id:'bank',enabled:true},{id:'cash',enabled:false}],channels:[{id:'airbnb',enabled:true},{id:'direct',enabled:false}],advanceCard:{enabled:true,minutes:0}};
+    const demo=write(before,preferences);
+    store.command(actor,{key:'synthetic-parity',expectedRevision:0,command:{type:'display_preferences_save',propertyId,preferences}});
+    const shared=store.read(actor);
+    assert.deepEqual(shared.properties[0].displayPreferences,demo.properties[0].displayPreferences);
+    for(const key of ['orders','blocks','resources','physicalRooms','roomTypes','nightAudits','handovers','businessDate'])assert.deepEqual(shared[key],before[key],key);
+  } finally {store.close();}
+});

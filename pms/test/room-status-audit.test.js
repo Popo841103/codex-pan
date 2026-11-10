@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {apply} from '../src/demo-store.js';
 import {Store} from '../server/store.js';
 
 test('room-status audit keeps the affected dates and original note after a partial opening',()=>{
@@ -25,4 +26,34 @@ test('room-status audit keeps the affected dates and original note after a parti
     assert(entry(clean.id).roomLabel);
     assert.equal(audit.find(row=>row.id===opened.id).actor,user.username);
   }finally{store.close();}
+});
+
+test('all five room-log actions agree in demo and shared stores without rewriting history',()=>{
+  const store=new Store(':memory:');
+  try {
+    store.seedTestProperties();
+    const actor=store.createUser({username:'synthetic-log-parity',password:randomUUID(),role:'admin',propertyIds:['TEST-KL']});
+    const propertyId='TEST-KL',resourceId='TEST-KL-R1';
+    let demo=store.read(actor);
+    const cases=[
+      {type:'bulk_block',resourceIds:[resourceId],start:'2027-02-01',end:'2027-02-02',blockType:'maintenance',reason:'Synthetic block'},
+      {type:'bulk_unblock',resourceIds:[resourceId],start:'2027-02-01',end:'2027-02-02'},
+      {type:'clean',resourceId},
+      {type:'bulk_clean',resourceIds:[resourceId],cleaning:'dirty'},
+      {type:'bulk_block',resourceIds:[resourceId],start:'2027-02-01',end:'2027-02-02',blockType:'out_of_service',reason:'Synthetic OOS'}
+    ];
+    const actions=[];
+    for(const fields of cases){
+      const previous=structuredClone(store.read(actor).audit);
+      const command={...fields,propertyId,id:randomUUID(),at:'2027-01-31T16:05:00Z',actor:actor.username};
+      const result=store.command(actor,{key:randomUUID(),expectedRevision:store.read(actor).revisions[propertyId],command});
+      const current=store.read(actor).audit;
+      const actual=current.find(e=>e.id===result.id);
+      demo=apply(demo,{...command,id:actual.id,at:actual.at,actor:actual.actor});
+      assert.deepEqual(actual.roomStatusRows,demo.audit.find(e=>e.id===actual.id).roomStatusRows);
+      for(const event of previous)assert.deepEqual(current.find(e=>e.id===event.id),event);
+      actions.push(actual.roomStatusRows[0].action);
+    }
+    assert.deepEqual(actions,['blocked','open','clean','dirty','out_of_service']);
+  } finally {store.close();}
 });

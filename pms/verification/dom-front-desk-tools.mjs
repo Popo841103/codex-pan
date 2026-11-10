@@ -48,6 +48,8 @@ try {
   dom.window.print=()=>assert.fail('Preview must not call print');
 
   const baseline=revision();
+  const initialOrders=structuredClone(read().orders);
+  const initialAudit=structuredClone(read().audit);
   const openTool=name=>$('[data-cal-tool="'+name+'"]').click();
   openTool('room-logs');
   const log=$('[data-room-status-logs]');
@@ -59,18 +61,37 @@ try {
   assert.equal(log.querySelectorAll('tbody tr').length,1);
   set('[data-room-status-logs] [name="room"]','R01');
   assert.equal(log.querySelectorAll('tbody tr').length,1);
+  set('[data-room-status-logs] [name="operator"]',username);
+  const operationDay=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Kuala_Lumpur'}).format(new Date(read().audit.at(-1).at));
+  set('[data-room-status-logs] [name="date"]',operationDay);
+  assert.equal(log.querySelectorAll('tbody tr').length,1);
+  set('[data-room-status-logs] [name="date"]','2027-01-15');
+  assert.equal(log.querySelectorAll('tbody td').length,1,'Operation date must not become block/business date');
+  assert.equal(log.querySelector('tbody td').colSpan,8);
+  assert.equal(log.querySelectorAll('tbody button, tbody input').length,0);
   close();
 
   openTool('smart-lock');
   assert($('[data-smart-lock]'));
+  set('[data-smart-lock] input','TEST lock query');
   $('[data-lock-tab="common"]').click();
   assert.equal($('[data-lock-tab="common"]').getAttribute('aria-selected'),'true');
   assert.equal(document.querySelector('[data-smart-lock] form button[type="submit"]'),null);
+  assert.equal($('[data-smart-lock] input').value,'TEST lock query');
+  assert.equal($('[data-smart-lock]').querySelectorAll('button').length,2);
   close();
 
   openTool('batch-print');
   set('[data-batch-print] [name="date"]','2027-01-20');
   assert.equal($('[data-registration-count]').textContent.trim(),'1');
+  set('[data-batch-print] [name="room"]','TEST-KL-R2');
+  assert.equal($('[data-registration-count]').textContent.trim(),'0');
+  set('[data-batch-print] [name="room"]','TEST-KL-R1');
+  set('[data-batch-print] [name="status"]','checked_in');
+  assert.equal($('[data-registration-count]').textContent.trim(),'0');
+  set('[data-batch-print] [name="status"]','confirmed');
+  assert.equal($('[data-registration-count]').textContent.trim(),'1');
+  assert.equal($('[data-batch-print]').querySelectorAll('button').length,0);
   set('[data-batch-print] [name="date"]','2027-01-21');
   assert.equal($('[data-registration-count]').textContent.trim(),'0');
   close();
@@ -85,14 +106,24 @@ try {
       $('[data-print-tab="registration"]').click();
       assert.equal($('[data-print-tab="registration"]').getAttribute('aria-selected'),'true');
     }
-    close();
+    if(key==='self-checkin'){
+      const buttons=$('[data-self-checkin-preview]').querySelectorAll('button');
+      assert.equal(buttons.length,3);assert(buttons[0].disabled);assert(buttons[2].disabled);
+      buttons[1].click();assert(!$('#utility-dialog').open);
+    }else close();
   }
+  assert.deepEqual(read().audit,initialAudit);
   assert.equal(revision(),baseline);
   if($('#detail-dialog').open)$('#detail-close').click();
 
   for(const [lang,title] of [['en','Room Status Logs'],['ms','Log Status Bilik'],['zh','房态日志']]){
     set('#language',lang);calendar();
     assert($('[data-cal-tool="room-logs"]').textContent.toLowerCase().includes(title.toLowerCase()));
+    openTool('smart-lock');
+    const noData={en:'No Data',ms:'Tiada Data',zh:'暂无数据'}[lang];
+    assert.equal($('[data-smart-lock] [role="status"]').textContent,noData);
+    $('[data-lock-tab="common"]').click();
+    assert.equal($('[data-smart-lock] [role="status"]').textContent,noData);close();
   }
 
   $('#global-nav [data-view="resourcesSettings"]').click();
@@ -110,10 +141,23 @@ try {
   const item=(key,id)=>list(key).querySelector('[data-layout-item="'+id+'"]');
   assert.equal($(settings+' [name="advanceMinutes"]').value,'0');
   assert($(settings+' [name="advanceMinutes"]').disabled);
+  assert.equal(list('payments-disabled').children.length,0);
+  assert.equal(list('channels-disabled').children.length,0);
+  assert.equal(list('payments-enabled').children.length,4);
+  assert(!list('channels-enabled').textContent.includes('NOBEDS'));
+  const typeIds=[...list('roomTypeOrder').children].map(row=>row.dataset.layoutItem);
+  drag(item('roomTypeOrder',typeIds.at(-1)),item('roomTypeOrder',typeIds[0]));
+  drag(item('payments-enabled','bank'),item('payments-enabled','cash'));
+  drag(item('channels-enabled','airbnb'),item('channels-enabled','direct'));
   $('[data-add-room-group]').click();
   const groupId=$('[data-group-name]').dataset.groupName;
   set('[data-group-name]','TEST north wing');
   drag(item('member:','TEST-KL-R1'),list('member:'+groupId));
+  $('[data-add-room-group]').click();
+  const secondGroup=[...document.querySelectorAll('[data-group-name]')].at(-1).dataset.groupName;
+  set('[data-group-name="'+secondGroup+'"]','TEST south wing');
+  drag(item('member:','TEST-KL-R2'),list('member:'+secondGroup));
+  drag(item('groupOrder',secondGroup),item('groupOrder',groupId));
   drag(item('roomOrder','TEST-KL-R2'),item('roomOrder','TEST-KL-R1'));
   drag(item('payments-enabled','card'),list('payments-disabled'));
   drag(item('channels-enabled','booking'),list('channels-disabled'));
@@ -122,8 +166,12 @@ try {
   $(settings+' .primary').click();
   await until(()=>revision()===baseline+1&&document.querySelector('#message')?.textContent==='测试操作已保存','display configuration persisted');
   const prefs=read().properties.find(p=>p.id==='TEST-KL').displayPreferences;
-  assert.equal(prefs.groups[0].name,'TEST north wing');
-  assert.deepEqual(prefs.groups[0].roomIds,['TEST-KL-R1']);
+  assert.equal(prefs.groups.find(g=>g.id===groupId).name,'TEST north wing');
+  assert.deepEqual(prefs.groups.find(g=>g.id===groupId).roomIds,['TEST-KL-R1']);
+  assert.deepEqual(prefs.groupOrder,[secondGroup,groupId]);
+  assert.equal(prefs.roomTypeOrder[0],typeIds.at(-1));
+  assert.equal(prefs.payments[0].id,'bank');
+  assert.equal(prefs.channels[0].id,'airbnb');
   assert(prefs.roomOrder.indexOf('TEST-KL-R2')<prefs.roomOrder.indexOf('TEST-KL-R1'));
   assert.equal(prefs.payments.find(row=>row.id==='card').enabled,false);
   assert.equal(prefs.channels.find(row=>row.id==='booking').enabled,false);
@@ -134,6 +182,13 @@ try {
   $('#display-form .primary').click();
   const rowIndex=id=>[...document.querySelectorAll('.calendar tbody tr')].findIndex(row=>row.querySelector('[data-cell="'+id+'"]'));
   assert(rowIndex('TEST-KL-R2')>=0&&rowIndex('TEST-KL-R2')<rowIndex('TEST-KL-R1'));
+  openTool('display');set('#display-form [name="group"]','group');$('#display-form .primary').click();
+  assert(rowIndex('TEST-KL-R2')<rowIndex('TEST-KL-R1'),'Saved group ordering appears on calendar');
+  openTool('display');set('#display-form [name="group"]','product');$('#display-form .primary').click();
+  const firstResource=read().resources.find(r=>r.propertyId==='TEST-KL'&&r.roomTypeId===typeIds.at(-1));
+  assert(firstResource);
+  const firstCell=document.querySelector('.calendar tbody [data-cell]');
+  assert.equal(read().resources.find(r=>r.id===firstCell.dataset.cell).roomTypeId,typeIds.at(-1));
   set('#calendar-room-group',groupId);
   assert.equal(document.querySelectorAll('.calendar tbody tr').length,1);
   assert($('.calendar tbody tr').textContent.includes('R01'));
@@ -145,6 +200,19 @@ try {
   $('#new').click();
   assert.equal(document.querySelector('#reservation-dialog [data-field="source"] option[value="booking"]'),null);
   assert.equal(revision(),baseline+1);
+  $('#reservation-dialog').close();
+  $('#global-nav [data-view="resourcesSettings"]').click();
+  $('#nav [data-view="operationsDisplay"]').click();
+  set('[data-group-name="'+groupId+'"]','TEST renamed wing');
+  set(settings+' [name="advanceEnabled"]',false);
+  assert.equal($(settings+' [name="advanceMinutes"]').value,'0');
+  assert($(settings+' [name="advanceMinutes"]').disabled);
+  $(settings+' .primary').click();
+  await until(()=>revision()===baseline+2&&document.querySelector('#message')?.textContent==='测试操作已保存','group edit and disabled card rule persisted');
+  const updated=read().properties.find(p=>p.id==='TEST-KL').displayPreferences;
+  assert.equal(updated.groups.find(g=>g.id===groupId).name,'TEST renamed wing');
+  assert.deepEqual(updated.advanceCard,{enabled:false,minutes:0});
+  assert.deepEqual(read().orders,initialOrders,'Display settings and previews must preserve stays and finances');
   console.log('Front desk tools and property display settings DOM passed');
 }finally {
   global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();dom.window.close();
