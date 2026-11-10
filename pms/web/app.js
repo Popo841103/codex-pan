@@ -214,6 +214,12 @@ $('#content').addEventListener('click',async e=>{
     if(!/^\d{4}-\d{2}-\d{2}$/.test(value||'')){$('#message').textContent=t('dateError');return;}
     try{await commit({type:'business_date_init',date:value});}catch(error){$('#message').textContent=errorText(error);}return;
   }
+  if(e.target.closest('#handover-mode-save')){
+    try{await commit({type:'shift_mode_save',mode:$('#handover-mode').value});}catch(error){$('#message').textContent=errorText(error);}return;
+  }
+  if(e.target.closest('#night-audit-handle-all')){
+    try{await commit({type:'night_audit_handle_all'});}catch(error){$('#message').textContent=errorText(error);}return;
+  }
   if(e.target.closest('#night-audit-run')){
     // The reason box is only rendered while required exceptions remain, so it decides the forced flag.
     const forced=Boolean($('#audit-reason')),reason=$('#audit-reason')?.value||'';
@@ -351,9 +357,9 @@ $('#content').addEventListener('click',e=>{
   calendarDate=new Date(Date.parse(calendarDate+'T00:00:00Z')+Number(control.dataset.calendarStep)*calendarSpan*86400000).toISOString().slice(0,10);render();
 });
 
-Object.assign(words.zh,{nightAuditSettings:'夜审设置'});
-Object.assign(words.en,{nightAuditSettings:'Night audit settings'});
-Object.assign(words.ms,{nightAuditSettings:'Tetapan audit malam'});
+Object.assign(words.zh,{handoverMethod:"交班方式",handoverByShift:"按班次",handoverByPerson:"按班次加人员",excludedFromAudit:"排除在夜审外",handleAuditAll:"处理全部",handleAuditNote:"仅更新住宿状态，无法分房的订单会跳过。",auditArrivalActions:"办理入住、取消或改到夜审日之后",auditDepartureActions:"办理退房或续住",nightAuditSettings:'夜审设置'});
+Object.assign(words.en,{handoverMethod:"Handover method",handoverByShift:"By Shift",handoverByPerson:"By Shift + Person",excludedFromAudit:"Excluded from Audit",handleAuditAll:"Handle All",handleAuditNote:"Updates stay status only. Stays without a viable allocation are skipped.",auditArrivalActions:"Check in, cancel or move arrival after the audit day",auditDepartureActions:"Check out or extend the stay",nightAuditSettings:'Night audit settings'});
+Object.assign(words.ms,{handoverMethod:"Kaedah serahan",handoverByShift:"Mengikut syif",handoverByPerson:"Mengikut syif dan orang",excludedFromAudit:"Dikecualikan daripada audit",handleAuditAll:"Kendalikan semua",handleAuditNote:"Kemas kini status sahaja. Langkau penginapan tanpa peruntukan yang tersedia.",auditArrivalActions:"Daftar masuk, batal atau pindah ketibaan selepas tarikh audit",auditDepartureActions:"Daftar keluar atau lanjutkan penginapan",nightAuditSettings:'Tetapan audit malam'});
 let detailTab='details', detailId=null;
 function openDetail(id) {
   const o=state.orders.find(o=>o.id===id&&o.propertyId===propertyId);if(!o)return;

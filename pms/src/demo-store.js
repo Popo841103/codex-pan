@@ -66,7 +66,7 @@ const boxed = (order, isBoxed) => (isBoxed ? isBoxed(order) : order.inventorySta
 // left must be resolved before the day closes. Box expiry and unsettled history are advisory only.
 export function nightAuditExceptions(state, businessDate, isBoxed) {
   if (!isDate(businessDate)) fail('date');
-  const orders = (state.orders || []).filter(o => o.propertyId === undefined || true);
+  const orders = state.orders || [];
   const exceptions = [];
   for (const order of orders) {
     if (order.status === 'cancelled') continue;
@@ -83,7 +83,7 @@ export function nightAuditExceptions(state, businessDate, isBoxed) {
   return exceptions.sort((a, b) => rank[a.severity] - rank[b.severity] || a.date.localeCompare(b.date) || a.orderId.localeCompare(b.orderId));
 }
 
-export function shiftSummary(state, { from, to, propertyId }) {
+export function shiftSummary(state, { from, to, propertyId, operator }) {
   const lower=Date.parse(from),upper=Date.parse(to);
   if(typeof from!=='string'||typeof to!=='string'||!Number.isFinite(lower)||!Number.isFinite(upper)||lower>=upper)fail('shift_window');
   const inWindow=at=>{const instant=Date.parse(at);return instant>=lower&&instant<upper;};
@@ -96,7 +96,7 @@ export function shiftSummary(state, { from, to, propertyId }) {
   const cashByMethod = {};
   let count = 0;
   for (const order of state.orders || []) for (const transaction of order.transactions || []) {
-    if ((propertyId&&order.propertyId!==propertyId)||!inWindow(transaction.at)) continue;
+    if ((propertyId&&order.propertyId!==propertyId)||!inWindow(transaction.at)||(operator&&transaction.actor!==operator)) continue;
     if (!kinds.includes(transaction.kind)) continue;
     byKind[transaction.kind].count += 1;
     byKind[transaction.kind].amount += transaction.amount;
@@ -111,7 +111,7 @@ export function shiftSummary(state, { from, to, propertyId }) {
   }
   let arNet=0, arCash=0;
   for (const entry of state.arEvents || []) {
-    if (propertyId && entry.propertyId!==propertyId || !inWindow(entry.at)) continue;
+    if (propertyId && entry.propertyId!==propertyId || !inWindow(entry.at)||(operator&&entry.actor!==operator)) continue;
     if (!['ar_write_off','ar_undo_write_off'].includes(entry.type)) continue;
     const movement=entry.type==='ar_write_off'?entry.amount:-entry.amount;
     arNet+=movement;
@@ -140,7 +140,7 @@ export function applyBusinessDay(next, command, reject, { isBoxed } = {}) {
     if (!state.businessDate) reject('business_date');
     const exceptions = nightAuditExceptions(state, state.businessDate, isBoxed);
     const blocking = exceptions.filter(entry => entry.severity === 'required');
-    if (blocking.length && !command.force) reject('night_audit_exceptions');
+    if (blocking.length && (!command.force||command.mode==='auto')) reject('night_audit_exceptions');
     if (command.force) {
       const reason = typeof command.reason === 'string' ? command.reason.trim() : '';
       if (!reason || reason.length > 500) reject('reason');
@@ -181,6 +181,13 @@ export function applyBusinessDay(next, command, reject, { isBoxed } = {}) {
     state.shiftTypes = state.shiftTypes.filter(t => t.id !== target.id);
     return state;
   }
+  if(type==='shift_mode_save'){
+    if(!['shift','shift_person'].includes(command.mode))reject('input');
+    const property=state.properties.find(row=>row.id===command.propertyId);
+    if(!property)reject('scope');
+    property.handoverMode=command.mode;
+    return state;
+  }
   if (type === 'shift_handover') {
     if (!state.businessDate) reject('business_date');
     const shift = state.shiftTypes.find(t => t.id === command.shiftTypeId);
@@ -190,7 +197,9 @@ export function applyBusinessDay(next, command, reject, { isBoxed } = {}) {
     if (!from || !to || from >= to) reject('shift_window');
     const note = typeof command.note === 'string' ? command.note.trim() : '';
     if (note.length > 500) reject('input');
-    const summary = shiftSummary(state, { from, to, propertyId:command.propertyId });
+    const mode=state.properties.find(row=>row.id===command.propertyId)?.handoverMode||'shift';
+    const operator=mode==='shift_person'?(command.actor||'local'):undefined;
+    const summary = shiftSummary(state, { from, to, propertyId:command.propertyId,operator });
     // A cash count is optional. Omitting it leaves an old-style handover exactly as
     // it was: no cashCount field at all, never a guessed zero. The till total is
     // one whole number of minor units, the figure a person actually counts. The
@@ -205,6 +214,7 @@ export function applyBusinessDay(next, command, reject, { isBoxed } = {}) {
     }
     state.handovers.push({ id: command.id, at: command.at, actor: command.actor || 'local',
       businessDate: state.businessDate, shiftTypeId: shift.id, shiftName: shift.name, from, to, note, summary,
+      ...(operator?{operator}:{}),
       ...(cashCount ? { cashCount } : {}) });
     return state;
   }
@@ -228,8 +238,8 @@ export function applyBusinessDay(next, command, reject, { isBoxed } = {}) {
 
 // Folded in above: a release install only refreshes files that already exist,
 // so the business-day rules live here rather than in a new module.
-const businessDayActions = ['business_date_init','night_audit','shift_save','shift_delete','shift_handover','cash_variance_approve'];
-import { planInventory } from './inventory.js';
+const businessDayActions = ['business_date_init','night_audit','shift_save','shift_delete','shift_handover','shift_mode_save','cash_variance_approve'];
+import { planInventory, InventoryConflict } from './inventory.js';
 import { upgradeCatalog, configureCatalog, saleResources, overlapsAtoms, isClean, setCleaning } from './catalog.js';
 import { createReservation, stayDays, prepareStay } from './reservations.js';
 export class DemoError extends Error {}
@@ -312,7 +322,7 @@ export function apply(state, command) {
   let next = upgradeBusinessDay(upgradeCatalog(state));
   for (const o of next.orders) { o.nightly ??= 0; o.transactions ??= []; o.notes ??= ''; o.source ??= 'direct'; o.locked ??= false; }
   const { type, propertyId } = command;
-  let settledStayIds;
+  let settledStayIds, handledAuditOrders;
   if (['checkin','checkout'].includes(type) && (typeof command.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(command.date))) reject('date');
   if (!next.properties.some(p => p.id === propertyId)) reject('scope');
   let order = next.orders.find(o => o.id === command.orderId && o.propertyId === propertyId);
@@ -390,7 +400,40 @@ export function apply(state, command) {
   };
   if(order&&['settle','ar_post'].includes(type)&&order.status==='confirmed')restoreForSettlement([order]);
   if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
-  if (type==='commission_close_month') {
+  if(type==='night_audit_handle_all'){
+    if(!isDate(next.businessDate))reject('business_date');
+    const instant=Date.parse(command.at);
+    if(!Number.isFinite(instant))reject('date');
+    const naturalDay=new Date(instant+8*3600000).toISOString().slice(0,10);
+    const pending=nightAuditExceptions({orders:next.orders.filter(o=>o.propertyId===propertyId)},next.businessDate,isBoxed)
+      .filter(row=>row.severity==='required');
+    handledAuditOrders=[];
+    const record=(stay,status)=>{
+      handledAuditOrders.push({orderId:stay.id,before:stay.status,after:status,resourceId:stay.resourceId});
+      stay.status=status;
+    };
+    for(const row of pending.filter(row=>row.kind==='overdue_checkout')){
+      const stay=next.orders.find(o=>o.id===row.orderId);
+      record(stay,'checked_out');
+      if(stay.resourceId)setCleaning(next,next.resources.find(r=>r.id===stay.resourceId),'dirty');
+    }
+    for(const row of pending.filter(row=>row.kind==='no_show')){
+      const stay=next.orders.find(o=>o.id===row.orderId);
+      let assignment=stay.resourceId;
+      if(!assignment){
+        try{assignment=preview(next,propertyId).find(p=>p.demandId===stay.id)?.resourceId;}
+        catch(error){if(!(error instanceof InventoryConflict))throw error;}
+      }
+      const resource=next.resources.find(r=>r.id===assignment&&r.propertyId===propertyId);
+      const status=stay.end<naturalDay?'checked_out':'checked_in';
+      if(!resource||status==='checked_in'&&inHouse(resource)){
+        handledAuditOrders.push({orderId:stay.id,skipped:'inventory'});
+        continue;
+      }
+      stay.resourceId=assignment;
+      record(stay,status);
+    }
+  } else if (type==='commission_close_month') {
     closeCommissionMonth(next,command);
   } else if (type.startsWith('ar_')) {
     changeReceivables(next,order,command);
@@ -422,6 +465,7 @@ export function apply(state, command) {
   } else if (catalogActions.includes(type)) {
     configureCatalog(next, command);
   } else if (type === 'create') {
+    if(next.nightAudits.length&&isAudited(next,command.start)&&command.auditOverride!==true)reject('audited');
     if (!command.id || next.orders.some(o => o.id === command.id)) reject('duplicate');
     if (typeof command.guest !== 'string' || !command.guest.trim() || command.guest.length > 100) reject('guest');
     if (!['room','bed','suite'].includes(command.productId) || !['female','male','any'].includes(command.gender)) reject('input');
@@ -584,6 +628,7 @@ export function apply(state, command) {
     if (postingDate) order.cancelBusinessDate = postingDate;
     order.status = 'cancelled'; order.cancelReason = text(command.reason,500);
   } else if (type === 'checkin') {
+    if(next.nightAudits.length&&isAudited(next,command.date)&&command.auditOverride!==true)reject('audited');
     if (order.status !== 'confirmed' || !order.resourceId) reject('state');
     if(order.occupants){prepareStay(next,propertyId,order);if(order.occupants.some(p=>!p.name))reject('occupant_names');}
     resource = next.resources.find(r => r.id === order.resourceId);
@@ -654,6 +699,7 @@ export function apply(state, command) {
     ...(type==='transfer_folio_credit'?{reservationId:command.reservationId,fromId:command.fromId,toId:command.toId,amount:next.orders.find(o=>o.id===command.toId)?.folioTransfers?.at(-1)?.amount,reverses:command.reverses,reason:command.reason.trim()}:{}),
     ...(type==='undo_reservation_payment'?{reservationId:command.reservationId,reversesBatchId:command.batchId,reason:command.reason.trim()}:{}),
     ...(type==='payment_reservation'?{reservationId:command.reservationId,amount:command.amount,method:command.method,allocations:command.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
+    ...(handledAuditOrders?{handledAuditOrders}:{}),
     ...(settledStayIds?{reservationId:command.reservationId,settledStayIds}:{}),
     ...(type==='commission_save'&&command.correction===true?{commissionCorrection:order.commissionCorrections.at(-1)}:{}),
     ...(type==='commission_save'?{commissionChange:{before:commissionBefore,after:order?.commission||null}}:{}), at: command.at });

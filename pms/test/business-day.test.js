@@ -177,3 +177,40 @@ test('a closed night blocks rewriting a stay but never blocks taking money for i
   assert.equal(order.transactions[0].amount, 10000);
   assert.equal(order.transactions[0].kind, 'payment');
 });
+
+test('Handle All updates accommodation status without settling or changing charges',()=>{
+  const propertyId='TEST-KL';
+  const state=seed();
+  state.businessDate='2027-01-11';
+  const row=(id,status,start,end,resourceId)=>({id,propertyId,status,start,end,resourceId,productId:'room',gender:'any',nightly:10000,transactions:[{kind:'payment',amount:1000}]});
+  state.orders=[
+    row('past','confirmed','2027-01-09','2027-01-10',null),
+    row('today','confirmed','2027-01-11','2027-01-12',null),
+    row('overdue','checked_in','2027-01-10','2027-01-11','TEST-KL-R1'),
+    {...row('boxed','confirmed','2027-01-10','2027-01-12',null),inventoryStatus:'boxed'}
+  ];
+  const command={id:'bulk',type:'night_audit_handle_all',propertyId,at:'2027-01-11T16:00:00Z',actor:'TEST'};
+  assert.throws(()=>apply(state,{...command,type:'night_audit',mode:'auto',force:true,reason:'TEST'}),/night_audit_exceptions/);
+  const result=apply(state,command);
+  assert.deepEqual(result.orders.map(o=>o.status),['checked_out','checked_in','checked_out','confirmed']);
+  assert(result.orders[0].resourceId&&result.orders[1].resourceId);
+  assert.deepEqual(result.orders.map(o=>o.transactions),state.orders.map(o=>o.transactions));
+  assert(result.orders.every(o=>!o.folioClosed&&o.nightly===10000));
+  assert.equal(result.businessDate,state.businessDate);
+  assert.equal(result.audit[0].handledAuditOrders.length,3);
+});
+
+test('person-based handover counts only its operator receipts',()=>{
+  const propertyId='TEST-KL',from='2027-01-11T00:00:00Z',to='2027-01-12T00:00:00Z';
+  const state=seed();
+  state.businessDate='2027-01-11';
+  state.shiftTypes=[{id:'test-shift',name:'Morning'}];
+  state.orders=[{propertyId,id:'stay',productId:'room',gender:'any',status:'confirmed',start:'2027-01-11',end:'2027-01-12',
+    transactions:['A','B'].map(actor=>({kind:'payment',method:'cash',amount:1000,actor,at:'2027-01-11T08:00:00Z'}))}];
+  const command={propertyId,at:'2027-01-11T09:00:00Z',actor:'A'};
+  const configured=apply(state,{...command,id:'settings',type:'shift_mode_save',mode:'shift_person'});
+  const handover=apply(configured,{...command,id:'handover',type:'shift_handover',shiftTypeId:'test-shift',from,to}).handovers[0];
+  assert.equal(handover.operator,'A');
+  assert.equal(handover.summary.cashExpectedTotal,1000);
+  assert.equal(shiftSummary(configured,{propertyId,from,to}).cashExpectedTotal,2000);
+});

@@ -260,3 +260,9 @@ Actions 42757051292 成功，Linux Node 425/425、Python 5/5。公网健康检�
 本机 Windows Node 425/427，只有两项既有私有文件权限测试失败。Python 5/5。夜审、财务、主订单收付、AR 和佣金月结 DOM 均通过。
 
 运行时 `ad48dbb` 已部署到测试站。Actions 42789084376 成功，Linux Node 427/427、Python 5/5。公网健康检查、夜审与班次入口、交易与营业报表标识均已核验。交互验证使用合成数据。
+
+### 夜审工作台与按人员交班
+
+合成测试覆盖处理全部、自动调用不能跳过必处理异常、逐人交班和原现金口径。DOM 通过设置切换、批量处理、交班与差额审批。部署后检查健康端点和 workspace-ui.js 的 night-audit-handle-all、handover-mode、data-night-audit-settings。
+
+Windows Node 427/429，余两项为已知私有文件权限用例。Python 5/5，夜审工作台 DOM 通过。

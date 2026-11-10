@@ -85,12 +85,13 @@ export const nightAuditWords = {
   }
 };
 
-const rows = (list, t, escape) => list.length ? list.map(entry => `<tr><td>${escape(entry.date)}</td><td>${escape(entry.guest || '—')}</td><td>${escape(t(entry.kind))}</td><td><button data-action="details" data-id="${escape(entry.orderId)}">${escape(entry.orderId.slice(0, 8))}</button></td></tr>`).join('')
+const rows = (list, t, escape) => list.length ? list.map(entry => `<tr><td>${escape(entry.date)}</td><td>${escape(entry.guest || '—')}</td><td>${escape(t(entry.kind))}${entry.severity==='required'?`<small>${escape(t(entry.kind==='no_show'?'auditArrivalActions':'auditDepartureActions'))}</small>`:''}</td><td><button data-action="details" data-id="${escape(entry.orderId)}">${escape(entry.orderId.slice(0, 8))}</button></td></tr>`).join('')
   : `<tr><td colspan="4">${escape(t('noExceptions'))}</td></tr>`;
 
 // The business date is authoritative state, not a browser field: it can only move forward through an audit.
 export function nightAuditPage(state, propertyId, { t, escape, currency, can, lang, settings=false }) {
   const businessDate = state.businessDate ?? null;
+  const handoverMode=state.properties?.find(row=>row.id===propertyId)?.handoverMode||'shift';
   const audits = (state.nightAudits || []).slice().sort((a, b) => b.at.localeCompare(a.at));
   const shifts = state.shiftTypes || [];
   const handovers = (state.handovers || []).slice().sort((a, b) => b.at.localeCompare(a.at));
@@ -109,11 +110,12 @@ export function nightAuditPage(state, propertyId, { t, escape, currency, can, la
   const exceptionPanel = businessDate ? `<section class="panel"><div class="panel-head"><h2>${escape(t('auditExceptions'))}</h2><span>${escape(t('required'))}: ${required.length} · ${escape(t('advisory'))}: ${advisory.length}</span></div>
     <h3>${escape(t('required'))}</h3>
     <div class="table-wrap"><table><thead><tr><th>${escape(t('exceptionDate'))}</th><th>${escape(t('guest'))}</th><th>${escape(t('action'))}</th><th>${escape(t('order'))}</th></tr></thead><tbody>${rows(required, t, escape)}</tbody></table></div>
-    <h3>${escape(t('advisory'))}</h3>
+    <h3>${escape(t('excludedFromAudit'))}</h3>
     <div class="table-wrap"><table><thead><tr><th>${escape(t('exceptionDate'))}</th><th>${escape(t('guest'))}</th><th>${escape(t('action'))}</th><th>${escape(t('order'))}</th></tr></thead><tbody>${rows(advisory, t, escape)}</tbody></table></div>
   </section>
   <section class="panel"><div class="panel-head"><h2>${escape(t('runNightAudit'))}</h2></div>
     ${required.length ? `<p class="muted">${escape(t('forceAudit'))}</p><label>${escape(t('auditReason'))}<input id="audit-reason" maxlength="500" placeholder="${escape(t('auditReason'))}"></label>` : ''}
+    ${required.length&&can('night_audit_handle_all')?`<button id="night-audit-handle-all">${escape(t('handleAuditAll'))}</button><p>${escape(t('handleAuditNote'))}</p>`:''}
     <button id="night-audit-run" class="primary" ${can('night_audit') ? '' : 'disabled'}>${escape(t('runNightAudit'))}</button>
     <p id="audit-message" role="status"></p>
   </section>
@@ -146,7 +148,11 @@ export function nightAuditPage(state, propertyId, { t, escape, currency, can, la
       }).join('')
       : `<tr><td colspan="9">—</td></tr>`}</tbody></table></div>
   </section>` : '';
-  return settings ? head : head+'<p><button data-night-audit-settings-link>'+escape(t('nightAuditSettings'))+'</button></p>'+exceptionPanel+shiftPanel;
+  const settingsPanel=`<section class="panel"><p>${escape(t('auditMode'))} · ${escape(t('manual'))}</p>
+    <label>${escape(t('handoverMethod'))}<select id="handover-mode" ${can('shift_mode_save')?'':'disabled'}>
+      ${['shift','shift_person'].map(mode=>`<option value="${mode}" ${mode===handoverMode?'selected':''}>${escape(t(mode==='shift'?'handoverByShift':'handoverByPerson'))}</option>`).join('')}
+    </select></label>${can('shift_mode_save')?`<button id="handover-mode-save">${escape(t('apply'))}</button>`:''}</section>`;
+  return settings ? head+settingsPanel : head+'<p><button data-night-audit-settings-link>'+escape(t('nightAuditSettings'))+'</button></p>'+exceptionPanel+shiftPanel;
 }
 
 // Windows use the property's fixed UTC+8 offset; Malaysia has no daylight saving.
@@ -167,7 +173,7 @@ export const permissionModules = {
  housekeeping: ['clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
  money: ['commission_close_month','ar_adjust','ar_undo_adjust','ar_close_month','ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','transfer_folio_credit','undo_reservation_payment','payment_reservation','settle_reservation','settle','reopen_folio','payment','cash_variance_approve','commission_save'],
  catalog: ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
- operationsDay: ['business_date_init','night_audit','shift_save','shift_delete','shift_handover'],
+ operationsDay: ['business_date_init','night_audit','night_audit_handle_all','shift_save','shift_delete','shift_handover','shift_mode_save'],
  access: ['member_save','role_save','role_delete','member_permission_save'],
  site: ['site_save'],
  notice: ['notice_severity_save','notice_rule_save'],
@@ -282,7 +288,7 @@ export const teamWords={
   act_cancel:'取消订单',act_checkin:'办理入住',act_checkout:'办理退房',act_clean:'完成清洁',act_block:'关房',act_unblock:'解除关房',
   act_bulk_clean:'批量清洁',act_bulk_block:'批量关房',act_bulk_unblock:'批量解除关房',act_room_type_save:'保存房型',
   act_physical_room_save:'保存房间',act_suite_save:'保存套房',act_resource_update:'修改资源',act_resource_archive:'归档资源',
-  act_business_date_init:'启用营业日',act_night_audit:'夜审',act_shift_save:'保存班次',act_shift_delete:'删除班次',
+  act_business_date_init:'启用营业日',act_night_audit_handle_all:'Handle All',act_night_audit:'夜审',act_shift_mode_save:'Handover method',act_shift_save:'保存班次',act_shift_delete:'删除班次',
   act_shift_handover:'交班',act_cash_variance_approve:'审批现金差异',act_member_save:'管理成员',act_role_save:'保存角色',
   act_role_delete:'删除角色',act_member_permission_save:'成员附加权限',act_site_save:'发布官网',act_notice_severity_save:'通知优先级',
   act_notice_rule_save:'通知规则',act_purge_test_orders:'清理测试订单',act_booking_request_decision:'处理预订申请',

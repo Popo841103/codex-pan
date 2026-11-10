@@ -77,6 +77,18 @@ try {
   assert.equal(forced.forced,true,'a forced close is recorded as forced, not silently accepted');
   assert.match(forced.reason,/arriving tomorrow/);
 
+  await openNightAudit();
+  $('#night-audit-handle-all').click();
+  await until(()=>store.read(operator).audit.some(row=>row.type==='night_audit_handle_all'),'bulk handling saved');
+  const handled=store.read(operator).audit.find(row=>row.type==='night_audit_handle_all');
+  assert(handled.handledAuditOrders.length>=1);
+  assert(store.read(operator).orders.every(order=>!order.folioClosed));
+  await until(()=>!document.querySelector('#night-audit-handle-all'),'workbench refreshed');
+  $('[data-night-audit-settings-link]').click();
+  set('#handover-mode','shift_person');
+  $('#handover-mode-save').click();
+  await until(()=>store.read(operator).properties.find(row=>row.id==='TEST-KL').handoverMode==='shift_person','person mode saved');
+
   // Shifts and handover.
   await openNightAudit();
   set('#shift-name','Morning');set('#shift-start','07:00');set('#shift-end','15:00');
@@ -88,6 +100,7 @@ try {
   await until(()=>store.read(operator).handovers.length===1,'handover recorded');
   const handover=store.read(operator).handovers[0];
   assert.equal(handover.shiftName,'Morning');
+  assert.equal(handover.operator,username);
   assert.equal(handover.businessDate,'2027-01-12');
   assert.equal(handover.from,'2027-01-12T07:00:00+08:00','handover windows use the property offset');
   assert.equal(handover.to,'2027-01-12T15:00:00+08:00');
