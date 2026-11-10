@@ -295,3 +295,37 @@ Windows Node 427/429，余两项为已知私有文件权限用例。Python 5/5�
 - **证据等级**：上述交互为本地进程内 jsdom + 内存 SQLite + 合成账号/订单验证，不是线上登录浏览器验收。公网 GET `/healthz` 200 返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`；GET 静态 JS 的新标识实见。后端 `/server/` 不公开，运行时行为依据源码、合成服务测试及发布重启推断，未取得主机佐证或供应商联调证据。
 - **线上标识**：`/web/app.js` 命中 `referenceNoData`、`Print Center`、`data-room-status-logs`、`data-smart-lock`、`data-batch-print`、`data-registration-count`、`data-scheduled-task`、`data-print-center`、`data-self-checkin-preview`、`roomTypeOrder`、`groupOrder`；`/web/workspace-ui.js` 命中 `data-operations-display`、`data-layout-list`、`data-group-name`、`advanceEnabled`、`advanceMinutes`、`no key card is issued`；`/web/reservation-ui.js` 命中 `sourceOptions`；公开 `/src/demo-store.js` 命中 `saveDisplayPreferences`、`advanceCard`、`roomStatusRows`，`/src/inventory-actions.js` 命中 `export function roomStatusRows`。全部 17 个 web JS 与 app.js 的 21 个实际直接导入模块均通过 GET 200 检查。
 - **刻意未做**：打印、模板设置内部、生成/复制/发送自助代码或链接、任务类型/自动发送、门锁设置字段/购买/远程开门/密码、真实发卡、NOBEDS/支付/TTHotel；未操作真实订单、资金或门锁，未修改线上账号或重置数据。日历 Overview/Reserve/Combined Room/Share、自动夜审/00:00 交班/跨午夜截账/补跑、无人归属流水、清空夜审、历史批量夜审/一键结账、计划自动重报价、附加费自动移日、Booking Engine Configure/税费/跟踪代码/倍率编辑/身份提交继续不做。跨夜审暂存恢复与 AR 保护保留。没有改部署工作流或新增运行时模块。
+
+## 内部运营 A1–A9 验证与发布（2026-11-10）
+
+运行时 `40df39059a0e0de2ce056bd7fcb31a04cac49b81`，基线 `c57d73f` + 文档 `f0f12c1`。使用 `gh run watch 42836859905 --exit-status --interval 5` 等待成功，Actions [42836859905](https://github.com/Popo841103/codex-pan/actions/runs/42836859905)、job `129901265793`：Verify PMS 与 Deploy 均成功，2026-11-10 14:43:21 UTC 完成。Ubuntu Node **449/449**、Python **5/5**；发布日志备份路径 `/var/backups/jovian-pms-test/update-8Fpq4WBO`，该路径只是发布流程原有备份，**不代表已自动加密**。
+
+本地 Linux Node24全套449/449，新增10项；Python5/5；25个DOM脚本及folio `--lines`/`--amend`共27/27；37个runtime JS语法、CI三个部署shell语法、`git diff --check`通过。未改工作流、未弱化Ubuntu门禁，Windows既有私有权限测试规则原样保留。
+
+| 项 | 入口与合成验证 | 公网及证据等级 |
+|---|---|---|
+| A1 | 设置→提醒；班次/账号规则、发出/查询/本人撤回、指定接收人、已读/铃铛、日期报表。Node验证当前马来西亚班次而非营业日匹配、只升不降、最新同作用域配置、其他人员/其他门店拒绝、原文不变及追加撤回。DOM验证发出/搜索/撤回/账号规则/报表。 | workspace-ui.js与demo-store.js新标识GET实见；业务交互为内存SQLite+合成账号，不是线上发通知。SMS/email/push未连接。 |
+| A2 | 统计→佣金明细→默认费率/预期差额。费率生效日期与历史、四舍五入到分、首次账页应付基数快照、后改费率不重算、缺费率空值、管理员与门店隔离。DOM维护费率及历史通过。 | `commission_rate_save`、`expectedCommission` GET实见；无OTA账单导入或银行链接，预期不代表平台合同结算。 |
+| A3 | 原佣金月结入口，勾确认后再次确认月份；账户管理员校验；月结快照保留预期及原营业日、关闭只读、当期更正；既有AR/夜审保护回归。`dom-commission-period.mjs`通过。 | 公开reducer标识实见；服务器权限/冻结依据源码、合成服务测试和成功发布，未线上修改账单。 |
+| A4 | 设置→房型与房间→公开链接预览/逐行核对确认→可编辑房型草稿。DOM用本地fixture经真实HTTP，预览及未勾确认不写、失败行不导入、管理员逐行确认后仅存草稿。Node验证OG/JSON-LD缺字段、robots拒绝、私网与IPv6拒绝、权限及隔离。 | `data-listing-preview`、`data-listing-confirm`、`sourceSnapshot` GET实见；没有真实平台抓取。robots不可读/跳转/登录/受限页失败关闭，未验证照片下载。草稿不自动建库存或发布，实际房型/房间由现有编辑器人工维护。 |
+| A5 | 门店网页或资源页→照片顺序/封面及三语描述，前后快照；公开站点查询结果显示。DOM实际GET合成站点、验证HTTPS图片CSP/封面/描述、填写无脚本多房型表单并记录一份请求；Node验证人工接受生成所有房型住宿、无部分订单和原字段兼容。 | frontend内容维护GET实见；公开HTML交互为本地合成站点，未在线上发布门店、提交请求或注册账号。无支付/自动确认。 |
+| A6 | 离线 `server/self-checkin.js backup-seal/backup-rotate/backup-restore`；Node实际SQLite一致性backup、AES-GCM目录密封、根密钥/epoch轮换、新包恢复、旧包以原密钥CLI恢复、原guest key解密合成记录，错误密钥/篡改拒绝、恢复不覆盖运行库。 | **本地合成恢复演练通过**，不是主机恢复；server文件不公开。运行时工具随发布重启推断已部署，未获取主机执行佐证；发布器不调用它，现存线上备份没有自动加密。保留旧根密钥及纳入主机离线运维仍未做，按要求未改工作流。 |
+| A7 | 日历底部→当前区间住宿查询与搜索；住宿详情底部→整单住宿及已有日志；DOM断言只读不增revision。旧前台工具/显示设置全套回归。 | 两个query标识GET实见。指定共享隐藏入口第9节在克隆中未找到，仓库现有研究第9节是自动化；未知条目保持未核验，不声称完整隐藏入口清单通过。 |
+| A8 | 佣金/提醒页营业日范围报表及CSV；按渠道汇总账单/更正/预期/实际/差额/无费率数，提醒发出撤回明细；缺营业日原账单与更正单独计数，不拿自然日或月份首日补日期。DOM实际导出CSV，表格/筛选范围和BOM/转义/公式前缀防护已检查。 | `operationsReports`、`data-report-csv`、`unallocatedCorrections` GET实见；合成报表验收，不是银行/OTA核账。 |
+| A9 | 全套测试、DOM、push、gh run watch、发布后GET；双状态机逐命令比对原订单与资金保留，新增设置账户管理员专属。 | Actions成功+以下只读GET实见；后端行为不冒充公网浏览器业务验收。 |
+
+### 发布后的只读 GET（不是 HEAD）
+
+- `GET https://pms.jovianhome.com/healthz`：200，`{"ok":true,"service":"jovian-pms","data":"test-only"}`。
+- `GET /web/app.js`：200，本地SHA256完全一致，`data-listing-confirm`、`data-reservation-history-query`、`data-calendar-range-results`、`data-report-csv`、`operationsReports`、`unallocatedCorrections`全部命中。
+- `GET /web/workspace-ui.js`：200，本地SHA256完全一致，`internalOperationsPanel`、`notice_scope_save`、`commission_rate_save`、`data-listing-preview`、`booking_content_save`、`data-calendar-range-query`全部命中。
+- `GET /src/demo-store.js`：200，本地SHA256完全一致，`batchActions`、`scopedReminder`、`reminderForAccount`、`expectedCommission`、`operationsReports`、`sourceSnapshot`、`unallocatedCorrections`全部命中。
+- 全17个web JS、app.js的21个不重复直接导入模块均GET200。
+- `GET /server/store.js`、`GET /server/self-checkin.js`均404，后端文件继续不公开。
+- `GET /sites/no-such-property`：404；CSP仍为 `default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`。真实存在的发布站点增加HTTPS图片许可仅在本地合成HTTP检查，未修改线上站点内容。
+
+复现命令见 `pms/verification/internal-operations-audit.md`。新增 `test/internal-operations.test.js` 与 `verification/dom-internal-operations.mjs` 只使用合成数据/本地fixture。没有线上账号/真实订单/资金/门锁写操作，没有数据重置；SmartOrder未做任何写入。
+
+### 明确未做
+
+外部短信/邮件/push、OTA结算导入/银行对账、真实锁/身份/支付/NOBEDS/TTHotel；发布器自动备份加密与主机真实恢复演练（已具备离线工具，未改流程）；未知共享隐藏入口清单逐项验收；网页草稿自动转销售库存/自动发布。全部Do NOT项继续不做，尤其Calendar Overview/Reserve/Combined Room/Share、自动夜审/00:00交班/跨午夜截账/补跑、历史批量处理、自动重报价/移附加费、Booking Engine Configure内部、税费/跟踪代码/倍率/身份提交与锁操作。跨夜审暂存恢复、AR保护保留。
