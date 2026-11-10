@@ -37,3 +37,30 @@ export function changeOrderBox(state, command, preview) {
   }
   for (const order of orders) order.inventoryHistory.at(-1).toResourceId = order.resourceId;
 }
+
+/** Snapshot the affected inventory without altering previous audit records. */
+export function roomStatusRows(before,after,command){
+  const {type,propertyId}=command;
+  const kinds=['block','unblock','bulk_block','bulk_unblock','clean','bulk_clean'];
+  if(!kinds.includes(type))return [];
+  const scoped=after.resources.filter(r=>r.propertyId===propertyId);
+  const single=scoped.filter(r=>r.id===command.resourceId);
+  const selected=Array.isArray(command.resourceIds)?scoped.filter(r=>command.resourceIds.includes(r.id)):single;
+  const hits=(resources,block)=>resources.filter(r=>r.atoms.some(atom=>block.atoms.includes(atom)));
+  const row=(r,action,start=null,end=null,note='')=>{
+    const room=after.physicalRooms.find(x=>x.id===r.roomId&&x.propertyId===propertyId);
+    const roomType=after.roomTypes.find(x=>x.id===r.roomTypeId&&x.propertyId===propertyId);
+    return {resourceId:r.id,roomLabel:room?.label||r.label,roomTypeId:r.roomTypeId,roomTypeNames:roomType?.names||{},action,start,end,note};
+  };
+  if(type==='clean'||type==='bulk_clean')return selected.map(r=>row(r,type==='clean'?'clean':command.cleaning));
+  if(type==='block'||type==='bulk_block'){
+    const block=after.blocks.find(b=>b.id===command.id&&b.propertyId===propertyId);
+    return block?hits(selected,block).map(r=>row(r,blockType(block)==='out_of_service'?'out_of_service':'blocked',block.start,block.end,block.reason||'')):[];
+  }
+  if(type==='unblock'){
+    const block=before.blocks.find(b=>b.id===command.blockId&&b.propertyId===propertyId);
+    return block?hits(scoped,block).map(r=>row(r,'open',block.start,block.end,block.reason||'')):[];
+  }
+  return before.blocks.filter(b=>b.propertyId===propertyId&&(!command.blockIds||command.blockIds.includes(b.id))&&b.start<command.end&&b.end>command.start)
+    .flatMap(b=>hits(selected,b).map(r=>row(r,'open',b.start>command.start?b.start:command.start,b.end<command.end?b.end:command.end,b.reason||'')));
+}

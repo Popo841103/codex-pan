@@ -1,5 +1,5 @@
 import {changeRates} from './rates.js';
-import { isBoxed, occupiesInventory, operationalBlock, changeOrderBox } from './inventory-actions.js';
+import { isBoxed, occupiesInventory, operationalBlock, changeOrderBox, roomStatusRows } from './inventory-actions.js';
 // Trustworthy business day: one persisted date per property, advanced only by night audit.
 // The browser never supplies the business date; a free-form date input is a work/view date, not the audited date.
 export class BusinessDayError extends Error {}
@@ -462,6 +462,8 @@ export function apply(state, command) {
     changeOrderBox(next,command,preview);
   } else if(type==='create_reservation') {
     next=createReservation(next,command,apply,preview);
+  } else if(type==='display_preferences_save') {
+    saveDisplayPreferences(next, command);
   } else if(type==='memo_save') {
     next.properties.find(p=>p.id===propertyId).memo={text:text(command.text,3000),at:command.at,actor:command.actor||'local'};
   } else if (catalogActions.includes(type)) {
@@ -726,6 +728,7 @@ export function apply(state, command) {
     next.blocks = next.blocks.filter(b => b !== block);
   } else if (!['purge_test_orders','notice_severity_save','notice_rule_save'].includes(type)) reject('input');
   preview(next, propertyId);
+  const statusRows=roomStatusRows(state,next,command);
   const movedTo = next.orders.find(o => o.id === (order?.id || command.id)) || null;
   next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, orderId: order?.id || null, resourceId: resource?.id || null, resourceIds: command.resourceIds, cleaning:command.cleaning, actor: command.actor || 'local',
     ...(stayBefore || ['create','box_stays','restore_stays'].includes(type) ? { stayChange:{ before:stayBefore,
@@ -736,6 +739,7 @@ export function apply(state, command) {
     ...(type==='undo_reservation_payment'?{reservationId:command.reservationId,reversesBatchId:command.batchId,reason:command.reason.trim()}:{}),
     ...(type==='payment_reservation'?{reservationId:command.reservationId,amount:command.amount,method:command.method,allocations:command.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
     ...(handledAuditOrders?{handledAuditOrders}:{}),
+    ...(statusRows.length?{roomStatusRows:statusRows}:{}),
     ...(settledStayIds?{reservationId:command.reservationId,settledStayIds}:{}),
     ...(type==='commission_save'&&command.correction===true?{commissionCorrection:order.commissionCorrections.at(-1)}:{}),
     ...(type==='commission_save'?{commissionChange:{before:commissionBefore,after:order?.commission||null}}:{}), at: command.at });
@@ -745,6 +749,60 @@ export function apply(state, command) {
 const text = (value, max) => { if(typeof value !== 'string' || value.length > max) reject('input'); return value; };
 const money = value => { if (!Number.isSafeInteger(value) || value < 0 || value > 100000000) reject('amount'); return value; };
 const validSource = value => { if (!['direct','walkin','booking','airbnb','agoda','tripcom','expedia','traveloka','tiket','bookingengine','chinesesite','rednote','neppan','hostelworld','tujia','vrbo','xiaozhu','temairazu','rakuten','klook','other'].includes(value)) reject('input'); return value; };
+function saveDisplayPreferences(state, {propertyId, preferences}) {
+  const property = state.properties.find(row => row.id === propertyId);
+  const fields = ['groups','roomTypeOrder','roomOrder','groupOrder','payments','channels','advanceCard'];
+  const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (!record(preferences) || !Object.keys(preferences).length || Object.keys(preferences).some(key => !fields.includes(key))) reject('input');
+  const next = {...property.displayPreferences};
+  const roomIds = new Set(state.physicalRooms.filter(row => row.propertyId === propertyId).map(row => row.id));
+  const typeIds = new Set(state.roomTypes.filter(row => row.propertyId === propertyId).map(row => row.id));
+  const order = (value, allowed) => {
+    if (!Array.isArray(value) || value.length > allowed.size || new Set(value).size !== value.length || value.some(id => !allowed.has(id))) reject('input');
+    return [...value];
+  };
+  if (Object.hasOwn(preferences,'groups')) {
+    if (!Array.isArray(preferences.groups) || preferences.groups.length > 200) reject('input');
+    const usedIds = new Set(), usedRooms = new Set();
+    next.groups = preferences.groups.map(group => {
+      if (!record(group) || typeof group.id !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(group.id) || usedIds.has(group.id)) reject('input');
+      const name = text(group.name,80).trim();
+      if (!name) reject('input');
+      const members = order(group.roomIds,roomIds);
+      if (members.some(id => usedRooms.has(id))) reject('input');
+      usedIds.add(group.id);
+      members.forEach(id => usedRooms.add(id));
+      return {id:group.id,name,roomIds:members};
+    });
+    if (next.groupOrder) next.groupOrder = next.groupOrder.filter(id => usedIds.has(id));
+  }
+  const groupIds = new Set((next.groups || []).map(group => group.id));
+  for (const [field,allowed] of [['roomTypeOrder',typeIds],['roomOrder',roomIds],['groupOrder',groupIds]]) {
+    if (Object.hasOwn(preferences,field)) next[field] = order(preferences[field],allowed);
+  }
+  for (const field of ['payments','channels']) {
+    if (!Object.hasOwn(preferences,field)) continue;
+    const entries = preferences[field];
+    if (!Array.isArray(entries) || entries.length > 40) reject('input');
+    const ids = new Set();
+    next[field] = entries.map(entry => {
+      if (!record(entry) || typeof entry.enabled !== 'boolean' || ids.has(entry.id)) reject('input');
+      if (field === 'payments') {
+        if (!['cash','bank','card','ota'].includes(entry.id)) reject('input');
+      } else validSource(entry.id);
+      ids.add(entry.id);
+      return {id:entry.id,enabled:entry.enabled};
+    });
+  }
+  if (Object.hasOwn(preferences,'advanceCard')) {
+    const {advanceCard} = preferences;
+    if (!record(advanceCard) || typeof advanceCard.enabled !== 'boolean') reject('input');
+    const {enabled,minutes} = advanceCard;
+    if (enabled && (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440)) reject('input');
+    next.advanceCard = {enabled,minutes:enabled ? minutes : 0};
+  }
+  property.displayPreferences = next;
+}
 function settleFolio(order, command, batchId) {
   const totals=folio(order);
   if(order.folioClosed)reject('folio_closed');

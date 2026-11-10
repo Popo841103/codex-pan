@@ -28,7 +28,7 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['commission_close_month','ar_adjust','ar_undo_adjust','ar_close_month','ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','transfer_folio_credit','undo_reservation_payment','payment_reservation','settle_reservation','settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','night_audit_handle_all','shift_save','shift_delete','shift_handover','shift_mode_save','cash_variance_approve','member_save','role_save','role_delete','member_permission_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
+  admin: ['display_preferences_save','commission_close_month','ar_adjust','ar_undo_adjust','ar_close_month','ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','transfer_folio_credit','undo_reservation_payment','payment_reservation','settle_reservation','settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','night_audit_handle_all','shift_save','shift_delete','shift_handover','shift_mode_save','cash_variance_approve','member_save','role_save','role_delete','member_permission_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
   operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','night_audit_handle_all','shift_handover','booking_request_decision'],
   finance: ['ar_adjust','ar_undo_adjust','ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','transfer_folio_credit','undo_reservation_payment','payment_reservation','settle_reservation','settle','payment','commission_save'], viewer: []
 };
@@ -41,7 +41,7 @@ export const actionModules = {
   frontDesk: ['checkin','checkout'],
   housekeeping: ['clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
   money: ['commission_close_month','ar_adjust','ar_undo_adjust','ar_close_month','ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','transfer_folio_credit','undo_reservation_payment','payment_reservation','settle_reservation','settle','reopen_folio','payment','cash_variance_approve','commission_save'],
-  catalog: ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
+  catalog: ['display_preferences_save','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
   operationsDay: ['business_date_init','night_audit','night_audit_handle_all','shift_save','shift_delete','shift_handover','shift_mode_save'],
   access: ['member_save','role_save','role_delete','member_permission_save'],
   site: ['site_save'],
@@ -1251,6 +1251,7 @@ export class Store {
         ...(cmd.type.startsWith('ar_')?{arEventId:cmd.id}:{}),
         ...(cmd.type==='shift_mode_save'?{handoverMode:cmd.mode}:{}),
         ...(cmd.type==='night_audit_handle_all'?{handledAuditOrders:localAudit?.handledAuditOrders}:{}),
+        ...(localAudit?.roomStatusRows?.length?{roomStatusRows:localAudit.roomStatusRows}:{}),
         ...(cmd.type==='ar_close_month'&&cmd.periodId===undefined?{arPeriod:{month:cmd.month,id:cmd.id}}:{}),
         ...(cmd.type==='ar_close_month'&&cmd.periodId!==undefined?{arCorrection:next.arEvents.find(event=>event.id===cmd.id)}:{}),
         ...(['settle_split','settle_bill','settle_undo','settle_unsplit'].includes(cmd.type)?{billEvent:next.orders.find(o=>o.id===cmd.orderId)?.folioEvents?.at(-1)}:{}),

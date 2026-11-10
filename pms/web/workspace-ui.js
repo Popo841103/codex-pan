@@ -5,10 +5,10 @@ const paths={home:'M3 11 12 3l9 8v10h-6v-7H9v7H3Z',calendar:'M4 5h16v16H4ZM7 2v6
 export const icon=name=>`<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.summary}"/></svg>`;
 export const shellWords={zh:{channels:'渠道',customers:'客户',mainOrders:'订单',navCalendar:'日历',navSummary:'房情表',navOverview:'房态表',collapseNavigation:'收起导航',expandNavigation:'展开导航',batchCleaning:'批量置脏/净',batchRoomState:'批量开/关房',today:'今天',todayShort:'今',customerDirectory:'住客资料',customerDirectoryNote:'来自本店现有订单的联系人记录；尚无独立CRM合并和去重审核。',relatedOrders:'关联订单',notConnected:'未连接',readConnection:'刷新连接状态',connectionUnknown:'连接状态尚未读取',channelScope:'渠道连接与消息',channelScopeNote:'NOBEDS作为付费渠道服务；本页从当前门店安全配置读取连接状态，不代表已经完成供应商联调。',messageCapability:'消息能力',manualSource:'手工订单来源',manualSourceNote:'订单来源标签不表示已连接OTA；其他平台消息能力需供应商确认。',notVerified:'尚未完成真实账号验收',openMessages:'打开OTA客人聊天',filterCustomers:'搜索姓名、邮箱、手机号、订单号',noCustomers:'本店暂无住客联系人',customerCount:'联系人记录',closeGroups:'收起',openGroups:'展开',viewInstructions:'查看说明',nightAuditLabel:'夜审',nightAuditUnavailable:'未启用',collapseGroupNote:'点击展开可恢复房型下的全部房号。'},en:{channels:'Channels',customers:'Guests',mainOrders:'Orders',navCalendar:'Calendar',navSummary:'Room summary',navOverview:'Room status',collapseNavigation:'Collapse navigation',expandNavigation:'Expand navigation',batchCleaning:'Bulk dirty / clean',batchRoomState:'Bulk open / close',today:'Today',todayShort:'Now',customerDirectory:'Guest contacts',customerDirectoryNote:'Contacts from existing property bookings; independent CRM merge and deduplication review are not implemented.',relatedOrders:'Related bookings',notConnected:'Not connected',readConnection:'Refresh connection',connectionUnknown:'Connection not read yet',channelScope:'Channel connection and messages',channelScopeNote:'NOBEDS is the paid channel service. Status comes from this property’s private configuration and does not establish a tested integration.',messageCapability:'Messaging capability',manualSource:'Manual booking source',manualSourceNote:'A source label does not connect an OTA. Other platform messaging needs supplier confirmation.',notVerified:'Live account verification incomplete',openMessages:'Open OTA guest inbox',filterCustomers:'Search name, email, phone or booking',noCustomers:'No guest contacts in this property',customerCount:'Contact records',closeGroups:'Collapse',openGroups:'Expand',viewInstructions:'View notes',nightAuditLabel:'Night audit',nightAuditUnavailable:'Not enabled',collapseGroupNote:'Expand to restore all unit rows.'},ms:{channels:'Saluran',customers:'Tetamu',mainOrders:'Pesanan',navCalendar:'Kalendar',navSummary:'Ringkasan bilik',navOverview:'Status bilik',collapseNavigation:'Tutup navigasi',expandNavigation:'Buka navigasi',batchCleaning:'Kotor / bersih pukal',batchRoomState:'Buka / tutup pukal',today:'Hari ini',todayShort:'Kini',customerDirectory:'Kenalan tetamu',customerDirectoryNote:'Kenalan daripada tempahan hartanah. Penggabungan CRM dan semakan pendua belum tersedia.',relatedOrders:'Tempahan berkaitan',notConnected:'Belum disambung',readConnection:'Muat semula sambungan',connectionUnknown:'Status belum dibaca',channelScope:'Sambungan dan mesej saluran',channelScopeNote:'NOBEDS ialah perkhidmatan saluran berbayar. Status konfigurasi bukan bukti integrasi sebenar telah diuji.',messageCapability:'Keupayaan mesej',manualSource:'Sumber manual',manualSourceNote:'Label sumber bukan sambungan OTA. Mesej platform lain perlu pengesahan pembekal.',notVerified:'Akaun sebenar belum disahkan',openMessages:'Buka peti masuk OTA',filterCustomers:'Cari nama, e-mel, telefon atau tempahan',noCustomers:'Tiada kenalan tetamu',customerCount:'Rekod kenalan',closeGroups:'Tutup',openGroups:'Buka',viewInstructions:'Lihat nota',nightAuditLabel:'Audit malam',nightAuditUnavailable:'Belum aktif',collapseGroupNote:'Buka untuk lihat semua unit.'}};
 export function navigation(view,t){
- const group=['calendar','overview','tasks','rates'].includes(view)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission','arLedger','arReports'].includes(view)?'stats':['bookingEngineSetup','nightAuditSettings','notifications','resourcesSettings','teamAccess','propertySite','bookingRequests','dataCleanup'].includes(view)?'settings':view;
+ const group=['calendar','overview','tasks','rates'].includes(view)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission','arLedger','arReports'].includes(view)?'stats':['operationsDisplay','bookingEngineSetup','nightAuditSettings','notifications','resourcesSettings','teamAccess','propertySite','bookingRequests','dataCleanup'].includes(view)?'settings':view;
  const mains=[['home','home','home'],['calendar','roomState','home'],['channels','channels','channels'],['orders','mainOrders','orders'],['customers','customers','customers'],['business','operationalReports','stats'],['resourcesSettings','settings','settings']];
- const section=v=>['calendar','overview','tasks','rates'].includes(v)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission','arLedger','arReports'].includes(v)?'stats':['bookingEngineSetup','nightAuditSettings','notifications','resourcesSettings','teamAccess','propertySite','bookingRequests','dataCleanup'].includes(v)?'settings':v;
- const side={rooms:[['calendar','navCalendar','home'],['rates','rateInventory','cash'],['overview','navSummary','summary'],['tasks','tasks','clean']],orders:[['orders','orders','orders'],['audit','audit','audit']],stats:[['arReports','arReports','stats'],['arLedger','arLedger','cash'],['managerDaily','managerDailyReport','stats'],['guestLedger','guestLedger','cash'],['roomCharge','roomChargeDetail','stats'],['roomBusiness','roomBusinessSummary','stats'],['roomMovement','roomMovementLog','audit'],['extraCharge','otherChargeDetail','cash'],['cancellation','cancellationPenaltyDetail','pig'],['occupants','roomOccupantDetail','single'],['registration','registrationRecord','audit'],['commission','commissionDetail','cash'],['comparison','comparison','summary'],['business','businessSummary','stats'],['cashflow','cashflowSummary','cash']],settings:[['bookingEngineSetup','bookingEngineSetup','globe'],['nightAuditSettings','nightAuditSettings','audit'],['notifications','notifications','bell'],['resourcesSettings','resourcesSettings','settings'],['teamAccess','teamAccess','lock'],['propertySite','propertySite','globe'],['bookingRequests','bookingRequests','message'],['dataCleanup','dataMaintenance','refresh']],channels:[['channels','channels','channels']],customers:[['customers','customerDirectory','customers']]}[group]||[];
+ const section=v=>['calendar','overview','tasks','rates'].includes(v)?'rooms':['business','cashflow','comparison','audit','nightAudit','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission','arLedger','arReports'].includes(v)?'stats':['operationsDisplay','bookingEngineSetup','nightAuditSettings','notifications','resourcesSettings','teamAccess','propertySite','bookingRequests','dataCleanup'].includes(v)?'settings':v;
+ const side={rooms:[['calendar','navCalendar','home'],['rates','rateInventory','cash'],['overview','navSummary','summary'],['tasks','tasks','clean']],orders:[['orders','orders','orders'],['audit','audit','audit']],stats:[['arReports','arReports','stats'],['arLedger','arLedger','cash'],['managerDaily','managerDailyReport','stats'],['guestLedger','guestLedger','cash'],['roomCharge','roomChargeDetail','stats'],['roomBusiness','roomBusinessSummary','stats'],['roomMovement','roomMovementLog','audit'],['extraCharge','otherChargeDetail','cash'],['cancellation','cancellationPenaltyDetail','pig'],['occupants','roomOccupantDetail','single'],['registration','registrationRecord','audit'],['commission','commissionDetail','cash'],['comparison','comparison','summary'],['business','businessSummary','stats'],['cashflow','cashflowSummary','cash']],settings:[['operationsDisplay','operationsDisplay','settings'],['bookingEngineSetup','bookingEngineSetup','globe'],['nightAuditSettings','nightAuditSettings','audit'],['notifications','notifications','bell'],['resourcesSettings','resourcesSettings','settings'],['teamAccess','teamAccess','lock'],['propertySite','propertySite','globe'],['bookingRequests','bookingRequests','message'],['dataCleanup','dataMaintenance','refresh']],channels:[['channels','channels','channels']],customers:[['customers','customerDirectory','customers']]}[group]||[];
  const buttons=items=>items.map(([id,key,name])=>`<button data-view="${id}" class="${section(id)===group&&items===mains||id===view?'active':''}" ${id===view?'aria-current="page"':''}>${items===mains?'':icon(name)}<span>${t(key)}</span></button>`).join('');
  return {main:buttons(mains),side:buttons(side)};
 }
@@ -172,7 +172,7 @@ export const permissionModules = {
  frontDesk: ['checkin','checkout'],
  housekeeping: ['clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
  money: ['commission_close_month','ar_adjust','ar_undo_adjust','ar_close_month','ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','transfer_folio_credit','undo_reservation_payment','payment_reservation','settle_reservation','settle','reopen_folio','payment','cash_variance_approve','commission_save'],
- catalog: ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
+ catalog: ['display_preferences_save','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
  operationsDay: ['business_date_init','night_audit','night_audit_handle_all','shift_save','shift_delete','shift_handover','shift_mode_save'],
  access: ['member_save','role_save','role_delete','member_permission_save'],
  site: ['site_save'],
@@ -734,3 +734,110 @@ export const noticeWords={
   noticeRuleAtLeast:'Apabila sekurang-kurangnya',noticeRuleLevel:'Naik ke',noticeRuleOff:'Tiada peraturan',noticeRuleSave:'Simpan peraturan',
   noticeRuleReadOnly:'Hanya pentadbir hartanah ini boleh mengubah peraturan bersyarat.',noticeRuleAudit:'Perubahan peraturan terkini',noticeRuleEscalated:'dinaikkan oleh peraturan'}
 };
+
+export const operationsDisplayWords={
+  zh:{operationsDisplay:'房态显示与前台住宿规则',roomGroups:'房间分组',groupName:'分组名称',addGroup:'添加分组',removeGroup:'删除分组',typeOrder:'按房型排序',roomOrder:'按房间排序',groupOrder:'按分组排序',paymentOrder:'付款方式排列',channelOrder:'渠道排列',enabledList:'启用',disabledList:'停用',ungrouped:'未分组',reorderHelp:'拖动条目调整顺序，或用上下按钮。将房间拖入分组以修改归属。',advanceCard:'预发预订房卡',advanceMinutes:'入住时间前的分钟数',advanceNote:'仅保存前台住宿规则。',invalidGroups:'请为每个分组填写名称。'},
+  en:{operationsDisplay:'Calendar display and front desk stay rules',roomGroups:'Room groups',groupName:'Group name',addGroup:'Add group',removeGroup:'Remove group',typeOrder:'Sort by room type',roomOrder:'Sort by room',groupOrder:'Sort by group',paymentOrder:'Payment method order',channelOrder:'Channel order',enabledList:'Enabled',disabledList:'Disabled',ungrouped:'Ungrouped',reorderHelp:'Drag items to reorder, or use the up and down buttons. Drag a room into a group to assign it.',advanceCard:'Advance Key Card Issuance for Reserved Reservations',advanceMinutes:'Minutes before check-in time',advanceNote:'Saves the front desk stay rule.',invalidGroups:'Enter a name for each room group.'},
+  ms:{operationsDisplay:'Paparan kalendar dan peraturan penginapan kaunter',roomGroups:'Kumpulan bilik',groupName:'Nama kumpulan',addGroup:'Tambah kumpulan',removeGroup:'Buang kumpulan',typeOrder:'Susun mengikut jenis bilik',roomOrder:'Susun mengikut bilik',groupOrder:'Susun mengikut kumpulan',paymentOrder:'Susunan kaedah pembayaran',channelOrder:'Susunan saluran',enabledList:'Aktif',disabledList:'Tidak aktif',ungrouped:'Tanpa kumpulan',reorderHelp:'Seret item untuk menyusun, atau gunakan butang atas dan bawah. Seret bilik ke kumpulan untuk menetapkannya.',advanceCard:'Pengeluaran awal kad kunci untuk tempahan',advanceMinutes:'Minit sebelum masa daftar masuk',advanceNote:'Menyimpan peraturan penginapan kaunter.',invalidGroups:'Masukkan nama bagi setiap kumpulan bilik.'}
+};
+for(const labels of Object.values(operationsDisplayWords))labels.act_display_preferences_save=labels.operationsDisplay;
+
+export function preferenceOptions(defaults, saved=[], {includeDisabled=false, keep}={}){
+  const known=saved.filter(row=>defaults.includes(row.id));
+  const seen=new Set(known.map(row=>row.id));
+  return [...known,...defaults.filter(id=>!seen.has(id)).map(id=>({id,enabled:true}))]
+    .filter(row=>includeDisabled||row.enabled||row.id===keep);
+}
+
+export function bindOperationsDisplay(root,{preferences,rooms,types,payments,channels,t,save,editable,errorText}){
+  const groupMap=new Map((preferences.groups||[]).map(group=>[group.id,{...group,roomIds:group.roomIds.filter(id=>rooms.some(room=>room.id===id))}]));
+  const ordered=(ids,entries)=>[...(ids||[]).filter(id=>entries.some(row=>row.id===id)),...entries.map(row=>row.id).filter(id=>!ids?.includes(id))];
+  const optionLists=(key,ids)=>Object.fromEntries([true,false].map(enabled=>[key+(enabled?'-enabled':'-disabled'),preferenceOptions(ids,preferences[key],{includeDisabled:true}).filter(row=>row.enabled===enabled).map(row=>row.id)]));
+  const lists={
+    roomTypeOrder:ordered(preferences.roomTypeOrder,types),
+    roomOrder:ordered(preferences.roomOrder,rooms),
+    groupOrder:ordered(preferences.groupOrder,[...groupMap.values()]),
+    ...optionLists('payments',payments),...optionLists('channels',channels)
+  };
+  const advance={enabled:false,minutes:0,...preferences.advanceCard};
+  const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const ro=editable?'':' disabled';
+  const roomLabel=id=>rooms.find(room=>room.id===id)?.label||id;
+  const name=(key,id)=>key==='roomTypeOrder'?types.find(row=>row.id===id)?.label:key==='groupOrder'?groupMap.get(id)?.name||t('groupName'):key==='roomOrder'||key.startsWith('member:')?roomLabel(id):t(id);
+  const renderList=(key,ids)=>`<ul class="list" data-layout-list="${escape(key)}">${ids.map((id,i)=>`<li draggable="${editable}" data-layout-item="${escape(id)}">${escape(name(key,id))} <button type="button" data-layout-step="-1" aria-label="${escape(t('previous'))}" ${i?ro:'disabled'}>↑</button> <button type="button" data-layout-step="1" aria-label="${escape(t('next'))}" ${i<ids.length-1?ro:'disabled'}>↓</button>${key.includes('-enabled')||key.includes('-disabled')?` <button type="button" data-layout-toggle${ro}>${t(key.endsWith('-enabled')?'disabledList':'enabledList')}</button>`:''}</li>`).join('')}</ul>`;
+  const members=key=>key==='member:'?rooms.map(r=>r.id).filter(id=>![...groupMap.values()].some(group=>group.roomIds.includes(id))):groupMap.get(key.slice(7))?.roomIds||[];
+  const render=()=>{
+    root.innerHTML=`<section class="panel" data-operations-display><h2>${t('operationsDisplay')}</h2><form id="operations-display-form"><p>${t('reorderHelp')}</p><section><h3>${t('roomGroups')}</h3><button type="button" data-add-room-group${ro}>${t('addGroup')}</button><fieldset><legend>${t('ungrouped')}</legend>${renderList('member:',members('member:'))}</fieldset>${lists.groupOrder.map(id=>`<fieldset><legend>${t('roomGroups')}</legend><label>${t('groupName')}<input required maxlength="80" data-group-name="${escape(id)}" value="${escape(groupMap.get(id).name)}"${ro}></label><button type="button" data-remove-room-group="${escape(id)}"${ro}>${t('removeGroup')}</button>${renderList('member:'+id,members('member:'+id))}</fieldset>`).join('')}<label>${t('roomGroups')}<select data-move-room${ro}><option value="">${t('room')}</option>${rooms.map(r=>`<option value="${escape(r.id)}">${escape(r.label)}</option>`).join('')}</select><select data-move-group${ro}><option value="member:">${t('ungrouped')}</option>${lists.groupOrder.map(id=>`<option value="member:${escape(id)}">${escape(groupMap.get(id).name||t('groupName'))}</option>`).join('')}</select><button type="button" data-move-room-button${ro}>${t('apply')}</button></label></section><section><h3>${t('displaySettings')}</h3>${[['roomTypeOrder','typeOrder'],['roomOrder','roomOrder'],['groupOrder','groupOrder']].map(([key,label])=>`<fieldset><legend>${t(label)}</legend>${renderList(key,lists[key])}</fieldset>`).join('')}</section>${[['payments','paymentOrder'],['channels','channelOrder']].map(([key,label])=>`<section><h3>${t(label)}</h3>${['enabled','disabled'].map(status=>`<fieldset><legend>${t(status+'List')}</legend>${renderList(key+'-'+status,lists[key+'-'+status])}</fieldset>`).join('')}</section>`).join('')}<fieldset><legend>${t('advanceCard')}</legend><p>${t('advanceNote')}</p><label><input name="advanceEnabled" type="checkbox" ${advance.enabled?'checked':''}${ro}> ${t('advanceCard')}</label><label>${t('advanceMinutes')}<input name="advanceMinutes" type="number" min="0" max="1440" step="1" required value="${escape(advance.minutes)}"${advance.enabled?ro:' disabled'}></label></fieldset><p role="alert" data-layout-error></p><button class="primary" ${ro}>${t('apply')}</button></form></section>`;
+  };
+  const move=(from,to,id,before)=>{
+    if(from.startsWith('member:')&&to.startsWith('member:')){
+      if(from===to)return;
+      for(const group of groupMap.values())group.roomIds=group.roomIds.filter(room=>room!==id);
+      if(to!=='member:')groupMap.get(to.slice(7))?.roomIds.push(id);
+    }else{
+      if(from!==to&&(!from.includes('-')||from.split('-')[0]!==to.split('-')[0]))return;
+      if(!lists[from]?.includes(id)||!lists[to]||before===id)return;
+      lists[from]=lists[from].filter(row=>row!==id);
+      const index=lists[to].indexOf(before);
+      lists[to].splice(index<0?lists[to].length:index,0,id);
+    }
+    render();
+  };
+  let dragged;
+  root.ondragstart=e=>{const item=e.target.closest('[data-layout-item]');if(!editable||!item)return;dragged={key:item.closest('[data-layout-list]').dataset.layoutList,id:item.dataset.layoutItem};e.dataTransfer?.setData('text/plain',dragged.id);};
+  root.ondragend=()=>{dragged=null;};
+  root.ondragover=e=>{if(dragged&&(e.target.closest('[data-layout-list]')||e.target.closest('fieldset')?.querySelector('[data-layout-list]')))e.preventDefault();};
+  root.ondrop=e=>{
+    const target=(e.target.closest('[data-layout-list]')||e.target.closest('fieldset')?.querySelector('[data-layout-list]'));
+    if(!dragged||!target)return;
+    e.preventDefault();
+    const item=e.target.closest('[data-layout-item]');
+    move(dragged.key,target.dataset.layoutList,dragged.id,item?.dataset.layoutItem);
+    dragged=null;
+  };
+  root.oninput=e=>{
+    const input=e.target;
+    if(input.dataset.groupName)groupMap.get(input.dataset.groupName).name=input.value;
+    if(input.name==='advanceEnabled'){advance.enabled=input.checked;if(!advance.enabled)advance.minutes=0;const minutes=root.querySelector('[name=advanceMinutes]');minutes.disabled=!advance.enabled;minutes.value=advance.minutes;}
+    if(input.name==='advanceMinutes')advance.minutes=input.value;
+  };
+  root.onclick=e=>{
+    if(!editable)return;
+    const button=e.target.closest('button');
+    if(!button)return;
+    if(button.hasAttribute('data-add-room-group')){
+      const id=crypto.randomUUID();groupMap.set(id,{id,name:'',roomIds:[]});lists.groupOrder.push(id);render();root.querySelector('[data-group-name="'+id+'"]').focus();
+    }
+    if(button.dataset.removeRoomGroup){
+      const id=button.dataset.removeRoomGroup;groupMap.delete(id);lists.groupOrder=lists.groupOrder.filter(row=>row!==id);render();
+    }
+    if(button.hasAttribute('data-move-room-button')){
+      const id=root.querySelector('[data-move-room]').value,to=root.querySelector('[data-move-group]').value;
+      if(id)move('member:'+([...groupMap.values()].find(group=>group.roomIds.includes(id))?.id||''),to,id);
+    }
+    const item=button.closest('[data-layout-item]');
+    if(!item)return;
+    const key=item.closest('[data-layout-list]').dataset.layoutList,id=item.dataset.layoutItem;
+    if(button.hasAttribute('data-layout-toggle')){
+      const [kind,status]=key.split('-');move(key,kind+'-'+(status==='enabled'?'disabled':'enabled'),id);
+    }
+    if(button.dataset.layoutStep&&lists[key]){
+      const index=lists[key].indexOf(id),next=index+Number(button.dataset.layoutStep);
+      if(next>=0&&next<lists[key].length){[lists[key][index],lists[key][next]]=[lists[key][next],lists[key][index]];render();}
+    }
+  };
+  root.onsubmit=async e=>{
+    if(e.target.id!=='operations-display-form')return;
+    e.preventDefault();
+    if(!editable)return;
+    const groups=lists.groupOrder.map(id=>groupMap.get(id));
+    const error=root.querySelector('[data-layout-error]');
+    if(groups.some(group=>!group.name.trim())){error.textContent=t('invalidGroups');return;}
+    const options=key=>[true,false].flatMap(enabled=>lists[key+(enabled?'-enabled':'-disabled')].map(id=>({id,enabled})));
+    const button=e.submitter||e.target.querySelector('.primary');
+    button.disabled=true;
+    try{await save({groups,roomTypeOrder:lists.roomTypeOrder,roomOrder:lists.roomOrder,groupOrder:lists.groupOrder,payments:options('payments'),channels:options('channels'),advanceCard:{enabled:advance.enabled,minutes:advance.enabled?Number(advance.minutes):0}});}
+    catch(err){error.textContent=errorText(err);button.disabled=false;}
+  };
+  render();
+}
