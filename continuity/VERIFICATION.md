@@ -274,3 +274,11 @@ Windows Node 427/429，余两项为已知私有文件权限用例。Python 5/5�
 合成 `verification/dom-booking-engine.mjs` 通过，覆盖四张卡片、空状态、划线价状态、四个只读核验字段和房型房价维护跳转，页面操作不改变门店版本。Windows Node 427/429，余两项为既有私有文件权限失败。Python 5/5。公网验收检查 `/healthz` 与 `/web/workspace-ui.js` 的 `data-booking-engine-setup`。
 
 运行时 `4d383b8` 已部署测试站。Actions 42793514069 成功，Linux Node 429/429、Python 5/5。公网健康端点、预订引擎、划线价与核验预览标识实见通过。交互验证使用合成数据。
+
+## 暂存箱与住宿状态保护验证（2026-11-10）
+
+- Windows Node 24：`cd pms` 后 `node --test`，431/433，通过本批新增 4 项，另 2 项为既有 Windows 私有文件权限失败；未改权限测试。Python `python -m unittest discover -s test -p test_*.py`，5/5。
+- 合成 DOM：`node pms/verification/dom-workflows.mjs <jsdom/lib/api.js 的绝对路径>`，通过暂存当前/历史、搜索、打开取消表单、批量移出、锁房开关、拖动换房。服务端合成用例覆盖夜审边界、取消时间跨马来西亚午夜、已有取消费拦截和库存冲突。
+- 公网复核仅检查健康及静态标识；不对真实订单、资金或门锁执行操作。后端源文件不对外；后端依据源码、合成测试及 Actions 判定。
+
+发布：Actions [42795933551](https://github.com/Popo841103/codex-pan/actions/runs/42795933551) 成功，Ubuntu Node 433/433、Python 5/5。公网 `/healthz` 返回 `ok:true`、`data:test-only`；`/web/app.js` 已验证 `data-reservation-box`、`data-box-tab`、`data-box-cancel`、`data-box-restore`、`toggle-lock`、`data-stay-reversal`、`data-stay-drag`、`confirm-room-drag`；`/web/workspace-ui.js` 的预订引擎与夜审工作台标识仍在。

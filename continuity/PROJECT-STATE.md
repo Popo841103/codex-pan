@@ -206,3 +206,9 @@ AR 与佣金已关闭月份支持以当前营业期追加更正，原快照可�
 预订引擎已加入实见设置预览。房型和价格计划可跳到现有维护页。未核验的渠道配置、税费维护、SEO 注入、倍率编辑、身份核验提交均待后续实见。
 
 运行时 `4d383b8` 已部署测试站。Actions 42793514069 成功，Linux Node 429/429、Python 5/5。公网健康端点、预订引擎、划线价与核验预览标识实见通过。交互验证使用合成数据。
+
+## 暂存箱与住宿状态保护批次（2026-11-10）
+
+运行时提交：`f12c1f0876851287041be3cf63a48643a9f6617c`。暂存箱当前/历史页、搜索与筛选、沿用取消与原子库存恢复；订单详情锁房复选框、状态撤销/恢复，日历同日拖动换房及夜审边界。没有新增运行时模块或改部署工作流。未核验：Blocked 等价状态、非零取消费用恢复的账务口径、真实账号操作、NOBEDS、支付、TTHotel。
+
+发布：Actions [42795933551](https://github.com/Popo841103/codex-pan/actions/runs/42795933551) 成功，Ubuntu Node 433/433、Python 5/5。公网 `/healthz` 返回 `ok:true`、`data:test-only`；`/web/app.js` 已验证 `data-reservation-box`、`data-box-tab`、`data-box-cancel`、`data-box-restore`、`toggle-lock`、`data-stay-reversal`、`data-stay-drag`、`confirm-room-drag`；`/web/workspace-ui.js` 的预订引擎与夜审工作台标识仍在。
