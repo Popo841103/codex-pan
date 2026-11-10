@@ -1503,3 +1503,5 @@ $('#content').addEventListener('submit',event=>{const form=event.target;if(!form
 $('#utility-body').addEventListener('click',event=>{if(event.target.closest('[data-stay-print]')){document.body.classList.add('stay-print');try{window.print();}finally{document.body.classList.remove('stay-print');}}});
 
 $('#content').addEventListener('change',event=>{if(event.target.matches('[data-desk-section="quickReply"] [name=entryId]')){const row=deskReplies(state,propertyId).find(r=>(r.entryId||r.id)===event.target.value),form=event.target.form;for(const k of ['name','text'])form.elements[k].value=row?.values[k]||'';form.elements.active.value=String(row?.active!==false);}});
+
+$('#content').addEventListener('click',event=>{const button=event.target.closest('[data-desk-summary] [data-view]');if(button)goView(button.dataset.view);});
