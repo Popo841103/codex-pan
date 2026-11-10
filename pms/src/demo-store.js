@@ -402,7 +402,9 @@ export function apply(state, command) {
   };
   if(order&&['settle','ar_post'].includes(type)&&order.status==='confirmed')restoreForSettlement([order]);
   if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
-  if(type==='night_audit_handle_all'){
+  if(batchActions.includes(type)){
+    changeBatchState(next,command);
+  } else if(type==='night_audit_handle_all'){
     if(!isDate(next.businessDate))reject('business_date');
     const instant=Date.parse(command.at);
     if(!Number.isFinite(instant))reject('date');
@@ -626,11 +628,11 @@ export function apply(state, command) {
       const history=order.commissionCorrections??=[];
       const previous=history.at(-1)?.correctedAmount??order.commission.amount;
       if(!note||command.amount===previous||reference===order.commission.reference||history.some(row=>row.reference===reference))reject('commission_input');
-      history.push({id:command.id,period:currentMonth,originalPeriod:period,reference,note,
+      history.push({id:command.id,businessDate:next.businessDate,period:currentMonth,originalPeriod:period,reference,note,
         amount:command.amount-previous,correctedAmount:command.amount,at:command.at,actor:command.actor||'local'});
     }else{
       if(isCommissionClosed(next,propertyId,period))reject('commission_period');
-      order.commission = {amount: command.amount, reference, note, at: command.at, actor: command.actor || 'local',...(period?{period}:{}),
+      order.commission = {businessDate:order.commission?.businessDate??(isDate(next.businessDate)?next.businessDate:null),expected:order.commission?.expected??expectedCommission(next,order,next.businessDate||''),amount: command.amount, reference, note, at: command.at, actor: command.actor || 'local',...(period?{period}:{}),
       settledAt: command.settled ? command.at : null, settledBy: command.settled ? (command.actor || 'local') : null};
     }
   } else if (type === 'cancel') {
@@ -740,6 +742,7 @@ export function apply(state, command) {
     ...(type==='payment_reservation'?{reservationId:command.reservationId,amount:command.amount,method:command.method,allocations:command.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
     ...(handledAuditOrders?{handledAuditOrders}:{}),
     ...(statusRows.length?{roomStatusRows:statusRows}:{}),
+    ...(batchActions.includes(type)?{batchChange:{recordId:command.id,businessDate:next.businessDate}}:{}),
     ...(settledStayIds?{reservationId:command.reservationId,settledStayIds}:{}),
     ...(type==='commission_save'&&command.correction===true?{commissionCorrection:order.commissionCorrections.at(-1)}:{}),
     ...(type==='commission_save'?{commissionChange:{before:commissionBefore,after:order?.commission||null}}:{}), at: command.at });
@@ -1192,7 +1195,7 @@ function closeCommissionMonth(state,command){
   if(recorded.some(o=>!commissionPeriod(o.commission)))reject('commission_pending');
   if(!prior&&recorded.some(o=>commissionPeriod(o.commission)<month))reject('commission_period');
   const entries=recorded.filter(o=>commissionPeriod(o.commission)===month).map(o=>({
-    orderId:o.id,source:o.source||'direct',reference:o.commission.reference,amount:o.commission.amount,
+    orderId:o.id,source:o.source||'direct',reference:o.commission.reference,amount:o.commission.amount,businessDate:o.commission.businessDate||null,expected:o.commission.expected||null,
     settledAt:o.commission.settledAt,settledBy:o.commission.settledBy
   }));
   if(entries.some(e=>!e.settledAt))reject('commission_pending');
@@ -1213,4 +1216,86 @@ function closeCommissionMonth(state,command){
   }
   if(!Number.isSafeInteger(total))reject('amount');
   periods.push({id,propertyId,month,from,to,at,actor:command.actor||'local',total,entries,channels:[...grouped.values()]});
+}
+
+// Internal operations batch: property body is the source in both local and SQLite modes.
+export const batchActions=['notice_scope_save','notice_send','notice_withdraw','commission_rate_save','listing_draft_save','booking_content_save'];
+const batchText=(value,max=2000)=>typeof value==='string'&&value.trim().length<=max?value.trim():'';
+export function expectedCommission(state,order,date){
+ const rate=(state.commissionRates||[]).filter(r=>r.propertyId===order.propertyId&&r.source===(order.source||'direct')&&r.effectiveFrom<=date)
+  .sort((a,b)=>b.effectiveFrom.localeCompare(a.effectiveFrom)||b.at.localeCompare(a.at))[0];
+ const basis=folio(order).charge;
+ return {basis,rate:rate?.percent??null,amount:rate?Math.round(basis*rate.percent/100):null,rateId:rate?.id??null};
+}
+export function scopedReminder(state,notice,{username,shiftId}={}){
+ const latest=new Map();for(const rule of state.noticeScopes||[])latest.set([rule.propertyId,rule.kind,rule.username,rule.shiftId].join(':'),rule);
+ const rules=[...latest.values()].filter(r=>r.propertyId===notice.propertyId&&r.kind===notice.kind&&
+  (!r.username||r.username===username)&&(!r.shiftId||r.shiftId===shiftId));
+ const rank={routine:0,attention:1,urgent:2};
+ return rules.reduce((n,r)=>rank[r.level]>rank[n.severity||'routine']?{...n,severity:r.level}:n,notice);
+}
+function changeBatchState(state,c){
+ const {propertyId,id,at,actor='local',type}=c;
+ if(type==='notice_scope_save'){
+  if(!noticeKinds.includes(c.kind)||!noticeLevels.includes(c.level)||!batchText(c.username,64)&&!batchText(c.shiftId,100))reject('input');
+  if(c.shiftId&&!(state.shiftTypes||[]).some(r=>r.id===c.shiftId))reject('scope');
+  const rows=state.noticeScopes??=[];
+  rows.push({id,propertyId,at,actor,kind:c.kind,level:c.level,username:batchText(c.username,64),shiftId:batchText(c.shiftId,100)});
+ }else if(type==='notice_send'){
+  if(!batchText(c.text,1000)||!isDate(state.businessDate))reject('input');
+  (state.staffNotices??=[]).push({id,propertyId,at,actor,text:c.text.trim(),businessDate:state.businessDate,recipient:batchText(c.recipient,64)});
+ }else if(type==='notice_withdraw'){
+  const original=(state.staffNotices||[]).find(n=>n.id===c.noticeId&&n.propertyId===propertyId);
+  if(!original||original.actor!==actor||(state.noticeWithdrawals||[]).some(n=>n.noticeId===c.noticeId))reject('scope');
+  if(!batchText(c.reason,500)||!isDate(state.businessDate))reject('input');
+  (state.noticeWithdrawals??=[]).push({id,propertyId,at,actor,noticeId:c.noticeId,reason:c.reason.trim(),businessDate:state.businessDate});
+ }else if(type==='commission_rate_save'){
+  if(!['direct','booking','agoda','airbnb','expedia','tripcom','traveloka','tiket','chinesesite','rednote','neppan','hostelworld','tujia','vrbo','xiaozhu','temairazu','rakuten','klook','walkin','bookingengine','other'].includes(c.source)||!Number.isFinite(c.percent)||c.percent<0||c.percent>100||Math.round(c.percent*100)/100!==c.percent||!isDate(c.effectiveFrom))reject('input');
+  if(isCommissionClosed(state,propertyId,c.effectiveFrom.slice(0,7)))reject('commission_period');
+  if((state.commissionRates||[]).some(r=>r.propertyId===propertyId&&r.source===c.source&&r.effectiveFrom===c.effectiveFrom))reject('input');
+  (state.commissionRates??=[]).push({id,propertyId,at,actor,source:c.source,percent:c.percent,effectiveFrom:c.effectiveFrom});
+ }else if(type==='listing_draft_save'){
+  if(c.confirmed!==true||!batchText(c.title,200)||!safePublicUrl(c.url))reject('input');
+  const capacity=c.capacity==null?null:Number(c.capacity);
+  if(capacity!==null&&(!Number.isSafeInteger(capacity)||capacity<1||capacity>100))reject('input');
+  const photos=cleanPhotoUrls(c.photos||[]);
+  (state.listingDrafts??=[]).push({id,propertyId,at,actor,url:c.url,title:c.title.trim(),capacity,photos,description:batchText(c.description),kind:'room_type',sourceSnapshot:{url:c.url,title:c.title.trim(),capacity,photos:[...photos],description:batchText(c.description)},status:'draft'});
+ }else if(type==='booking_content_save'){
+  const target=c.draftId?(state.listingDrafts||[]).find(r=>r.id===c.draftId&&r.propertyId===propertyId):c.roomTypeId?state.roomTypes.find(r=>r.id===c.roomTypeId&&r.propertyId===propertyId):state.physicalRooms.find(r=>r.id===c.physicalRoomId&&r.propertyId===propertyId);
+  if(!target)reject('scope');
+  const descriptions={};for(const lang of ['zh','en','ms']){if(typeof c.descriptions?.[lang]!=='string'||c.descriptions[lang].length>2000)reject('input');descriptions[lang]=c.descriptions[lang].trim();}
+  const photos=cleanPhotoUrls(c.photos||[]);
+  if(c.cover&&!photos.includes(c.cover))reject('input');
+  const before={title:target.title??null,capacity:target.capacity??null,photos:target.photos||[],cover:target.cover||'',descriptions:target.descriptions||{}};
+  Object.assign(target,{photos,cover:c.cover||photos[0]||'',descriptions});
+  if(c.draftId){if(!batchText(c.title,200)||c.capacity!==null&&(!Number.isSafeInteger(c.capacity)||c.capacity<1||c.capacity>100))reject('input');target.title=c.title.trim();target.capacity=c.capacity;}
+  (state.contentHistory??=[]).push({id,propertyId,at,actor,targetId:target.id,before,after:{title:target.title??null,capacity:target.capacity??null,photos,cover:target.cover,descriptions}});
+ }
+}
+export function safePublicUrl(value){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&u.hostname.includes('.')&&!/^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(u.hostname);}catch{return false;}}
+function cleanPhotoUrls(values){if(!Array.isArray(values)||values.length>20||values.some(v=>!safePublicUrl(v)||v.length>2048))reject('input');return [...new Set(values)];}
+export function operationsReports(state,propertyId,from,to){
+ const within=d=>isDate(d)&&d>=from&&d<=to;
+ const channel=[];
+ for(const o of state.orders.filter(o=>o.propertyId===propertyId)){
+  const invoice=o.commission;if(!invoice)continue;
+  const date=invoice.businessDate;
+  if(within(date)){const expected=invoice.expected||{amount:null,rate:null};channel.push({businessDate:date,source:o.source||'direct',orderId:o.id,reference:invoice.reference,basis:expected.basis??null,rate:expected.rate,expected:expected.amount,actual:invoice.amount,variance:expected.amount===null?null:invoice.amount-expected.amount});}
+  for(const r of o.commissionCorrections||[])if(within(r.businessDate))channel.push({businessDate:r.businessDate,source:o.source||'direct',orderId:o.id,reference:r.reference,actual:r.amount,originalPeriod:r.originalPeriod});
+ }
+ const reminders=[...(state.staffNotices||[]).map(n=>({...n,action:'sent'})),...(state.noticeWithdrawals||[]).map(n=>({...n,action:'withdrawn'}))].filter(n=>n.propertyId===propertyId&&within(n.businessDate));
+ const grouped=new Map();
+ for(const row of channel){
+  const group=grouped.get(row.source)||{from,to,source:row.source,bills:0,corrections:0,expected:0,actual:0,variance:null,unknownRates:0};
+  if(row.originalPeriod)group.corrections++;else{group.bills++;if(row.expected==null)group.unknownRates++;else group.expected+=row.expected;}
+  group.actual+=row.actual;grouped.set(row.source,group);
+ }
+ const channelSummary=[...grouped.values()].map(g=>({...g,expected:g.unknownRates?null:g.expected,variance:g.unknownRates?null:g.actual-g.expected}));
+ return {channel,channelSummary,reminders,unallocatedCorrections:state.orders.filter(o=>o.propertyId===propertyId).flatMap(o=>o.commissionCorrections||[]).filter(r=>!isDate(r.businessDate)).length,unallocated:state.orders.filter(o=>o.propertyId===propertyId&&o.commission&&!o.commission.businessDate).length};
+}
+export function reminderForAccount(state,notice,username,at=new Date().toISOString()){
+ const instant=Date.parse(at);if(!Number.isFinite(instant))return notice;
+ const d=new Date(instant+8*3600000),minute=d.getUTCHours()*60+d.getUTCMinutes(),m=v=>Number(v.slice(0,2))*60+Number(v.slice(3));
+ const shift=(state.shiftTypes||[]).filter(r=>!r.propertyId||r.propertyId===notice.propertyId).find(r=>{const a=m(r.start),b=m(r.end);return a<b?minute>=a&&minute<b:minute>=a||minute<b;});
+ return scopedReminder(state,notice,{username,shiftId:shift?.id});
 }

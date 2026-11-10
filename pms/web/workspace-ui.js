@@ -527,7 +527,7 @@ export function bookingRequestsPage({requests=[],events=[],roomTypes=[],property
  const quote=r=>r.quotedTotal===null||r.quotedTotal===undefined
    ?`<span class="muted">${esc(t('requestNoQuote'))}</span>`:esc(money(r.quotedTotal));
  const cell=(r,key)=>esc({time:String(r.createdAt||'').slice(0,16).replace('T',' '),guest:r.guest,contact:r.contact,
-   start:r.start,end:r.end,roomType:typeName(r.roomTypeId),guests:r.guests,rooms:r.rooms||1}[key]??'');
+   start:r.start,end:r.end,roomType:r.selections?r.selections.map(line=>typeName(line.roomTypeId)+' × '+line.rooms).join(' · '):typeName(r.roomTypeId),guests:r.guests,rooms:r.rooms||1}[key]??'');
  const rows=mine.map(r=>{
    const action=r.status!=='pending'?'':editable?`<button type="button" data-request-accept="${esc(r.id)}">${esc(t('requestAccept'))}</button>
      <input data-request-reason="${esc(r.id)}" maxlength="500" placeholder="${esc(t('requestReason'))}" aria-label="${esc(t('requestReason'))}">
@@ -605,6 +605,7 @@ export function notificationsPage({notifications=[],properties=[],propertyId,not
  const rank=n=>n.severity||'attention';
  // A stored notice repeats what was asked for; a standing one names what is still wrong.
  const detail=n=>{
+   if(n.kind==='staff_notice')return esc(n.text);
    if(n.kind==='booking_request')return `${esc(n.guest||'')} · ${esc(n.from||'')} → ${esc(n.to||'')} · ${esc(n.nights??'')} ${esc(t('nights'))}${n.quotedTotal?' · '+esc(t('requestQuote')):''}`;
    if(n.kind==='no_show')return `${esc(n.guest||'')} · ${esc(t('noticeDue'))} ${esc(n.date||'')}`;
    if(n.kind==='overdue_checkout')return `${esc(n.guest||'')} · ${esc(t('noticeDue'))} ${esc(n.date||'')}`;
@@ -840,4 +841,41 @@ export function bindOperationsDisplay(root,{preferences,rooms,types,payments,cha
     catch(err){error.textContent=errorText(err);button.disabled=false;}
   };
   render();
+}
+
+// Internal operations workbench; all labels are deliberately local to this batch.
+export function internalOperationsPanel({state,propertyId,lang='en',username='',admin=false,view,escape:esc}){
+ const L=(zh,en,ms)=>({zh,en,ms}[lang]||en),own=key=>(state[key]||[]).filter(r=>r.propertyId===propertyId);
+ const field=(name,label,type='text',extra='')=>`<label>${esc(label)} <input name="${name}" type="${type}" ${extra}></label>`;
+ const select=(name,label,rows)=>`<label>${esc(label)} <select name="${name}">${rows.map(([value,label])=>`<option value="${esc(value)}">${esc(label)}</option>`).join('')}</select></label>`;
+ const form=(type,body)=>`<form data-internal-command="${type}">${body}<button>${esc(L('保存','Save','Simpan'))}</button><output role="status"></output></form>`;
+ const table=rows=>`<div class="table-wrap"><table><tbody>${rows.map(row=>`<tr>${row.map(cell=>`<td>${esc(cell??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+ let body='';
+ if(view==='calendar')body+=`<button type="button" data-calendar-range-query>${L('当前日历区间住宿查询','Stays in the displayed calendar range','Penginapan dalam julat kalendar')}</button>`;
+ if(view==='notifications'){
+ body+=`<h3>${L('员工提醒与历史','Staff notices and history','Notis kakitangan dan sejarah')}</h3><p>${L('仅系统内。短信、电邮及推送未连接。日期按营业日；撤回保留原文。','Internal only. SMS, email and push are not connected. Dates use business day; withdrawal keeps the original.','Dalaman sahaja. SMS, e-mel dan push tidak disambungkan. Tarikh hari perniagaan; penarikan menyimpan asal.')}</p>`;
+ body+=form('notice_send',field('text',L('内容','Message','Mesej'),'text','maxlength="1000" required')+field('recipient',L('接收账号（空为全店）','Recipient account (blank: property)','Akaun penerima (kosong: hartanah)')));
+ body+=field('noticeSearch',L('查询：内容、发出人、状态、日期','Search: message, sender, status, date','Cari: mesej, penghantar, status, tarikh'));
+ body+=`<div data-staff-history>${own('staffNotices').filter(n=>!n.recipient||n.recipient===username||n.actor===username).map(n=>{const withdrawn=own('noticeWithdrawals').find(w=>w.noticeId===n.id);return `<article data-history-row><p>${esc([n.businessDate,n.actor,n.recipient,n.text,withdrawn?L('已撤回','Withdrawn','Ditarik'):L('已发出','Sent','Dihantar')].join(' · '))}</p>${!withdrawn&&n.actor===username?form('notice_withdraw',`<input type="hidden" name="noticeId" value="${esc(n.id)}">`+field('reason',L('撤回原因','Withdrawal reason','Sebab penarikan'),'text','required maxlength="500"')):''}${withdrawn?`<p>${esc(withdrawn.actor+' · '+withdrawn.reason+' · '+withdrawn.at)}</p>`:''}</article>`;}).join('')}</div>`;
+ if(admin)body+=`<h3>${L('班次 / 账号升级规则','Shift / account escalation rules','Peraturan eskalasi syif / akaun')}</h3>`+form('notice_scope_save',select('kind',L('提醒种类','Notice kind','Jenis notis'),noticeKinds.map(k=>[k,k]))+select('level',L('级别','Level','Tahap'),noticeLevels.map(k=>[k,k]))+select('shiftId',L('班次（可空）','Shift (optional)','Syif (pilihan)'),[['','—'],...(state.shiftTypes||[]).filter(r=>!r.propertyId||r.propertyId===propertyId).map(r=>[r.id,r.name])])+field('username',L('员工账号（可空）','Account (optional)','Akaun (pilihan)')))+table(own('noticeScopes').map(r=>[r.kind,r.shiftId,r.username,r.level,r.actor,r.at]));
+ }
+ if(view==='commission'){
+ body+=`<h3>${L('渠道默认佣金费率（生效历史）','Default channel commission rates (effective history)','Kadar komisen saluran (sejarah kuat kuasa)')}</h3>`;
+ if(admin)body+=form('commission_rate_save',select('source',L('渠道','Channel','Saluran'),['direct','booking','agoda','airbnb','expedia','tripcom','traveloka','tiket','chinesesite','rednote','neppan','hostelworld','tujia','vrbo','xiaozhu','temairazu','rakuten','klook','walkin','bookingengine','other'].map(k=>[k,k]))+field('percent',L('百分比','Percent','Peratus'),'number','required min="0" max="100" step="0.01"')+field('effectiveFrom',L('生效营业日期','Effective business date','Tarikh perniagaan kuat kuasa'),'date','required'));
+ body+=table([[L('渠道','Channel','Saluran'),L('费率','Rate','Kadar'),L('生效日期','Effective date','Tarikh kuat kuasa'),L('操作人','Actor','Pelaku'),L('时间','Time','Masa')],...own('commissionRates').map(r=>[r.source,r.percent+'%',r.effectiveFrom,r.actor,r.at])]);
+ body+=table([[L('住宿项','Stay','Penginapan'),L('渠道','Channel','Saluran'),L('费率 %','Rate %','Kadar %'),L('预期（分）','Expected (cents)','Jangkaan (sen)'),L('实际（分）','Actual (cents)','Sebenar (sen)'),L('差额（分）','Variance (cents)','Beza (sen)')],...state.orders.filter(o=>o.propertyId===propertyId&&o.commission).map(o=>[o.id,o.source,o.commission.expected?.rate==null?'—':o.commission.expected.rate+'%',o.commission.expected?.amount??'—',o.commission.amount,o.commission.expected?.amount==null?'—':o.commission.amount-o.commission.expected.amount])]);
+ body+=`<p>${L('预期/实际/差额以分显示；无费率显示空。预期基数为首次录入时账页应付总额（含附加费及取消费），仅供人工核对。无 OTA 导入或银行连接。','Expected / actual / variance in cents; missing rates stay blank. The indicative basis is the folio charge at first invoice entry, including extras and penalties, for manual review. No OTA import or bank connection.','Jangkaan / sebenar / beza dalam sen; kadar tiada kekal kosong. Asas indikatif ialah caj folio semasa entri invois pertama, termasuk tambahan dan penalti, untuk semakan manual. Tiada import OTA atau bank.')}</p>`;
+ }
+ if(view==='resourcesSettings'){
+ body+=`<h3>${L('公开房源链接批量导入草稿','Public listing URL import drafts','Draf import URL penyenaraian awam')}</h3><p>${L('仅公开可读页面；失败如实显示。逐行检查并由管理员确认后才保存草稿，不发布、不建库存。','Publicly readable pages only; failures are reported. Check each row; only administrator confirmation saves a draft. No publishing or inventory creation.','Halaman awam sahaja; kegagalan dilaporkan. Semak setiap baris; hanya pengesahan pentadbir menyimpan draf. Tiada penerbitan atau inventori.')}</p><form data-listing-preview><textarea name="urls" rows="4" required placeholder="https://…"></textarea><button>${L('读取预览（最多10条）','Read preview (up to 10)','Baca pratonton (maksimum 10)')}</button><output></output></form><div data-listing-results></div>`;
+ body+=table(own('listingDrafts').map(r=>[r.title,r.capacity,r.description,r.url,r.status]));
+ }
+ if(view==='propertySite'||view==='resourcesSettings'){
+ body+=`<h3>${L('照片顺序 / 封面及三语描述','Photo order / cover and descriptions','Susunan foto / muka depan dan huraian')}</h3>`;
+ if(admin){const targets=[...state.roomTypes.filter(r=>r.propertyId===propertyId).map(r=>['type:'+r.id,r.names?.[lang]||r.id]),...state.physicalRooms.filter(r=>r.propertyId===propertyId).map(r=>['room:'+r.id,r.label]),...own('listingDrafts').map(r=>['draft:'+r.id,r.title])];
+ body+=form('booking_content_save',select('target',L('房型 / 房间 / 草稿','Room type / room / draft','Jenis bilik / bilik / draf'),targets)+field('title',L('草稿标题','Draft title','Tajuk draf'))+field('draftCapacity',L('草稿人数（可空；房型人数请在资源设置维护）','Draft capacity (optional; edit live capacity in resources)','Kapasiti draf (pilihan; edit kapasiti bilik di sumber)'),'number','min="1" max="100"')+`<label>${L('照片 URL：逐行排序','Photo URLs: ordered lines','URL foto: baris tersusun')}<textarea name="photos" rows="3"></textarea></label>`+field('cover',L('封面 URL（空用首张）','Cover URL (blank: first)','URL muka depan (kosong: pertama)'))+['zh','en','ms'].map(l=>`<label>${l}<textarea name="description_${l}" maxlength="2000"></textarea></label>`).join(''));
+ body+=`<p>${L('选择目标后载入现有内容，保存会替换该目标内容。','Selecting a target loads its current content; save replaces that content.','Memilih sasaran memuatkan kandungan semasa; simpan menggantikannya.')}</p>`;}
+ }
+ if(view==='commission'||view==='notifications')body+=`<h3>${L('营业日报表与 CSV','Business date reports and CSV','Laporan hari perniagaan dan CSV')}</h3><form data-internal-report>${field('from',L('从','From','Dari'),'date','required')}${field('to',L('至','To','Hingga'),'date','required')}<button>${L('查询','Query','Cari')}</button><button type="button" data-report-csv>CSV</button></form><div data-report-results></div>`;
+ return body?`<section class="panel" data-internal-operations>${body}</section>`:'';
 }

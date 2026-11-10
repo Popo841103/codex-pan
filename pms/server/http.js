@@ -1,3 +1,6 @@
+import {lookup} from 'node:dns/promises';
+import {request as httpsRequest} from 'node:https';
+import {isIP} from 'node:net';
 import {CheckinError} from './self-checkin.js';
 import {MessagingError} from './nobeds-messages.js';
 import {SupportError} from './support.js';
@@ -95,6 +98,10 @@ export function renderPropertySite({ site, availability, language, requested, er
      <input type="hidden" name="guests" value="${escapeHtml(q.guests||'1')}">
      <input type="hidden" name="roomType" value="${escapeHtml(type.id)}">
      ${roomsField}
+     <details data-multi-room-request><summary>${escapeHtml(({zh:'同一请求增加其他房型（勾选启用）',en:'Add other room types in this request (enable below)',ms:'Tambah jenis bilik dalam permintaan ini (aktifkan di bawah)'}[language]))}</summary>
+     <label><input type="checkbox" name="multi" value="1">${escapeHtml(({zh:'使用下方房型数量（上方数量不采用）',en:'Use quantities below (replaces quantity above)',ms:'Guna kuantiti di bawah (ganti kuantiti di atas)'}[language]))}</label>
+     ${availability.roomTypes.filter(r=>r.fitsGuests&&!r.unknown&&r.available>0).map(r=>`<label>${escapeHtml(siteText(r.names,language)||r.id)} <input type="number" name="select_${escapeHtml(r.id)}" min="0" max="${Math.min(8,r.available)}" value="${r.id===type.id?1:0}"></label>`).join('')}
+     </details>
      <label>${escapeHtml(c.yourName)} <input name="name" maxlength="100" required></label>
      <label>${escapeHtml(c.yourContact)} <input name="contact" maxlength="254" required></label>
      <label>${escapeHtml(c.requestNotes)} <textarea name="note" maxlength="2000" rows="2"></textarea></label>
@@ -158,6 +165,9 @@ export function renderPropertySite({ site, availability, language, requested, er
       const capacity=type.fitsGuests?`${escapeHtml(c.fits)} ${type.maxGuests}`:`<span class="none">${escapeHtml(c.tooSmall)}</span>`;
       return `<li class="room${sold||!type.fitsGuests?' off':''}">
        <h3>${escapeHtml(name)}</h3>
+       <div data-booking-photos>${[type.cover,...(type.photos||[])].filter((p,i,a)=>p&&a.indexOf(p)===i&&/^https:\/\//.test(p)).map(p=>`<img src="${escapeHtml(p)}" alt="${escapeHtml(name)}" loading="lazy" referrerpolicy="no-referrer" width="240">`).join('')}</div>
+       <p data-booking-description>${escapeHtml(siteText(type.descriptions,language))}</p>
+       ${(type.roomDescriptions||[]).filter(r=>siteText(r.descriptions,language)).map(r=>`<p>${escapeHtml(r.label)}: ${escapeHtml(siteText(r.descriptions,language))}</p>`).join('')}
        <p class="muted">${escapeHtml(capacity)}</p>
        <p>${stock}</p>
        <p>${price}</p>
@@ -262,7 +272,7 @@ export function validatePublicOrigin(value) {
     throw new Error('PMS_PUBLIC_ORIGIN must be an HTTPS origin without credentials or a path');
   return parsed.origin;
 }
-export function makeServer(store, { publicOrigin, recovery = null } = {}) {
+export function makeServer(store, { publicOrigin, recovery = null, listingReader=readPublicListing } = {}) {
   publicOrigin=validatePublicOrigin(publicOrigin);
   const secureCookie=publicOrigin ? '; Secure' : '';
   const attempts=new Map();
@@ -393,7 +403,7 @@ export function makeServer(store, { publicOrigin, recovery = null } = {}) {
             reference=store.submitBookingRequest({slug,roomTypeId:String(data.roomType||''),from:String(data.from||''),
               to:String(data.to||''),guests:String(data.guests||'1'),rooms:String(data.rooms||'1'),
               name:String(data.name||''),contact:String(data.contact||''),
-              note:String(data.note||''),language:data.lang}).reference;
+              note:String(data.note||''),language:data.lang,...(data.multi==='1'?{selections:Object.entries(data).filter(([k,v])=>k.startsWith('select_')&&Number(v)>0).map(([k,v])=>({roomTypeId:k.slice(7),rooms:Number(v)}))}:{})}).reference;
           }catch(e){
             if(!(e instanceof ServiceError))throw e;
             code=['date_range','guest_count','room_count','guest_name','contact','site_input'].includes(e.message)?e.message:'request_failed';
@@ -439,7 +449,7 @@ export function makeServer(store, { publicOrigin, recovery = null } = {}) {
         if(parts[1]!==undefined)throw new ServiceError(404,'not_found');
         if(req.method!=='GET')throw new ServiceError(405,'method');
         let site;
-        try{ site=store.publicSite(slug); }
+        try{ site=store.publicSite(slug);res.setHeader('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"); }
         catch(e){ throw e instanceof ServiceError?e:new ServiceError(404,'not_found'); }
         let availability=null,code=null;
         if(requested.from&&requested.to){
@@ -481,6 +491,13 @@ export function makeServer(store, { publicOrigin, recovery = null } = {}) {
         // The header bell polls this instead of the whole state, so it can notice
         // something arrived without disturbing the page the desk is working on.
         if(path==='/api/notifications'&&req.method==='GET')return json(res,200,store.notificationFeed(session.user));
+        if(path==='/api/listing-preview'&&req.method==='POST'){
+          const input=await body(req),pid=input.propertyId;
+          if(!session.user.propertyIds.includes(pid)||!store.permissionsFor(session.user,pid).includes('memo_save'))throw new ServiceError(403,'forbidden');
+          if(!Array.isArray(input.urls)||input.urls.length<1||input.urls.length>10)throw new ServiceError(400,'input');
+          const rows=[];for(const url of input.urls){try{rows.push(await listingReader(url));}catch{rows.push({url:String(url).slice(0,2048),status:'unreadable',title:'',description:'',capacity:null,photos:[]});}}
+          return json(res,200,{rows});
+        }
         if(path==='/api/state'&&req.method==='GET')return json(res,200,store.read(session.user));
         if(path==='/api/commands'&&req.method==='POST')return json(res,200,store.command(session.user,await body(req)));
         if(path==='/api/logout'&&req.method==='POST'){
@@ -501,4 +518,47 @@ export function makeServer(store, { publicOrigin, recovery = null } = {}) {
   });
   server.requestTimeout=10000;server.headersTimeout=10000;
   return server;
+}
+
+// Public listing reader: no cookies, authentication, script execution or private networking.
+export function parsePublicListing(html,url){
+ const decode=s=>String(s||'').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+ const text=s=>decode(s).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+ const meta={};for(const tag of html.matchAll(/<meta\b[^>]*>/gi)){const attrs={};for(const a of tag[0].matchAll(/([\w:-]+)\s*=\s*(["'])(.*?)\2/gs))attrs[a[1].toLowerCase()]=decode(a[3]);if(attrs.property||attrs.name)meta[attrs.property||attrs.name]=attrs.content;}
+ let title=meta['og:title']||text(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]),description=meta['og:description']||meta.description||'',capacity=null,photos=[];
+ for(const script of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){
+  try{const walk=(v,depth=0)=>{if(depth>12||!v||typeof v!=='object')return; if(Array.isArray(v)){v.forEach(x=>walk(x,depth+1));return;}
+   if(/HotelRoom|Accommodation|Apartment|VacationRental|LodgingBusiness/.test(String(v['@type']))){title||=text(v.name);description||=text(v.description);const n=Number(v.occupancy?.maxValue??v.occupancy?.value??v.numberOfPersons);if(Number.isSafeInteger(n)&&n>0&&n<=100)capacity=n;for(const img of [v.image].flat())if(typeof img==='string')photos.push(img);else if(img?.url)photos.push(img.url);}
+   for(const [k,x] of Object.entries(v))if(k!=='image')walk(x,depth+1);
+  };walk(JSON.parse(script[1]));}catch{}
+ }
+ if(meta['og:image'])photos.unshift(meta['og:image']);
+ photos=[...new Set(photos.map(p=>{try{return new URL(p,url).href;}catch{return '';}}).filter(p=>/^https:\/\//.test(p)))].slice(0,20);
+ return {url,title:text(title).slice(0,200),description:text(description).slice(0,2000),capacity,photos,status:title?'readable':'no_verified_fields'};
+}
+export function publicAddress(address){
+ if(isIP(address)!==4)return false; // IPv6 is deliberately refused until its reserved ranges are fully handled.
+ const [a,b]=address.split('.').map(Number);
+ return !(a===0||a===10||a===127||a>=224||a===169&&b===254||a===172&&b>=16&&b<=31||a===192&&(b===168||b===0)||a===100&&b>=64&&b<=127||a===198&&(b===18||b===19)||a===192&&b===2||a===198&&b===51||a===203&&b===0);
+}
+async function publicPage(value){
+ const url=new URL(value);if(url.protocol!=='https:'||url.port&&url.port!=='443'||url.username||url.password||url.href.length>2048)throw Error('url');
+ const addresses=await lookup(url.hostname,{all:true});if(!addresses.length||addresses.some(a=>!publicAddress(a.address)))throw Error('private');
+ const ip=addresses[0];
+ return await new Promise((resolve,reject)=>{
+  const req=httpsRequest(url,{headers:{'User-Agent':'JovianPublicListingPreview/1.0','Accept':'text/html,text/plain'},lookup:(_host,options,cb)=>options.all?cb(null,[ip]):cb(null,ip.address,ip.family),timeout:5000},res=>{
+   if(res.statusCode!==200||!/^text\/(html|plain)\b/i.test(res.headers['content-type']||'')){res.resume();reject(Error('unreadable'));return;}
+   let size=0,parts=[];res.on('data',chunk=>{size+=chunk.length;if(size>1000000){req.destroy(Error('large'));return;}parts.push(chunk);});res.on('end',()=>resolve(Buffer.concat(parts).toString('utf8')));res.on('error',reject);
+  });req.on('timeout',()=>req.destroy(Error('timeout')));req.on('error',reject);req.end();
+ });
+}
+export async function readPublicListing(url,read=publicPage){
+ const target=new URL(url);if(target.protocol!=='https:'||target.username||target.password)throw Error('url');
+ // Fail closed on inaccessible robots policy; redirects and authentication challenges are not followed.
+ const robots=await read(new URL('/robots.txt',target).href);
+ let applies=false;for(const raw of robots.split(/\r?\n/)){const line=raw.replace(/#.*/,'').trim(),m=line.match(/^([^:]+):\s*(.*)$/);if(!m)continue;
+  if(m[1].toLowerCase()==='user-agent')applies=m[2]==='*'||/jovian/i.test(m[2]);
+  if(applies&&m[1].toLowerCase()==='disallow'&&m[2]&&target.pathname.startsWith(m[2].replace(/\*.*$/,'')))throw Error('robots');
+ }
+ return parsePublicListing(await read(target.href),target.href);
 }

@@ -3,7 +3,7 @@ import {GuestMessages,guestPermissions} from './guest-messages.js';
 import {SupportDesk,supportPermissions} from './support.js';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
-import { seed, apply, preview, folio, nightAuditExceptions, severityOf, severityRank, cleanNoticeLevels, cleanNoticeRules, escalateSeverity } from '../src/demo-store.js';
+import { seed, apply, preview, folio, nightAuditExceptions, severityOf, severityRank, cleanNoticeLevels, cleanNoticeRules, escalateSeverity, reminderForAccount } from '../src/demo-store.js';
 export { severityOf } from '../src/demo-store.js';
 import { InventoryConflict } from '../src/inventory.js';
 import { upgradeCatalog, saleResources } from '../src/catalog.js';
@@ -169,6 +169,7 @@ export class Store {
     // three values, so a withdrawal is a declined request with its own marker rather
     // than a reason to rebuild the table and rewrite existing data.
     const requestColumns=this.db.prepare('PRAGMA table_info(booking_requests)').all().map(c=>c.name);
+    if(!requestColumns.includes('selections'))this.db.exec('ALTER TABLE booking_requests ADD COLUMN selections TEXT');
     if(!requestColumns.includes('rooms'))this.db.exec('ALTER TABLE booking_requests ADD COLUMN rooms INTEGER NOT NULL DEFAULT 1');
     if(!requestColumns.includes('withdrawn_at'))this.db.exec('ALTER TABLE booking_requests ADD COLUMN withdrawn_at TEXT');
     // Self-serve signups must never be able to grow past one store, but they are still
@@ -648,8 +649,8 @@ export class Store {
       .filter(row=>scope.includes(row.property_id))
       .sort((a,b)=>rank(a.status)-rank(b.status)||(a.created_at<b.created_at?1:a.created_at>b.created_at?-1:0))
       .map(row=>({id:row.id,propertyId:row.property_id,slug:row.slug,status:row.status,guest:row.guest_name,contact:row.contact,
-        start:row.stay_from,end:row.stay_to,guests:row.guests,rooms:row.rooms||1,
-        roomTypeId:row.room_type_id,note:row.note,language:row.language,
+        start:row.stay_from,end:row.stay_to,guests:row.guests,rooms:row.selections?JSON.parse(row.selections).reduce((n,r)=>n+r.rooms,0):row.rooms||1,
+        selections:row.selections?JSON.parse(row.selections):null,roomTypeId:row.room_type_id,note:row.note,language:row.language,
         quotedTotal:row.quoted_total??null,quotedNightly:row.quoted_nightly?JSON.parse(row.quoted_nightly):null,
         createdAt:row.created_at,decidedAt:row.decided_at,decidedBy:row.decided_by,decisionNote:row.decision_note,
         withdrawnAt:row.withdrawn_at||null,reservationId:row.reservation_id,orderId:row.order_id}));
@@ -769,10 +770,12 @@ export class Store {
     // the top when that fact has grown large enough to warrant it.
     const overrides=new Map(this.visibleNoticeSettings(user).map(s=>[s.propertyId,s.levels]));
     const rules=new Map(this.visibleNoticeRules(user).map(s=>[s.propertyId,s.rules]));
-    const all=[...stored,...this.derivedNotifications(user)].map(n=>{
+    const staff=scope.flatMap(pid=>{const b=JSON.parse(this.db.prepare('SELECT body FROM properties WHERE id=?').get(pid).body);return (b.staffNotices||[]).filter(n=>(!n.recipient||n.recipient===user.username||n.actor===user.username)&&!(b.noticeWithdrawals||[]).some(w=>w.noticeId===n.id)).map(n=>({...n,kind:'staff_notice'}));});
+    const all=[...staff,...stored,...this.derivedNotifications(user)].map(n=>{
       const base=severityOf(n.kind,overrides.get(n.propertyId));
       const severity=escalateSeverity(n.kind,base,n.magnitude,rules.get(n.propertyId));
-      return {...n,readAt:reads.get(n.id)??null,severity,escalated:severity!==base};
+      const body=JSON.parse(this.db.prepare('SELECT body FROM properties WHERE id=?').get(n.propertyId).body);
+      return reminderForAccount(body,{...n,readAt:reads.get(n.id)??null,severity,escalated:severity!==base},user.username);
     });
     // What is waiting on a person comes first, then what they have not seen, then the
     // newest. A guest standing outside the door outranks a room that needs cleaning, and
@@ -857,12 +860,12 @@ export class Store {
     const read=new Set(this.db.prepare('SELECT notification_id id FROM notification_reads WHERE user_id=?').all(actor.id).map(r=>r.id));
     // A standing fact has no stored row, so its id is only readable if this account is
     // actually being shown it: anything else is answered as absent.
-    const factual=new Set(this.derivedNotifications(actor).filter(n=>n.propertyId===propertyId).map(n=>n.id));
+    const factual=new Set(this.visibleNotifications(actor).filter(n=>n.propertyId===propertyId).map(n=>n.id));
     let ids;
     if(command.all===true){
       const stored=this.db.prepare('SELECT id FROM notifications WHERE user_id=? AND property_id=?').all(actor.id,propertyId)
         .map(r=>r.id).filter(id=>!read.has(id));
-      ids=[...stored,...[...factual].filter(id=>!read.has(id))];
+      ids=[...new Set([...stored,...[...factual].filter(id=>!read.has(id))])];
     }
     else{
       const single=this.db.prepare('SELECT * FROM notifications WHERE id=?').get(command.notificationId);
@@ -900,7 +903,11 @@ export class Store {
         .filter(Boolean).join(' — ').slice(0,2048),
       date:body.businessDate||localDay(new Date()),
       ...(email?{email:row.contact}:row.contact.length<=40?{phone:row.contact}:{}),
-      stays:Array.from({length:roomCount},stay)};
+      stays:row.selections?JSON.parse(row.selections).flatMap(line=>{
+        const selected=body.roomTypes.find(t=>t.id===line.roomTypeId&&!t.archived);if(!selected)error(409,'site_input');
+        return Array.from({length:line.rooms},()=>({...stay(),roomTypeId:selected.id,productId:selected.productId,gender:selected.gender||'any',occupants:Array.from({length:row.guests},()=>({name:'',gender:selected.gender||'any'})),
+          nightly:line.nightly?.[0]??0,nightlyRates:line.nightly?days.map((date,i)=>({date,amount:line.nightly[i]})):undefined}));
+      }):Array.from({length:roomCount},stay)};
   }
   // Declining keeps the request and the reason together: no inventory is touched, no
   // revision moves, and what the guest asked for stays on the record.
@@ -940,6 +947,7 @@ export class Store {
       propertyName:body.properties.find(p=>p.id===row.property_id)?.name||row.property_id,
       title:site.title,description:site.description,contact:site.contact,bookingNote:site.bookingNote,planCodes:site.planCodes,
       roomTypes:types.map(type=>({id:type.id,names:type.names||{},productId:type.productId,gender:type.gender||'any',
+        photos:type.photos||[],cover:type.cover||'',descriptions:type.descriptions||{},roomDescriptions:body.physicalRooms.filter(r=>r.propertyId===row.property_id&&body.resources.some(unit=>unit.roomId===r.id&&unit.roomTypeId===type.id&&!unit.archived)&&!r.archived).map(r=>({label:r.label,descriptions:r.descriptions||{}})),
         maxGuests:type.maxGuests||1,
         units:saleResources(body,row.property_id).filter(r=>r.roomTypeId===type.id).length}))};
   }
@@ -976,7 +984,7 @@ export class Store {
       }catch(e){error_='availability_unavailable';}
       const prices=nights.map(day=>nightlyPrice(type.id,day));
       const priced=prices.every(p=>p!==null);
-      return {id:type.id,names:type.names,productId:type.productId,maxGuests:type.maxGuests,units:type.units,
+      return {...type,id:type.id,names:type.names,productId:type.productId,maxGuests:type.maxGuests,units:type.units,
         available:error_?null:available,unknown:!!error_,
         fitsGuests:type.maxGuests>=count,
         nightlyFrom:(priced&&prices.length)?Math.min(...prices):null,
@@ -992,7 +1000,24 @@ export class Store {
   // What a published site collects instead of a booking. It answers without a session,
   // stores the request as undecided, and quotes without charging, holding or
   // confirming anything: only the front desk can turn it into a stay.
-  submitBookingRequest({slug,roomTypeId,from,to,guests,rooms=1,name,contact,note,language}={}){
+  submitBookingRequest({slug,roomTypeId,from,to,guests,rooms=1,name,contact,note,language,selections}={}){
+    if(selections!==undefined){
+      if(!Array.isArray(selections)||!selections.length||selections.length>8||new Set(selections.map(r=>r.roomTypeId)).size!==selections.length)error(400,'room_count');
+      const site=this.publicAvailability({slug,from,to,guests});
+      const lines=selections.map(r=>{
+        const quote=site.roomTypes.find(t=>t.id===r.roomTypeId),n=Number(r.rooms);
+        if(!quote||!Number.isSafeInteger(n)||n<1||n>8||!quote.fitsGuests||quote.productId==='bed'&&Number(guests)!==1||Number.isSafeInteger(quote.available)&&n>quote.available)error(400,'room_count');
+        return {roomTypeId:r.roomTypeId,rooms:n,nightly:quote.nightly,total:quote.total==null?null:quote.total*n};
+      });
+      if(lines.reduce((sum,r)=>sum+r.rooms,0)>8)error(400,'room_count');
+      return this.transaction(()=>{
+        const result=this.submitBookingRequest({slug,roomTypeId:lines[0].roomTypeId,rooms:lines[0].rooms,from,to,guests,name,contact,note,language});
+        const total=lines.some(r=>r.total===null)?null:lines.reduce((sum,r)=>sum+r.total,0);
+        this.db.prepare('UPDATE booking_requests SET selections=?,quoted_total=? WHERE id=?').run(JSON.stringify(lines),total,result.id);
+        this.db.prepare('INSERT INTO booking_request_events VALUES(?,?,?,?,?,?)').run(randomUUID(),result.id,'public','selection',new Date().toISOString(),JSON.stringify({selections:lines}));
+        return {...result,rooms:lines.reduce((sum,r)=>sum+r.rooms,0),quotedTotal:total,selections:lines};
+      });
+    }
     const site=this.publicSite(slug);
     const type=site.roomTypes.find(t=>t.id===roomTypeId);
     if(!type)error(400,'site_input');
@@ -1056,7 +1081,7 @@ export class Store {
     const property=this.db.prepare('SELECT body FROM properties WHERE id=?').get(row.property_id);
     const type=property?upgradeCatalog(JSON.parse(property.body)).roomTypes.find(t=>t.id===row.room_type_id):null;
     return {reference:String(row.id).slice(0,8).toUpperCase(),status:row.status,withdrawn:!!row.withdrawn_at,
-      start:row.stay_from,end:row.stay_to,guests:row.guests,rooms:row.rooms||1,
+      start:row.stay_from,end:row.stay_to,guests:row.guests,rooms:row.selections?JSON.parse(row.selections).reduce((n,r)=>n+r.rooms,0):row.rooms||1,
       roomType:type?.names||{},roomTypeId:row.room_type_id,quotedTotal:row.quoted_total??null,
       createdAt:row.created_at,decidedAt:row.decided_at,
       decisionNote:row.withdrawn_at?null:(row.decision_note||null),
@@ -1114,6 +1139,11 @@ export class Store {
       result.nightAudits.push(...(body.nightAudits||[]).map(entry=>({...entry,propertyId:id})));
       result.shiftTypes.push(...(body.shiftTypes||[]).map(entry=>({...entry,propertyId:id})));
       result.handovers.push(...(body.handovers||[]).map(entry=>({...entry,propertyId:id})));
+      const visibleNotice=n=>fresh.role==='admin'||!n.recipient||n.recipient===fresh.username||n.actor===fresh.username;
+      for(const field of ['noticeScopes','staffNotices','noticeWithdrawals','commissionRates','listingDrafts','contentHistory']){
+        result[field]??=[];result[field].push(...(body[field]||[]).filter(r=>r.propertyId===id&&
+          (field!=='staffNotices'||visibleNotice(r))&&(field!=='noticeWithdrawals'||(body.staffNotices||[]).some(n=>n.id===r.noticeId&&visibleNotice(n)))));
+      }
       for(const field of ['ratePlans','rateCells','rateChanges','properties','resources','roomTypes','physicalRooms','reservations','orders','blocks'])result[field].push(...body[field].filter(item=>(field==='properties'?item.id:item.propertyId)===id));
       result.revisions[id]=row.revision;
     }
@@ -1188,11 +1218,14 @@ export class Store {
       // A property override decides what this account may do here, not its account role.
       // The override may name a built-in role or one this property defined itself.
       const allowed=this.permissionsFor(rowUser,propertyId);
+      const batchAdmin=['commission_close_month','notice_scope_save','commission_rate_save','listing_draft_save','booking_content_save'];
+      if(batchAdmin.includes(command.type)&&rowUser.role!=='admin')error(403,'forbidden');
+      if(['notice_scope_save','notice_send'].includes(command.type)){const account=command.username||command.recipient;if(account&&!this.db.prepare('SELECT 1 FROM users u JOIN user_properties p ON p.user_id=u.id WHERE u.username=? AND p.property_id=? AND u.active=1').get(account,propertyId))error(400,'scope');}
       if(command.type==='commission_save'&&command.correction===true&&!allowed.includes('commission_close_month'))error(403,'forbidden');
       if(command.type==='create_reservation'&&command.mode==='checkin'&&!allowed.includes('checkin'))error(403,'forbidden');
       // Rewriting nights already closed by a night audit stays an administrator-only override.
       if(command.auditOverride===true&&rowUser.role!=='admin')error(403,'forbidden');
-      if(!allowed.includes(({undo_checkin:'checkin',undo_checkout:'checkout',restore_cancel:'cancel'})[command.type]||command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
+      if(!allowed.includes(({notice_scope_save:'notice_rule_save',commission_rate_save:'commission_close_month',listing_draft_save:'room_type_save',booking_content_save:'site_save',notice_send:'memo_save',notice_withdraw:'memo_save',undo_checkin:'checkin',undo_checkout:'checkout',restore_cancel:'cancel'})[command.type]||command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
       // A request is decided once. Replaying the same key answers from the receipt above;
@@ -1246,6 +1279,7 @@ export class Store {
         ...(cmd.resourceIds?{resourceIds:cmd.resourceIds,cleaning:cmd.cleaning||null,start:cmd.start||null,end:cmd.end||null}:{}),
         ...(['box_stays','restore_stays'].includes(cmd.type)?{stayIds:cmd.orderIds,inventoryChange:{before:before.orders.filter(o=>cmd.orderIds.includes(o.id)).map(o=>({id:o.id,inventoryStatus:o.inventoryStatus||'reserved',resourceId:o.resourceId})),after:next.orders.filter(o=>cmd.orderIds.includes(o.id)).map(o=>({id:o.id,inventoryStatus:o.inventoryStatus,resourceId:o.resourceId})),reason:cmd.reason}}:{}),
         ...(['block','unblock','bulk_block','bulk_unblock'].includes(cmd.type)?{blockChange:changedBlocks(before.blocks,next.blocks)}:{}),
+        ...(['notice_scope_save','notice_send','notice_withdraw','commission_rate_save','listing_draft_save','booking_content_save'].includes(cmd.type)?{internalChange:localAudit,recordId:cmd.id}:{}),
         fields:Object.keys(command).filter(k=>!['type','propertyId'].includes(k)),
         ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{}),
         ...(cmd.type.startsWith('ar_')?{arEventId:cmd.id}:{}),

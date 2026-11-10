@@ -1,3 +1,5 @@
+import {internalOperationsPanel} from './workspace-ui.js';
+import {operationsReports,reminderForAccount} from '../src/demo-store.js';
 import {defaultComparisonPeriods} from '../src/financial-reports.js';
 import {rateAvailability} from '../src/rate-availability.js';
 import {previewCancellation} from '../src/cancellation-policy.js';
@@ -170,7 +172,7 @@ function render() {
   else if(view==='operationsDisplay') { showOperationsDisplay(); }
   else if(view==='bookingEngineSetup') { $('#content').innerHTML=bookingEngineSetupPage(t,escape); }
   else if(view==='propertySite') { $('#content').innerHTML=propertySitePage({sites:state.sites||[],siteAudit:state.siteAudit||[],roomTypes:state.roomTypes,ratePlans:state.ratePlans,propertyId,can,t,escape}); }
-   else if(view==='notifications') { $('#content').innerHTML=notificationsPage({notifications:state.notifications||[],noticeSettings:state.noticeSettings||[],noticeSettingsAudit:state.noticeSettingsAudit||[],noticeRules:state.noticeRules||[],noticeRulesAudit:state.noticeRulesAudit||[],properties:state.properties,propertyId,can,t,escape}); }
+   else if(view==='notifications') { $('#content').innerHTML=notificationsPage({notifications:(state.notifications||[]).map(n=>reminderForAccount(state,n,backend.user?.username||'local')),noticeSettings:state.noticeSettings||[],noticeSettingsAudit:state.noticeSettingsAudit||[],noticeRules:state.noticeRules||[],noticeRulesAudit:state.noticeRulesAudit||[],properties:state.properties,propertyId,can,t,escape}); }
  else if(view==='bookingRequests') { $('#content').innerHTML=bookingRequestsPage({requests:state.bookingRequests||[],events:state.bookingRequestEvents||[],roomTypes:state.roomTypes,propertyId,can,t,escape,currency}); }
  else if(view==='dataCleanup') { $('#content').innerHTML=dataMaintenancePage({orders:state.orders,reservations:state.reservations||[],propertyId,can,t,escape}); }
   else if(view==='rates'){const from=ratePageDates.get(propertyId)||businessDate();$('#content').innerHTML='<section class="panel"><p>'+rateLabel('可售量按每日及房型独立计算，整套与床位不能相加；跨日连续库存以提交校验为准。','Availability is per day and type; suites and beds cannot be added together. Continuous stays are validated on submission.','Ketersediaan mengikut hari dan jenis; suite dan katil tidak boleh dijumlah. Penginapan berterusan disemak semasa hantar.')+'</p><div class="panel-head"><h2>'+t('rateInventory')+'</h2><button data-rates-open>'+rateLabel('批量更新与计划管理','Bulk updates and plans','Kemas kini pukal dan pelan')+'</button></div><label>'+rateLabel('日历开始日期','Calendar start','Tarikh mula kalendar')+'<input id="rate-page-date" type="date" value="'+escape(from)+'" required></label>'+rateCalendar(state,{propertyId,start:from,currency,t,availability:(id,day)=>rateAvailability(state,propertyId,id,day,businessDate())})+'</section>';}
@@ -187,6 +189,8 @@ function render() {
   } else {
     $('#content').innerHTML = `<section class="panel"><h2>${t('audit')}</h2><div class="table-wrap"><table><thead><tr><th>${t('time')}</th><th>${t('action')}</th><th>ID</th></tr></thead><tbody>${state.audit.filter(a=>a.propertyId===propertyId).map(a=>`<tr><td>${escape(new Date(a.at).toLocaleString(lang==='zh'?'zh-CN':lang==='ms'?'ms-MY':'en-GB',{timeZone:'Asia/Kuala_Lumpur'}))}</td><td>${t(a.type==='clean'?'cleanAction':a.type==='block'?'blockAction':a.type)}</td><td>${escape((a.orderId||a.resourceId||a.id).slice(0,20))}<small>${escape(a.actor||'')}</small></td></tr>`).join('')}</tbody></table></div><p class="muted">${t('footer')}</p></section>`;
   }
+  $('#content').insertAdjacentHTML('beforeend',internalOperationsPanel({state,propertyId,lang,username:backend.user?.username||'local',admin:backend.shared?backend.user?.role==='admin':true,view,escape}));
+  loadInternalContent(document.querySelector('[data-internal-command="booking_content_save"]'));
   updateBell();
 }
 const extraFields = document.createElement('div');
@@ -419,7 +423,7 @@ function openDetail(id) {
   let policyPreview='';try{const preview=previewCancellation(o,new Date().toISOString());policyPreview='<p>'+escape(rateLabel('订单政策快照','Booked policy snapshot','Polisi tempahan'))+': '+escape(o.cancellationPolicy?.kind||'manual')+' · '+(preview.fee===null?escape(rateLabel('人工核定费用','Manually confirm fee','Sahkan caj manual')):escape(currency(preview.fee)))+(preview.deadline?' · '+escape(preview.deadline):'')+'</p><p class="muted">'+escape(rateLabel('仅房费政策预览；附加消费需另核定，不会自动取消、收款或退款。','Room-fee policy preview only; confirm extras separately. No automatic cancellation, charge or refund.','Pratonton polisi caj bilik sahaja; semak caj tambahan berasingan. Tiada pembatalan atau bayaran automatik.'))+'</p>';}catch{policyPreview='<p>'+escape(rateLabel('政策预览不可用，请人工核定。','Policy preview unavailable; confirm manually.','Pratonton polisi tiada; sahkan manual.'))+'</p>';}
   const cancellation=o.status==='confirmed'&&!o.folioClosed?`<details><summary>${t('cancel')}</summary><form id="cancel-form">${policyPreview}<p class="muted">${t('cancelNote')}</p><label>${t('reason')}<input name="reason" required maxlength="500"></label><label>${t('finalCharge')}<input name="finalCharge" type="number" min="0" max="1000000" step="0.01" required></label><button ${can('cancel')?'':'disabled'}>${t('cancel')}</button></form></details>`:'';
   const undo={checked_in:['undo_checkin','checkin'],checked_out:['undo_checkout','checkout'],cancelled:['restore_cancel','cancel']}[o.status];
-  $('#detail-body').innerHTML=`<div class="detail-head"><div role="tablist" aria-label="${t('details')}">${[['details','details'],['bill','billInfo'],['audit','audit'],['channel','channelInfo']].map(([key,label])=>`<button role="tab" id="detail-tab-${key}" aria-selected="${key===detailTab}" aria-controls="detail-panel" data-detail-tab="${key}" tabindex="${key===detailTab?0:-1}">${t(label)}</button>`).join('')}</div><button id="detail-close" aria-label="${t('close')}">×</button></div><div id="detail-error" role="alert"></div><div class="detail-scroll" id="detail-panel" role="tabpanel" aria-labelledby="detail-tab-${detailTab}">${{details:basic,bill,audit,channel}[detailTab]}${detailTab==='details'?cancellation:''}</div><div class="detail-footer"><button data-detail-go="details">${t('edit')}</button><button data-detail-go="bill">${t('billInfo')}</button>${!finished&&!isBoxed(o)?button(o.status==='confirmed'?'checkin':'checkout',id):''}${undo?`<button data-stay-reversal="${undo[0]}" ${can(undo[1])?'':'disabled'}>${t(undo[0])}</button>`:''}${o.status==='confirmed'?`<button id="detail-box" ${can(isBoxed(o)?'restore_stays':'box_stays')&&!o.locked&&(isBoxed(o)||!o.folioClosed&&!o.splitBills&&!o.arMoves?.length&&!o.folioTransfers?.length)?'':'disabled'}>${t(isBoxed(o)?'restore_stays':'box_stays')}</button>`:''}<button data-stay-preview="scheduled">${t('scheduled')}</button><button id="print-order" data-stay-preview="print">${t('printCenter')}</button><button data-stay-preview="self-checkin">${t('selfCheckinPreview')}</button></div>`;
+  $('#detail-body').innerHTML=`<div class="detail-head"><div role="tablist" aria-label="${t('details')}">${[['details','details'],['bill','billInfo'],['audit','audit'],['channel','channelInfo']].map(([key,label])=>`<button role="tab" id="detail-tab-${key}" aria-selected="${key===detailTab}" aria-controls="detail-panel" data-detail-tab="${key}" tabindex="${key===detailTab?0:-1}">${t(label)}</button>`).join('')}</div><button id="detail-close" aria-label="${t('close')}">×</button></div><div id="detail-error" role="alert"></div><div class="detail-scroll" id="detail-panel" role="tabpanel" aria-labelledby="detail-tab-${detailTab}">${{details:basic,bill,audit,channel}[detailTab]}${detailTab==='details'?cancellation:''}</div><div class="detail-footer"><button data-detail-go="details">${t('edit')}</button><button data-detail-go="bill">${t('billInfo')}</button>${!finished&&!isBoxed(o)?button(o.status==='confirmed'?'checkin':'checkout',id):''}${undo?`<button data-stay-reversal="${undo[0]}" ${can(undo[1])?'':'disabled'}>${t(undo[0])}</button>`:''}${o.status==='confirmed'?`<button id="detail-box" ${can(isBoxed(o)?'restore_stays':'box_stays')&&!o.locked&&(isBoxed(o)||!o.folioClosed&&!o.splitBills&&!o.arMoves?.length&&!o.folioTransfers?.length)?'':'disabled'}>${t(isBoxed(o)?'restore_stays':'box_stays')}</button>`:''}<button data-reservation-history="${escape(id)}">${rateLabel('整单住宿与日志','Reservation stays and history','Penginapan dan sejarah tempahan')}</button><button data-stay-preview="scheduled">${t('scheduled')}</button><button id="print-order" data-stay-preview="print">${t('printCenter')}</button><button data-stay-preview="self-checkin">${t('selfCheckinPreview')}</button></div>`;
   $('#detail-close').onclick=()=>$('#detail-dialog').close();
   const act=async command=>{try{await commit({...command,orderId:id});openDetail(id);}catch(e){$('#detail-error').textContent=errorText(e);}};
   $('#detail-body').onclick=e=>{
@@ -1041,7 +1045,8 @@ $('#content').addEventListener('submit',async event=>{
   }
   if(event.target.id==='commission-close-form'){
     event.preventDefault();
-    try{await commit({type:'commission_close_month',month:new FormData(event.target).get('month')});}
+    const month=new FormData(event.target).get('month');if(!window.confirm(rateLabel('确认冻结渠道佣金月份：','Confirm freezing channel commission month: ','Sahkan pembekuan bulan komisen saluran: ')+month))return;
+    try{await commit({type:'commission_close_month',month});}
     catch(error){$('#message').textContent=errorText(error);}
     return;
   }
@@ -1318,4 +1323,73 @@ $('#content').addEventListener('submit',async e=>{
     }
     await commit(command);
   }catch(error){$('#ar-error').textContent=errorText(error);}
+});
+
+function loadInternalContent(form){
+ if(!form)return;const [kind,id]=form.elements.target.value.split(':');
+ const row=(kind==='type'?state.roomTypes:kind==='room'?state.physicalRooms:state.listingDrafts||[]).find(r=>r.id===id&&r.propertyId===propertyId);
+ if(!row)return;form.elements.title.value=row.title||'';form.elements.draftCapacity.value=row.capacity??'';form.elements.draftCapacity.disabled=kind!=='draft';form.elements.photos.value=(row.photos||[]).join('\n');form.elements.cover.value=row.cover||'';
+ for(const l of ['zh','en','ms'])form.elements['description_'+l].value=row.descriptions?.[l]||'';
+}
+$('#content').addEventListener('change',event=>{if(event.target.name==='target'&&event.target.closest('[data-internal-command]'))loadInternalContent(event.target.form);});
+$('#content').addEventListener('input',event=>{
+ if(event.target.name==='noticeSearch'){const q=event.target.value.toLowerCase();for(const row of document.querySelectorAll('[data-history-row]'))row.hidden=!row.textContent.toLowerCase().includes(q);}
+});
+let internalReportRows=[];
+$('#content').addEventListener('submit',async event=>{
+ const form=event.target;if(!form.matches('[data-internal-command],[data-listing-preview],[data-internal-report]'))return;
+ event.preventDefault();const data=Object.fromEntries(new FormData(form));const button=form.querySelector('button');button.disabled=true;
+ try{
+  if(form.hasAttribute('data-listing-preview')){
+   if(!backend.shared)throw Error('shared_service_required');
+   const result=await backend.request('/api/listing-preview',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':backend.csrf},body:JSON.stringify({propertyId,urls:data.urls.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)})});
+   const L=(zh,en,ms)=>({zh,en,ms}[lang]||en);
+   $('[data-listing-results]').innerHTML=result.rows.map((r,i)=>`<article><p>${escape(r.url)} · ${escape(r.status==='readable'?L('可读；请逐字段确认','Readable; verify each field','Boleh dibaca; semak setiap medan'):L('无法读取或无已验证字段；未导入','Unreadable or no verified fields; not imported','Tidak boleh dibaca atau tiada medan disahkan; tidak diimport'))}</p>${r.status==='readable'?`<p>${escape(r.title)} · ${escape(r.capacity??L('人数未记录','Capacity not recorded','Kapasiti tidak direkod'))}</p><p>${escape(r.description)}</p><p>${r.photos.map(escape).join('<br>')}</p>${backend.user?.role==='admin'?`<label><input type="checkbox" data-listing-check="${i}">${L('已核对标题、人数、照片链接、描述及目标门店','Checked title, capacity, photo URLs, description and target property','Tajuk, kapasiti, URL foto, huraian dan hartanah disemak')}</label><button type="button" data-listing-confirm="${i}">${L('确认保存草稿','Confirm draft','Sahkan draf')}</button>`:''}`:''}</article>`).join('');
+   $('[data-listing-results]')._rows=result.rows;
+  }else if(form.hasAttribute('data-internal-report')){
+   if(data.to<data.from)throw Error('date');
+   const reports=operationsReports(state,propertyId,data.from,data.to);internalReportRows=view==='commission'?reports.channelSummary:reports.reminders;
+   const columns=view==='commission'?['from','to','source','bills','corrections','expected','actual','variance','unknownRates']:['businessDate','action','actor','recipient','text','noticeId','reason'];
+   const headers={from:['营业日从','Business date from','Hari perniagaan dari'],to:['营业日至','Business date to','Hari perniagaan hingga'],bills:['账单数','Invoices','Invois'],corrections:['更正数','Corrections','Pembetulan'],unknownRates:['无费率账单数','Invoices without rate','Invois tanpa kadar'],businessDate:['营业日','Business date','Hari perniagaan'],source:['渠道','Channel','Saluran'],orderId:['住宿项','Stay','Penginapan'],reference:['账单号','Reference','Rujukan'],basis:['计费基数（分）','Basis (cents)','Asas (sen)'],rate:['费率 %','Rate %','Kadar %'],expected:['预期（分）','Expected (cents)','Jangkaan (sen)'],actual:['实际（分）','Actual (cents)','Sebenar (sen)'],variance:['差额（分）','Variance (cents)','Beza (sen)'],originalPeriod:['原账期','Original period','Tempoh asal'],action:['动作','Action','Tindakan'],actor:['操作人','Actor','Pelaku'],recipient:['接收人','Recipient','Penerima'],text:['内容','Message','Mesej'],noticeId:['原提醒','Original notice','Notis asal'],reason:['原因','Reason','Sebab']};
+   internalReportRows=internalReportRows.map(row=>Object.fromEntries(columns.map(k=>[headers[k][lang==='zh'?0:lang==='ms'?2:1],row[k]??''])));
+   const cols=columns.map(k=>headers[k][lang==='zh'?0:lang==='ms'?2:1]);
+   $('[data-report-results]').innerHTML=`<p>${escape(({zh:'未分配营业日账单：',en:'Invoices without business date: ',ms:'Invois tanpa tarikh perniagaan: '}[lang])+reports.unallocated)} · ${escape(({zh:'缺营业日更正：',en:'Corrections without business date: ',ms:'Pembetulan tanpa hari perniagaan: '}[lang])+reports.unallocatedCorrections)}</p><table><thead><tr>${cols.map(c=>`<th>${escape(c)}</th>`).join('')}</tr></thead><tbody>${internalReportRows.map(r=>`<tr>${Object.values(r).map(v=>`<td>${escape(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  }else{
+   const command={...data,type:form.dataset.internalCommand};
+   if(command.type==='commission_rate_save')command.percent=Number(command.percent);
+   if(command.type==='booking_content_save'){
+    const [kind,id]=command.target.split(':');command[kind==='type'?'roomTypeId':kind==='room'?'physicalRoomId':'draftId']=id;delete command.target;if(kind==='draft')command.capacity=command.draftCapacity?Number(command.draftCapacity):null;
+    command.photos=command.photos.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);command.descriptions=Object.fromEntries(['zh','en','ms'].map(l=>[l,command['description_'+l]]));
+   }
+   await commit(command);render();
+  }
+ }catch(error){const output=form.querySelector('output')||$('#message');output.textContent=errorText(error);}
+ finally{button.disabled=false;}
+});
+$('#content').addEventListener('click',async event=>{
+ const confirm=event.target.closest('[data-listing-confirm]');
+ if(confirm){const root=$('[data-listing-results]'),i=Number(confirm.dataset.listingConfirm);if(!root.querySelector(`[data-listing-check="${i}"]`)?.checked)return;
+  confirm.disabled=true;try{await commit({...root._rows[i],type:'listing_draft_save',confirmed:true});render();}catch(error){$('#message').textContent=error.message;confirm.disabled=false;}return;}
+ if(event.target.matches('[data-report-csv]')){
+  if(!internalReportRows.length)return;
+  const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replace(/"/g,'""')+'"';
+  const csv=[Object.keys(internalReportRows[0]),...internalReportRows.map(Object.values)].map(r=>r.map(cell).join(',')).join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='jovian-'+view+'.csv';a.click();URL.revokeObjectURL(a.href);
+ }
+});
+
+$('#detail-body').addEventListener('click',event=>{
+ const button=event.target.closest('[data-reservation-history]');if(!button)return;
+ const stay=state.orders.find(o=>o.id===button.dataset.reservationHistory&&o.propertyId===propertyId);if(!stay)return;
+ const siblings=state.orders.filter(o=>o.propertyId===propertyId&&(stay.reservationId?o.reservationId===stay.reservationId:o.id===stay.id));
+ const ids=new Set(siblings.map(o=>o.id));
+ openUtility(rateLabel('整单住宿与日志','Reservation stays and history','Penginapan dan sejarah tempahan'),`<section data-reservation-history-query><p>${siblings.map(o=>escape(o.id+' · '+o.start+' → '+o.end+' · '+o.status+' · '+(o.resourceId||'—'))).join('<br>')}</p><table><tbody>${state.audit.filter(a=>a.propertyId===propertyId&&(ids.has(a.orderId)||a.reservationId&&a.reservationId===stay.reservationId)).map(a=>`<tr><td>${escape(a.at)}</td><td>${escape(a.actor)}</td><td>${escape(a.type)}</td><td>${escape(a.orderId||'')}</td></tr>`).join('')}</tbody></table></section>`);
+});
+
+$('#content').addEventListener('click',event=>{
+ if(!event.target.closest('[data-calendar-range-query]'))return;
+ const end=new Date(Date.parse(calendarDate+'T00:00:00Z')+calendarSpan*86400000).toISOString().slice(0,10);
+ const stays=state.orders.filter(o=>o.propertyId===propertyId&&o.start<end&&o.end>calendarDate);
+ openUtility(rateLabel('日历区间住宿查询','Calendar range stay query','Carian penginapan julat kalendar'),`<section data-calendar-range-results><p>${escape(calendarDate+' → '+end)}</p><label>${t('search')}<input data-calendar-query-search></label><table><tbody>${stays.map(o=>`<tr data-calendar-query-row><td>${escape(o.id)}</td><td>${escape(o.guest)}</td><td>${escape(o.source)}</td><td>${escape(o.status)}</td><td>${escape(o.start+' → '+o.end)}</td><td>${escape(o.resourceId||'—')}</td></tr>`).join('')}</tbody></table></section>`);
+ $('[data-calendar-query-search]').oninput=event=>{for(const row of document.querySelectorAll('[data-calendar-query-row]'))row.hidden=!row.textContent.toLowerCase().includes(event.target.value.toLowerCase());};
 });

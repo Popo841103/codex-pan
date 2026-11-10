@@ -1,3 +1,6 @@
+import {readdirSync as backupReadDir,unlinkSync as backupUnlink,mkdirSync as backupMkdir,chmodSync as backupChmod,renameSync as backupRename} from 'node:fs';
+import {resolve as backupResolve,join as backupJoin,dirname as backupDirname} from 'node:path';
+import {fileURLToPath as backupFilePath} from 'node:url';
 import {randomBytes,randomUUID,randomInt,createHash,createHmac,createCipheriv,createDecipheriv} from 'node:crypto';
 import {readFileSync,writeFileSync,lstatSync} from 'node:fs';
 import {folio} from '../src/demo-store.js';
@@ -270,4 +273,69 @@ export class SelfCheckin {
       this.db.prepare("UPDATE sc_access SET status='active',external_id=?,updated_at=? WHERE id=?").run(result.externalId,new Date(this.now()).toISOString(),id);this.audit(grant.property_id,grant.id,null,'access_device_confirmed',{accessId:id});
     });return this.session(token);
   }
+}
+
+// Offline backup operations live here because the publisher only refreshes existing runtime files.
+// The caller supplies the original 32-byte key from OUTSIDE the backup directory.
+export function sealBackupDirectory(directory,key,{epoch='1'}={}){
+ if(!Buffer.isBuffer(key)||key.length!==32||!/^[-\w]{1,64}$/.test(epoch))throw Error('backup_key');
+ const root=backupResolve(directory),entries=[];let total=0;const rootStat=lstatSync(root);if(rootStat.isSymbolicLink()||!rootStat.isDirectory())throw Error('backup_directory');
+ const scan=(dir,prefix='')=>{for(const name of backupReadDir(dir)){
+  if(name==='jovian-backup.sealed')throw Error('backup_already_sealed');
+  const path=backupJoin(dir,name),stat=lstatSync(path),relative=prefix+name;
+  if(stat.isSymbolicLink())throw Error('backup_symlink');
+  if(stat.isDirectory())scan(path,relative+'/');else if(stat.isFile()){
+   total+=stat.size;if(total>256*1024*1024||entries.length>=4096)throw Error('backup_size');entries.push({path:relative,data:readFileSync(path).toString('base64')});
+  }else throw Error('backup_file');
+ }};scan(root);if(!entries.length)throw Error('backup_empty');
+ const sealed=encodeBackup(entries,key,epoch),path=backupJoin(root,'jovian-backup.sealed');
+ writeFileSync(path,sealed,{flag:'wx',mode:0o600});
+ // Verify authentication and every byte before removing any original.
+ if(JSON.stringify(decodeBackup(readFileSync(path),[key]))!==JSON.stringify(entries))throw Error('backup_verify');
+ for(const entry of entries)if(readFileSync(backupJoin(root,entry.path)).toString('base64')!==entry.data)throw Error('backup_source_changed');
+ for(const entry of entries)backupUnlink(backupJoin(root,entry.path));
+ backupChmod(root,0o700);return {files:entries.length,keyId:backupKeyId(key),epoch};
+}
+function backupKeyId(key){return createHash('sha256').update('jovian-backup-id:').update(key).digest('hex').slice(0,24);}
+function encodeBackup(entries,key,epoch){
+ const salt=randomBytes(32),iv=randomBytes(12),header={version:1,keyId:backupKeyId(key),epoch,salt:salt.toString('base64')};
+ const derived=createHmac('sha256',key).update('jovian-backup-v1:'+epoch+':').update(salt).digest();
+ const cipher=createCipheriv('aes-256-gcm',derived,iv);cipher.setAAD(Buffer.from(JSON.stringify(header)));
+ const data=Buffer.concat([cipher.update(JSON.stringify(entries)),cipher.final()]);
+ return JSON.stringify({...header,iv:iv.toString('base64'),tag:cipher.getAuthTag().toString('base64'),data:data.toString('base64')});
+}
+function decodeBackup(blob,keys){
+ try{
+  const e=JSON.parse(blob),key=keys.find(k=>backupKeyId(k)===e.keyId);if(!key||e.version!==1)throw Error();
+  const header={version:e.version,keyId:e.keyId,epoch:e.epoch,salt:e.salt};
+  const derived=createHmac('sha256',key).update('jovian-backup-v1:'+e.epoch+':').update(Buffer.from(e.salt,'base64')).digest();
+  const cipher=createDecipheriv('aes-256-gcm',derived,Buffer.from(e.iv,'base64'));cipher.setAAD(Buffer.from(JSON.stringify(header)));cipher.setAuthTag(Buffer.from(e.tag,'base64'));
+  const entries=JSON.parse(Buffer.concat([cipher.update(Buffer.from(e.data,'base64')),cipher.final()]));
+  if(!Array.isArray(entries)||entries.some(r=>typeof r.path!=='string'||r.path.startsWith('/')||r.path.includes('\\')||r.path.split('/').some(p=>!p||p==='.'||p==='..')||typeof r.data!=='string')||new Set(entries.map(r=>r.path)).size!==entries.length)throw Error();
+  return entries;
+ }catch{throw Error('backup_authentication_failed');}
+}
+export function restoreBackupDirectory(directory,destination,keys){
+ const entries=decodeBackup(readFileSync(backupJoin(directory,'jovian-backup.sealed')),Array.isArray(keys)?keys:[keys]);
+ // A restore is always into a new directory, never a running database or an existing directory.
+ backupMkdir(destination,{mode:0o700});
+ try{for(const entry of entries){const target=backupJoin(destination,entry.path);backupMkdir(backupDirname(target),{recursive:true,mode:0o700});writeFileSync(target,Buffer.from(entry.data,'base64'),{flag:'wx',mode:0o600});}}
+ catch(error){throw Error('backup_restore_incomplete');}
+ return {files:entries.length};
+}
+export function rotateBackupDirectory(directory,oldKeys,newKey,{epoch='2'}={}){
+ if(!Buffer.isBuffer(newKey)||newKey.length!==32||!/^[-\w]{1,64}$/.test(epoch))throw Error('backup_key');
+ const path=backupJoin(directory,'jovian-backup.sealed'),entries=decodeBackup(readFileSync(path),Array.isArray(oldKeys)?oldKeys:[oldKeys]);
+ const encoded=encodeBackup(entries,newKey,epoch);decodeBackup(encoded,[newKey]);
+ const temp=path+'.rotate';writeFileSync(temp,encoded,{flag:'wx',mode:0o600});backupRename(temp,path);
+ return {files:entries.length,keyId:backupKeyId(newKey),epoch};
+}
+
+if(process.argv[1]&&backupResolve(process.argv[1])===backupFilePath(import.meta.url)){
+ try{
+  const [operation,directory,keyPath,target,extra]=process.argv.slice(2);
+  const key=readFileSync(keyPath);if(key.length!==32)throw Error('backup_key');
+  const result=operation==='backup-seal'?sealBackupDirectory(directory,key,{epoch:target||'1'}):operation==='backup-restore'?restoreBackupDirectory(directory,target,key):operation==='backup-rotate'?rotateBackupDirectory(directory,key,readFileSync(target),{epoch:extra||'2'}):null;
+  if(!result)throw Error('backup_operation');console.log(JSON.stringify({ok:true,files:result.files}));
+ }catch{console.error('Backup operation failed; preserve the original database and keys.');process.exitCode=1;}
 }
