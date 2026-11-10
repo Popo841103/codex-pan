@@ -444,3 +444,40 @@ Windows Node 427/429，余两项为已知私有文件权限用例。Python 5/5�
 - GET `/web/style.css` 200，逐字节与本地一致；SHA256 `53c1ef90cff874216585716df90b968530310366c985f9ddd517e14430365426`；标识`body.invoice-print`全部命中。
 - 全部web JS与app直接导入模块合并去重，GET **26/26** 为200；`/server/store.js`为404，不公开后端源码。
 - 公网仅GET健康和资产，未登录或写入线上业务。后端依据源码、合成SQLite回归与成功部署重启，未取得主机执行或供应商联调证据；不把前端哈希匹配当作后端运行直接证明。
+
+
+## 小时库存、离线iCal与前台内部能力续跑（2026-11-11，UTC+8）
+
+基线`96ff297` / `5b40732`、文档`0a7c5a9`；保留并补完三份中断未提交改动。功能提交 **`71e1ec356c8b7b5f8acecf769132927d5239adb5`** 已推送jovian-pms-test并实际部署。Actions [42926522741](https://github.com/Popo841103/codex-pan/actions/runs/42926522741)，job`130214267142`，Verify及Deploy成功；`gh run watch 42926522741 --exit-status --interval 5`退出0。2026-11-10 23:50:24 UTC完成（本地11月11日07:50:24）；Ubuntu Node560/560、Python5/5。发布器备份`update-fkq5IV46`，不代表自动加密。
+
+矩阵114条：**已有79、部分20、缺失0、禁止或需外部接入15**。本批16条提升：**1.1、1.2、3.6、5.5、7.3、7.9、7.16–7.18、7.20、7.22–7.23、7.27、9.11、9.17、9.19**。已有只表示矩阵逐行写明的内部能力，人工到期待办不等于自动调度，内部入住指引不等于身份提交或门锁，持久粘贴iCal不等于联网同步。
+
+| 入口 | 实现及边界 |
+|---|---|
+| 目录→钟点定义；客户→小时预订；前台工作台→整点库存查询 | 新单整点时间窗、24小时格、相邻复用、共享套房/床位冲突；不跨午夜，24:00仅为结束。旧整日记录保持保护，在住必须人工退房及清洁周转。小时费用保留、过夜房晚不计小时单；日库存同资源去重，到店数按订单。 |
+| 统计→运营查询工作台→前台内部工作台→保存粘贴iCal/撤销 | 管理员资源及原因确认生成持久hold，匿名区间不保存ICS/摘要/UID；重复/冲突/跨店/已夜审拒绝，撤销保留原导入，普通或批量开房不能绕过。无抓取/订阅。 |
+| 公司目录及前台工作台→公司关联与当前账项 | 公司联系人和已有AR引用沿用；管理员原因绑定/解绑住宿，逐住宿费用/待收待退/押金独列；不互抵、不改原账、不储值或自动挂账。 |
+| 设置→房型与房间 / 客户 / 工作台→前台内部工作台；首页摘要 | 管理员版本化门店显示资料/说明/抵达指引、参考时间/欢迎词/人工检查清单、公告、多条可停用快捷回复及人工复制、纯文本打印标题页脚。首页显示本店公告/未完成任务；设置不改房价/营业日/入住权限/既有订单。 |
+| 前台工作台→人工待办；住宿详情→计划任务 | 马来西亚到期日/标题/备注/可选住宿/状态追加版本，详情按住宿列出并预选维护。无自动发送、调度、夜审或补跑。 |
+| 前台工作台→打印；住宿详情→打印；日历→批量打印 | 工作台及住宿常规/内部登记卡实际预览/打印，批量到店日/资源/状态同筛选，专用CSS；纯读、非税务发票、不提交身份。原账单打印保留。 |
+
+本地Linux Node24 **560/560**（新增26），Python **5/5**；29个DOM脚本加folio两分支 **31/31**，37个runtime JS及6个shell语法、diff检查通过。新Node覆盖双状态、管理员/隔店/幂等、追加版本、小时共享/相邻/重叠/旧记录/夜审、iCal撤销及开房绕过、日库存去重；新DOM操作上述链、三语和切店。打印是window.print桩，无真实打印机或线上业务写入验收。上轮测试期间编辑源码导致模块导出混版及trial-signup超时；冻结后两脚本单独通过，再完整31分支全过，未放松业务busy guard或Ubuntu门禁，Windows私有权限测试未改。
+
+运行逻辑并入7个既有runtime文件，无新runtime模块/依赖、无发布流程改动或数据重置。claims原表/唯一键保留，内部night键改为YYYY-MM-DD@HH；下一次成功业务事务内按完整门店状态重建，整日24槽、小时指定槽，失败回滚。新增v10写入保护，旧runtime只读不代表可写回滚，恢复应使用理解小时槽的runtime；不得删除保护绕过。claims最多24倍，合成测试不代表大体量性能验收。
+
+未操作真实账号/订单/资金/生产数据/门锁；全部Do NOT及跨夜审暂存恢复、AR、押金/关闭保护保留。下一优先：安全日历/单日显示、内部渠道清单、角色矩阵、经理/交班报表剩余维度；公开iCal订阅、已核验汇率、房卡/外部消息不冒充接通。完整复现见pms/verification/desk-completion-audit.md及parity-matrix.md。
+
+### 公网只读GET证据
+
+检查时间：`2026-11-10T23:51:03.401043+00:00`。GET /healthz=200，精确返回`{"ok":true,"service":"jovian-pms","data":"test-only"}`。以下公开资产全部200，与本地逐字节一致，所有标识命中：
+
+| 资产 | SHA256 | 新标识 |
+|---|---|---|
+| /web/app.js | `80ece4a32c3238392166616bd8dcf33f69447b5d829ebdd8fb7b68ca05caba43` | data-desk-command, data-hour-grid, stayPrintCard |
+| /web/workspace-ui.js | `a82eefd07d4c9011f08f5b6b0119a94cb85cdeb9f54c06cb6c4efc061da49379` | deskPanel, data-corporate-stays, data-desk-summary |
+| /src/demo-store.js | `1f7cb20a991239771a83522c32c58c8945caefb927b176f51332939bebc895f6` | deskActions, hourlyInventory, hour_slots, deskReplies |
+| /src/inventory.js | `c04c9e5f722575ff07eac4b7ef3f28e10efc3ea5204eee4670668861b623b216` | Invalid hourly interval, hour_slots |
+| /src/financial-reports.js | `bb3dffe6918681c439324df710e835a5439f8d0508012741f6f37da4614ec080` | occupied:units(active), !occupiesInventory(o)||o.hourly |
+| /web/style.css | `b9de8acd4d6a65ac084ea1f578ebda16beaf755612ebaf5aefe56a52ab3ad9b9` | body.desk-print, body.stay-print |
+
+全部web JS及app直接导入模块合并去重GET **26/26** 为200；/server/store.js=404，后端不公开。公网只做GET，未登录线上或写业务；后端依据源码、合成SQLite回归和成功部署重启，不将前端哈希当作后端运行直接证明。结构化证据见pms/verification/desk-live-verification.json。

@@ -2,12 +2,12 @@
 
 仅参考本机只读目录的入口和流程；没有复制个人资料、金额、订单号或截图。状态为本批完成后的保守评估，已有表示JOVIAN已提供对应内部能力，并不代表字段/商业服务完全相同。部分表示基础能力已存在但明确列出差距。禁止项即使有只读预览也不宣称接通。
 
-本批基线：运行时03d67f6 / 文档1e9924c。A7第9节此次已逐项对照。通用边界：不改账号/数据库，不自动夜审、不跨午夜截账、不改历史夜审保护、不接真实资金/OTA/锁。
+本批基线：运行时96ff297 / 5b40732，文档0a7c5a9；本批运行时71e1ec3。A7第9节此次已逐项对照。通用边界：不改账号/数据库，不自动夜审、不跨午夜截账、不改历史夜审保护、不接真实资金/OTA/锁。
 
 | 编号 | 参考入口 | 状态 | JOVIAN入口 | 证据与差距 |
 |---|---|---|---|---|
-| 1.1 | Home (landing) | 部分 | 首页 / 顶栏 | pms/web/app.js、pms/web/workspace-ui.js；dashboard.test.js、dom-workflows.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 1.2 | Home | 部分 | 首页 / 顶栏 | pms/web/app.js、pms/web/workspace-ui.js；dashboard.test.js、dom-workflows.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
+| 1.1 | Home (landing) | 已有 | 首页 → 门店摘要 / 原有经营看板 | desk-completion Node/DOM、front-desk-tools及完整回归；新增保存门店显示资料、欢迎词、公告和未完成人工任务；原有经营看板保留。内部首页能力，不含供应商商业推广组件。 |
+| 1.2 | Home | 已有 | 首页 → 人工任务摘要 → 前台工作台 | desk-completion Node/DOM、front-desk-tools及完整回归；当前门店未完成任务、马来西亚到期日和住宿编号可见，跳转维护；不按营业日推断到期日，不自动执行。 |
 | 1.3 | Header | 已有 | 首页 / 顶栏 | pms/web/app.js、pms/web/workspace-ui.js；dashboard.test.js、dom-workflows.mjs。 |
 | 1.4 | Header | 部分 | 首页 / 顶栏 | pms/web/app.js、pms/web/workspace-ui.js；dashboard.test.js、dom-workflows.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
 | 2.1 | Calendar > Calendar View | 部分 | 房态 → 日历 / 房价与可售 | pms/web/app.js、pms/web/workspace-ui.js；calendar-view.test.js、rate-calendar.test.js、dom-rates.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
@@ -28,7 +28,7 @@
 | 3.3 | Channel > Channel > Currency Conversion | 部分 | 渠道 | pms/web/app.js、pms/web/workspace-ui.js；booking-request.test.js、communications.test.js、dom-booking-engine.mjs。没有已核验汇率源，不虚构换算 |
 | 3.4 | Channel > Booking Engine > Home | 部分 | 渠道 | pms/web/app.js、pms/web/workspace-ui.js；booking-request.test.js、communications.test.js、dom-booking-engine.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
 | 3.5 | Channel > Booking Engine > Payments | 禁止或需外部接入 | 渠道 | 用户明确禁止或需要供应商/订阅；不执行。 |
-| 3.6 | Channel > iCal > Import | 部分 | 统计 → 运营查询工作台 → iCal | financial-reports.js occupancyIcal / previewIcal；parity-workbench Node/DOM。本批粘贴全天ICS严格预览；尚未保存导入或生成关房 |
+| 3.6 | Channel > iCal > Import | 已有 | 统计 → 运营查询工作台 → 前台内部工作台 → 保存粘贴iCal | desk-completion Node/DOM、front-desk-tools及完整回归；严格全天ICS预览后，管理员选择资源、填确认原因保存关房；导入记录不保存原始ICS/摘要/UID，撤销整次导入保留历史。重复、跨门店、冲突、已夜审日期拒绝；禁止普通/批量开房绕过撤销。没有网络抓取或订阅同步。 |
 | 3.7 | Channel > iCal > Export | 部分 | 统计 → 运营查询工作台 → iCal | financial-reports.js occupancyIcal / previewIcal；parity-workbench Node/DOM。本批下载匿名占用ICS；尚无公开订阅URL |
 | 4.1 | Reservations > Accommodation (list) | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
 | 4.2 | Reservations > Accommodation > reservation detail (Details) | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
@@ -49,7 +49,7 @@
 | 5.2 | Customers > List > Customer Details (one existing customer, view only) | 已有 | 客户→客户档案与有归属业务；工作台→独立客户档案及绑定住宿 | customer-statistics Node/DOM + 全量回归；电话、邮箱、国籍、语言、生日及证件末四位选填、备注、启停、绑定住宿及费用/净收款/待收/待退/押金；不保存完整证件，不提交身份验证。 |
 | 5.3 | Customers > Tag > Ungrouped Tags | 已有 | 客户 / 设置房型与房间 / 运营查询工作台 → 内部目录 | demo-store.js changeDirectory、server/store.js；parity-workbench Node/DOM。本批标签版本/住宿关联追加历史 |
 | 5.4 | Customers > Tag > Tag Group | 已有 | 客户 / 设置房型与房间 / 运营查询工作台 → 内部目录 | demo-store.js changeDirectory、server/store.js；parity-workbench Node/DOM。本批标签组版本/门店范围校验 |
-| 5.5 | Customers > Corporate Client | 部分 | 客户 / 设置房型与房间 / 运营查询工作台 → 内部目录 | demo-store.js changeDirectory、server/store.js；parity-workbench Node/DOM。本批公司目录及现有AR关联；非公司储值系统 |
+| 5.5 | Customers > Corporate Client | 已有 | 客户 / 设置 / 工作台 → 公司目录、公司关联及当前账项 | desk-completion Node/DOM、front-desk-tools及完整回归；沿用公司联系人、电话和已存在AR账户引用；管理员带原因关联/解绑住宿，名称留快照，逐住宿显示费用/待收待退/押金，不互抵、不重写原AR/住宿/价格，不提供公司储值或自动挂账。 |
 | 5.6 | Customers > AR Account | 已有 | 客户 / 应收账户 | pms/web/app.js、pms/web/workspace-ui.js；ar-ledger.test.js、ar-reports.test.js、dom-ar-ledger.mjs。 |
 | 6.1 | Analytics > Statistics > Summary > Revenue Summary | 已有 | 统计→运营查询工作台→营收汇总 | customer-statistics Node/DOM + 全量回归；按营业日费用，日期/渠道/房型/产品/房间/已记录计划/预订类型/公司/国籍/创建人等双维度；房费、附加费/钟点/取消费和单位夜分开，条件/搜索/CSV，缺字段留空。 |
 | 6.2 | Analytics > Statistics > Summary > Transaction Summary | 已有 | 统计→运营查询工作台→交易汇总 | customer-statistics Node/DOM + 全量回归；按马来西亚交易日，双维度加方式/操作员/快记分类快照；四类收退款独列、住宿净收与押金净额分开；筛选/搜索/CSV，不混作营收。 |
@@ -65,31 +65,31 @@
 | 6.12 | Analytics > Reports > Business Reports > Guest Account Balance Records | 已有 | 统计 → 运营查询工作台 → 营业日客账余额 | operations-completion Node/DOM + 既有回归；逐住宿期初+期间费用−净收款−AR−账单转入=期末，押金独列；房型/渠道及CSV。只算已知日期账项，旧缺日期明确计数；非储值系统。 |
 | 7.1 | Settings > Room > Room Type | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
 | 7.2 | Settings > Room > Rate Plan | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
-| 7.3 | Settings > Room > Hourly Room | 部分 | 客户/设置→目录→钟点房定义；客户档案与有归属业务→小时预订；工作台→小时预订 | customer-statistics Node/DOM；按最低时长基础价+向上取整额外单位保存快照、指定资源、整点小时数、同日入住/退房及费用；整日库存保留至实际退房。保守策略尚无同时段分配、同日自动周转，继续部分。 |
+| 7.3 | Settings > Room > Hourly Room | 已有 | 目录 → 钟点定义；客户 → 小时预订；前台工作台 → 整点库存查询 | desk-completion Node/DOM、front-desk-tools及完整回归；新订单以整点小时窗占用共享原子，支持相邻窗口和24:00结束，拒绝重叠/跨午夜/夜审；24小时查询不写审计。SQLite同事务小时槽唯一性，旧整日订单继续整日保护；在住必须人工退房、清洁后周转。日库存同资源去重，小时费不算过夜房晚。 |
 | 7.4 | Settings > Room > Combined Room | 禁止或需外部接入 | 设置 | 用户明确禁止或需要供应商/订阅；不执行。 |
 | 7.5 | Settings > Room > Meal | 已有 | 客户 / 设置房型与房间 / 工作台 → 内部目录 → 餐食分类 / 餐食 | operations-completion Node/DOM + 既有回归；分类、单位计价、单价、启停追加版本；权益保存名称/分类/计价与价格快照，手工数量/使用日，不重报价旧住宿。 |
 | 7.6 | Settings > Room > Item | 已有 | 客户/设置房型与房间→内部目录→物品；客户档案与有归属业务→物品费用 | customer-statistics Node/DOM + 全量回归；管理员目录版本，运营逐笔确认住宿/数量/原因后保存当时名称与单价快照到当前营业日费用；整数金额及关闭/拆账/AR/暂存保护；不声称自动库存。 |
 | 7.7 | Settings > Room > Group | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
 | 7.8 | Settings > Room > Sort | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
-| 7.9 | Settings > Room > Frontdesk | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
+| 7.9 | Settings > Room > Frontdesk | 已有 | 设置 → 房型与房间 → 前台内部工作台 → 前台及入住指引 | desk-completion Node/DOM、front-desk-tools及完整回归；管理员版本化参考入住/退房时间、欢迎词、人工入住检查清单；三语显示、门店隔离和追加历史。仅内部指引，不改变入住权限、房价、营业日或既有订单时间。 |
 | 7.10 | Settings > Finance > Payment Method | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
 | 7.11 | Settings > Finance > Quick Note | 已有 | 客户/设置房型与房间→内部目录→快记账分类 | customer-statistics Node/DOM + 全量回归；管理员维护收款/退款方向与启停追加版本；历史分类名与方向快照不重算，服务端权限及门店隔离；无非住宿费用或无人归属流水。 |
 | 7.12 | Settings > Finance > Invoice | 已有 | 客户/设置房型与房间→内部目录→内部账单模板 | customer-statistics Node/DOM + 全量回归；管理员纯文字标题/页脚/启停追加版本，最新启用模板用于内部账单，字符转义/打印及CSV；不维护税费、不生成税务票据或跟踪代码。 |
 | 7.13 | Settings > Account > Account List | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
 | 7.14 | Settings > Account > Account Role | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
 | 7.15 | Settings > Account > Shift | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
-| 7.16 | Settings > Property > Basic Info | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 7.17 | Settings > Property > Details | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 7.18 | Settings > General > Notification | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
+| 7.16 | Settings > Property > Basic Info | 已有 | 设置 / 工作台 → 门店资料 | desk-completion Node/DOM、front-desk-tools及完整回归；管理员保存显示名、地址、电话、邮箱；首页显示与内部打印使用，原门店ID/账号/数据库不替换。 |
+| 7.17 | Settings > Property > Details | 已有 | 设置 / 工作台 → 门店资料及前台指引 | desk-completion Node/DOM、front-desk-tools及完整回归；门店说明、抵达指引、欢迎词、人工检查清单版本化保存及查看；纯文本，无身份提交/外部网站同步。 |
+| 7.18 | Settings > General > Notification | 已有 | 设置 / 工作台 → 内部提醒公告；首页 → 公告 | desk-completion Node/DOM、front-desk-tools及完整回归；管理员保存公告，当前门店首页展示，保存历史追加；原通知规则/员工通知仍保留，无外部推送或自动发送。 |
 | 7.19 | Settings > General > Channel | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 7.20 | Settings > General > Quick Replies | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
+| 7.20 | Settings > General > Quick Replies | 已有 | 设置 / 工作台 → 内部快捷回复 | desk-completion Node/DOM、front-desk-tools及完整回归；多条独立编号回复，新建/编辑/停用保留版本，启用条目可复制；浏览器不允许剪贴板时提示手动复制。三语控件，仅内部人工回复，不发送消息。 |
 | 7.21 | Settings > General > Scheduled Msg | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 7.22 | Settings > General > Scheduled | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 7.23 | Settings > General > Print | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
+| 7.22 | Settings > General > Scheduled | 已有 | 前台工作台 → 人工待办 / 住宿跟进 | desk-completion Node/DOM、front-desk-tools及完整回归；人工创建/更新马来西亚到期日、标题、备注、可选住宿和待办/完成/取消状态，保留版本与主页待办摘要。此行仅指内部人工到期待办；无后台调度、自动夜审、自动交班或补跑。 |
+| 7.23 | Settings > General > Print | 已有 | 前台工作台 → 内部打印模板；日历 → 批量打印；住宿 → 打印 | desk-completion Node/DOM、front-desk-tools及完整回归；管理员纯文本标题/页脚版本、工作台打印和住宿内部常规/登记卡；打印CSS隔离，批量卡片与到店日期/房间/状态同筛选。非税务发票、无代码注入或身份上传。 |
 | 7.24 | Settings > General > Night Audit (view only; not run) | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。仅人工逐日夜审/历史；禁止自动、清空、历史批量处理 |
 | 7.25 | Settings > General > Holiday | 已有 | 设置 → 房型与房间 → 内部目录 → 节假日与活动；工作台 → 节假日历 | operations-completion Node/DOM + 既有回归；管理员维护人工日期/名称/类型/热度/显示，追加版本，按日期日历预览/列表/搜索/CSV；没有官方订阅或未经核验国家节假日。 |
 | 7.26 | Settings > Housekeeping > Items | 已有 | 设置 → 房型与房间 → 内部目录 → 清洁检查项 | operations-completion Node/DOM + 既有回归；管理员检查项启停/改名/绑定房型（空为全店）；房型引用当前版本，检查逐项必填并保留当时名称快照与人员/时间/结果。 |
-| 7.27 | Settings > Check-in > Settings | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
+| 7.27 | Settings > Check-in > Settings | 已有 | 设置 → 前台及入住指引 / 门店资料 | desk-completion Node/DOM、front-desk-tools及完整回归；保存并查看内部抵达说明、参考时间、欢迎词、人工检查清单；不自动判定身份或改变现有入住授权，不生成或发送自助入住代码。 |
 | 7.28 | Settings > Integration > Payments | 禁止或需外部接入 | 设置 | 用户明确禁止或需要供应商/订阅；不执行。 |
 | 8.1 | App Center > Home | 禁止或需外部接入 | 无订阅/购买接入 | 用户明确禁止或需要供应商/订阅；不执行。 |
 | 8.2 | App Center > Product List | 禁止或需外部接入 | 无订阅/购买接入 | 用户明确禁止或需要供应商/订阅；不执行。 |
@@ -106,15 +106,15 @@
 | 9.8 | Calendar tools > Reservation Box | 已有 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。 |
 | 9.9 | Calendar tools > Logs | 已有 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。 |
 | 9.10 | Calendar tools > Inventory | 已有 | 房态 / 统计 → 运营查询工作台 → 每日 / 未来库存 | operations-completion Node/DOM + 既有回归；同2.8/2.9分项与日期矩阵；只读查询，原日历工具保留。 |
-| 9.11 | Calendar tools > Batch Print | 部分 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。已有只读筛选计数；无打印内部模板 |
+| 9.11 | Calendar tools > Batch Print | 已有 | 日历工具 → 批量打印 | desk-completion Node/DOM、front-desk-tools及完整回归；到店日/资源/状态过滤生成实际内部登记卡预览，并可window.print；结果数量与卡片一致，纯读、不批量结账、无身份提交；专用打印样式。 |
 | 9.12 | Calendar tools > Smart Lock | 部分 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。已有未开通只读列表；无门锁操作 |
 | 9.13 | Account Role lock permissions vs live UI | 禁止或需外部接入 | 日历工具 / 住宿详情底部 | 用户明确禁止或需要供应商/订阅；不执行。 |
 | 9.14 | Reservations > reservation detail > Lock Room | 已有 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。 |
 | 9.15 | Reservations > reservation detail > Self-Check-in | 部分 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。已有只读预览；无生成/发送代码 |
 | 9.16 | Reservations > reservation detail > More | 已有 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。 |
-| 9.17 | Reservations > reservation detail > Scheduled | 部分 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。已有只读空任务列表；无自动发送 |
+| 9.17 | Reservations > reservation detail > Scheduled | 已有 | 住宿详情 → 计划任务 → 前台工作台维护 | desk-completion Node/DOM、front-desk-tools及完整回归；详情按当前住宿列出已保存人工跟进任务；跳转维护时预选住宿，保留到期日/状态/版本。仅人工跟进，不自动发送或执行。 |
 | 9.18 | Reservations > reservation detail > Reservation Box (move into) | 已有 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。 |
-| 9.19 | Reservations > reservation detail > Print | 部分 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。已有打印中心预览；无模板内部 |
+| 9.19 | Reservations > reservation detail > Print | 已有 | 住宿详情 → 打印 → 常规 / 登记卡 | desk-completion Node/DOM、front-desk-tools及完整回归；两个页签实际生成当前住宿内部文档，使用管理员纯文字标题/页脚，打印桩验证与专用CSS；原内部账单打印保留，无外部税务或身份提交。 |
 | 9.20 | Settings > Room > Frontdesk > Advance Key Card Issuance Modify | 已有 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。 |
 | 9.21 | Settings > General > Holiday > List tab | 已有 | 统计 → 运营查询工作台 → 节假日历 | operations-completion Node/DOM + 既有回归；同7.25人工节假日/活动日历与列表、热度/显示/搜索/CSV；无自动国家假日源。 |
 | 9.22 | Channel > Booking Engine > Home > Verify Now | 禁止或需外部接入 | 日历工具 / 住宿详情底部 | 用户明确禁止或需要供应商/订阅；不执行。 |
@@ -123,11 +123,11 @@
 
 ## 数量与下一优先级
 
-共114条：已有 63、部分 36、缺失 0、禁止或需外部接入 15。
+共114条：已有 79、部分 20、缺失 0、禁止或需外部接入 15。
 
-本批15条由部分提升为已有：4.11、4.14–4.15、5.1–5.2、6.1–6.6、6.10、7.6、7.11–7.12。已有仅指上表明确列出的JOVIAN内部能力，不代表供应商所有字段/外部服务。6.8/6.9仍有房卡外部缺口；7.3有小时计价预订但仍采用整日库存保护，保留部分。
+本批16条由部分提升为已有：1.1、1.2、3.6、5.5、7.3、7.9、7.16–7.18、7.20、7.22–7.23、7.27、9.11、9.17、9.19。已有只指各行明确限定的内部能力；人工到期待办不是自动调度，内部入住指引不是身份验证或门锁，iCal持久导入不是网络同步。
 
-下一优先：小时库存精细时间窗及人工周转、明确授权边界内iCal持久导入、公司目录内部非储值能力、前台/首页仍未覆盖的内部设置。继续禁止自动夜审/跨午夜交班/历史批量操作与全部Do NOT项；房卡、OTA、储值及外部会计不冒充接通。
+下一优先：日历/单日视图剩余安全显示能力、内部渠道清单和人工来源管理、角色矩阵差距、经理/交班报表尚缺维度。3.7公开订阅、3.3已核验汇率、房卡/外部消息仍不冒充接通；7.24/9.2仅保留人工逐日夜审，禁止批量历史/自动处理。全部Do NOT边界不变。
 
 ## 补充入口（目录非编号部分）
 
@@ -157,3 +157,9 @@
 本批新增逻辑仅并入既有server/store.js、src/demo-store.js、src/financial-reports.js、web/app.js、web/workspace-ui.js及既有打印CSS；未改发布流程、claims表或既有账号/数据。新增测试与DOM文件不参与运行时部署。
 
 独立客户档案、归属快记账、物品费用、小时预订均追加版本或事件，门店隔离/管理员设置/服务端权限/revision/幂等保留；客户/统计查询不写审计。营业日费用与马来西亚自然日交易、创建和实际完成时间分列，未知旧字段留空。全部升级行的复现与边界见customer-statistics-audit.md，部署与公网证据见continuity/VERIFICATION.md本批章节。
+
+## 小时库存与前台内部能力续跑（2026-11-11）
+
+保留并补完三份中断未提交改动。运行逻辑只并入7份既有runtime文件，未新增runtime模块或修改发布工作流。SQLite claims沿用原表/唯一键，将内部night键表示为YYYY-MM-DD@HH；旧普通住宿/整日小时订单/关房占全天24槽，新小时订单只占指定槽。在下一次成功业务事务内按完整状态重建该门店claims，不重置账号、订单或资金。新增v10写入保护阻止不理解小时库存的旧运行时写入，旧代码回滚只读不等于可写回滚。
+
+本地Node560/560、Python5/5、DOM31/31，含新desk-completion、原front-desk-tools及trial-signup/workflows、folio两分支。日库存同一资源的相邻小时订单去重；到店数仍按订单数。小时费保留在营收，过夜房晚不计小时单。详见desk-completion-audit.md，部署GET证据见continuity/VERIFICATION.md本批章节。

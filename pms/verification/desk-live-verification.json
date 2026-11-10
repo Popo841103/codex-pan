@@ -1,0 +1,184 @@
+{
+  "checkedAt": "2026-11-10T23:51:03.401043+00:00",
+  "health": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "service": "jovian-pms",
+      "data": "test-only"
+    }
+  },
+  "assets": [
+    {
+      "path": "/web/app.js",
+      "status": 200,
+      "sha256": "80ece4a32c3238392166616bd8dcf33f69447b5d829ebdd8fb7b68ca05caba43",
+      "matchesLocal": true,
+      "markers": {
+        "data-desk-command": true,
+        "data-hour-grid": true,
+        "stayPrintCard": true
+      }
+    },
+    {
+      "path": "/web/workspace-ui.js",
+      "status": 200,
+      "sha256": "a82eefd07d4c9011f08f5b6b0119a94cb85cdeb9f54c06cb6c4efc061da49379",
+      "matchesLocal": true,
+      "markers": {
+        "deskPanel": true,
+        "data-corporate-stays": true,
+        "data-desk-summary": true
+      }
+    },
+    {
+      "path": "/src/demo-store.js",
+      "status": 200,
+      "sha256": "1f7cb20a991239771a83522c32c58c8945caefb927b176f51332939bebc895f6",
+      "matchesLocal": true,
+      "markers": {
+        "deskActions": true,
+        "hourlyInventory": true,
+        "hour_slots": true,
+        "deskReplies": true
+      }
+    },
+    {
+      "path": "/src/inventory.js",
+      "status": 200,
+      "sha256": "c04c9e5f722575ff07eac4b7ef3f28e10efc3ea5204eee4670668861b623b216",
+      "matchesLocal": true,
+      "markers": {
+        "Invalid hourly interval": true,
+        "hour_slots": true
+      }
+    },
+    {
+      "path": "/src/financial-reports.js",
+      "status": 200,
+      "sha256": "bb3dffe6918681c439324df710e835a5439f8d0508012741f6f37da4614ec080",
+      "matchesLocal": true,
+      "markers": {
+        "occupied:units(active)": true,
+        "!occupiesInventory(o)||o.hourly": true
+      }
+    },
+    {
+      "path": "/web/style.css",
+      "status": 200,
+      "sha256": "b9de8acd4d6a65ac084ea1f578ebda16beaf755612ebaf5aefe56a52ab3ad9b9",
+      "matchesLocal": true,
+      "markers": {
+        "body.desk-print": true,
+        "body.stay-print": true
+      }
+    }
+  ],
+  "moduleGETs": [
+    [
+      "/src/cancellation-policy.js",
+      200
+    ],
+    [
+      "/src/catalog.js",
+      200
+    ],
+    [
+      "/src/dashboard.js",
+      200
+    ],
+    [
+      "/src/demo-store.js",
+      200
+    ],
+    [
+      "/src/financial-reports.js",
+      200
+    ],
+    [
+      "/src/inventory-actions.js",
+      200
+    ],
+    [
+      "/src/order-filters.js",
+      200
+    ],
+    [
+      "/src/rate-availability.js",
+      200
+    ],
+    [
+      "/src/reservations.js",
+      200
+    ],
+    [
+      "/web/app.js",
+      200
+    ],
+    [
+      "/web/backend.js",
+      200
+    ],
+    [
+      "/web/calendar-actions.js",
+      200
+    ],
+    [
+      "/web/catalog-ui.js",
+      200
+    ],
+    [
+      "/web/checkin-admin-ui.js",
+      200
+    ],
+    [
+      "/web/communication-ui.js",
+      200
+    ],
+    [
+      "/web/dashboard-ui.js",
+      200
+    ],
+    [
+      "/web/financial-ui.js",
+      200
+    ],
+    [
+      "/web/guest-locales.js",
+      200
+    ],
+    [
+      "/web/order-columns.js",
+      200
+    ],
+    [
+      "/web/pwa.js",
+      200
+    ],
+    [
+      "/web/rate-calendar.js",
+      200
+    ],
+    [
+      "/web/recovery.js",
+      200
+    ],
+    [
+      "/web/reservation-ui.js",
+      200
+    ],
+    [
+      "/web/self-checkin.js",
+      200
+    ],
+    [
+      "/web/sw.js",
+      200
+    ],
+    [
+      "/web/workspace-ui.js",
+      200
+    ]
+  ],
+  "serverSourceStatus": 404
+}
