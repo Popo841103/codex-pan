@@ -242,3 +242,5 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 运行 `node --test test/ar-ledger.test.js test/commission-period.test.js`，以及 `verification/dom-ar-ledger.mjs` 和 `verification/dom-commission-period.mjs`（传入 jsdom 路径）。合成测试覆盖原快照不变、已关闭日期拒绝、后续期末纳入差额及财务权限。发布后查 Actions 成功状态、公开 `/healthz` 和 `/web/financial-ui.js` 的 `data-ar-correction`。DOM 是合成数据验收，实际门店页面交互另验。
 
 本机 Windows Node 424 项中 422 通过，余两项为既有私有文件权限用例；Python 5/5，AR 与佣金 DOM 均通过。
+
+Actions 42754425077 成功，Linux Node 424/424、Python 5/5。外部实见 `/healthz` 返回测试站健康，`/web/financial-ui.js` 命中 `data-ar-correction` 和 `data-commission-correct`。已登录门店实际交互未验收。
