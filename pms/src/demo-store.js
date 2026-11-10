@@ -322,6 +322,8 @@ export function apply(state, command) {
   let next = upgradeBusinessDay(upgradeCatalog(state));
   for (const o of next.orders) { o.nightly ??= 0; o.transactions ??= []; o.notes ??= ''; o.source ??= 'direct'; o.locked ??= false; }
   const { type, propertyId } = command;
+  const lastClosed=lastAudit(next)?.businessDate;
+  const reversal=['undo_checkin','undo_checkout','restore_cancel'].includes(type);
   let settledStayIds, handledAuditOrders;
   if (['checkin','checkout'].includes(type) && (typeof command.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(command.date))) reject('date');
   if (!next.properties.some(p => p.id === propertyId)) reject('scope');
@@ -331,13 +333,13 @@ export function apply(state, command) {
   // before/after story as the shared backend's durable audit.
   const commissionBefore = type === 'commission_save' ? (order?.commission || null) : null;
   const inHouse = target => next.orders.some(o => o.propertyId === propertyId && o.status === 'checked_in' &&
-    (!['assign','checkin'].includes(type) || o.id !== order?.id) && overlapsAtoms(next.resources.find(r => r.id === o.resourceId), target));
+    (!['assign','checkin','undo_checkout'].includes(type) || o.id !== order?.id) && overlapsAtoms(next.resources.find(r => r.id === o.resourceId), target));
   const staySnapshot = o => o ? { start:o.start, end:o.end, nightly:o.nightly, resourceId:o.resourceId,
     status:o.status, productId:o.productId, finalCharge:o.finalCharge ?? null, charge:folio(o).charge } : null;
-  const stayBefore = ['edit','assign','checkin','checkout','cancel','lock'].includes(type) ? staySnapshot(order) : null;
+  const stayBefore = reversal || ['edit','assign','checkin','checkout','cancel','lock'].includes(type) ? staySnapshot(order) : null;
   const catalogActions = ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'];
   const needsOrder = ['ar_post','settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock','commission_save'].includes(type);
-  if (needsOrder && !order) reject('scope');
+  if ((needsOrder||reversal) && !order) reject('scope');
   if(order?.folioClosed&&['edit','payment','cancel'].includes(type))reject('folio_closed');
   // Clearing test bookings removes them outright rather than cancelling them, so a
   // property can be emptied of seeded or rehearsal data without leaving it in the
@@ -476,6 +478,12 @@ export function apply(state, command) {
   } else if (type === 'assign') {
     if (!resource || ['checked_out','cancelled'].includes(order.status)) reject('state');
     if (order.locked) reject('locked');
+    if(command.dragDate!==undefined){
+      if(!isDate(command.dragDate))reject('date');
+      if(lastClosed&&command.auditOverride!==true&&(order.start<=lastClosed||command.dragDate<=lastClosed))reject('audited');
+      // Drag is a room change; rescheduling uses the existing edit and pricing flow.
+      if(!order.resourceId||command.dragDate!==order.start)reject('date');
+    }
     if (order.status === 'checked_in' && !isClean(next, resource)) reject('dirty');
     if (order.status === 'checked_in' && inHouse(resource)) reject('occupied');
     if (order.resourceId === resource.id) reject('state');
@@ -488,6 +496,9 @@ export function apply(state, command) {
     if (order.status === 'checked_in' && command.start !== order.start) reject('state');
     if (typeof command.guest !== 'string' || !command.guest.trim()) reject('guest');
     order.guest = text(command.guest.trim(),100);
+    if(lastClosed&&command.auditOverride!==true&&(
+      (command.start!==order.start||command.arrivalTime!==undefined&&command.arrivalTime!==order.arrivalTime)&&command.start<lastClosed||
+      (command.end!==order.end||command.departureTime!==undefined&&command.departureTime!==order.departureTime)&&command.end<=lastClosed))reject('audited');
     amendNightlyRates(next,order,command);
     order.start = command.start; order.end = command.end;
     order.nightly = money(command.nightly);
@@ -497,7 +508,8 @@ export function apply(state, command) {
     if(command.occupants!==undefined&&order.reservationId)Object.assign(order,prepareStay(next,propertyId,{...order,occupants:command.occupants,arrivalTime:command.arrivalTime??order.arrivalTime,departureTime:command.departureTime??order.departureTime}));
   } else if (type === 'lock') {
     if (!order.resourceId || ['checked_out','cancelled'].includes(order.status)) reject('state');
-    order.locked = !order.locked;
+    if(command.locked!==undefined&&typeof command.locked!=='boolean')reject('input');
+    order.locked = command.locked ?? !order.locked;
   } else if (type === 'transfer_folio_credit') {
     const parent=next.reservations.find(r=>r.id===command.reservationId&&r.propertyId===propertyId);
     if(!parent||command.fromId===command.toId)reject('scope');
@@ -626,7 +638,31 @@ export function apply(state, command) {
     // business date it is left undated and reports must show it as unallocated.
     const postingDate = upgradeBusinessDay(next).businessDate;
     if (postingDate) order.cancelBusinessDate = postingDate;
+    order.cancelledAt = command.at;
     order.status = 'cancelled'; order.cancelReason = text(command.reason,500);
+  } else if (reversal) {
+    const expected={undo_checkin:'checked_in',undo_checkout:'checked_out',restore_cancel:'cancelled'}[type];
+    if(order.status!==expected)reject('state');
+    if(lastClosed&&command.auditOverride!==true){
+      // The reference boundary uses the cancellation operation's local calendar day.
+      const stamp=type==='restore_cancel'?(order.cancelledAt||next.audit.find(row=>row.type==='cancel'&&row.orderId===order.id)?.at):null;
+      const boundary=type==='restore_cancel'?(stamp&&Number.isFinite(Date.parse(stamp))?new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Kuala_Lumpur'}).format(new Date(stamp)):null):type==='undo_checkout'?order.end:order.start;
+      if(!isDate(boundary)||boundary<=lastClosed)reject('audited');
+    }
+    if(order.folioClosed||order.splitBills||order.arMoves?.length||order.folioTransfers?.length)reject('bill_state');
+    if(type==='restore_cancel'){
+      // A posted penalty needs a separate accounting correction; this is a status-only action.
+      if(order.finalCharge)reject('bill_state');
+      order.status='confirmed';
+    }else{
+      if(isBoxed(order))reject('box_state');
+      if(type==='undo_checkout'){
+        const assigned=saleResources(next,propertyId).find(r=>r.id===order.resourceId);
+        if(!assigned)reject('state');
+        if(inHouse(assigned))reject('occupied');
+      }
+      order.status=type==='undo_checkout'?'checked_in':'confirmed';
+    }
   } else if (type === 'checkin') {
     if(next.nightAudits.length&&isAudited(next,command.date)&&command.auditOverride!==true)reject('audited');
     if (order.status !== 'confirmed' || !order.resourceId) reject('state');

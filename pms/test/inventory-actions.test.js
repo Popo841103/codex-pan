@@ -109,3 +109,50 @@ test('settling a boxed booking restores inventory atomically before closing the 
  assert.equal(preview(state,pid).length,1);
  assert.throws(()=>box(state),/box_state/);
 });
+
+test('explicit room lock and calendar move share inventory and night-audit protections',()=>{
+ let state=create(seed());
+ const move={orderId:'stay',resourceId:'TEST-KL-R2',dragDate:start};
+ state=apply(state,cmd('lock',{orderId:'stay',locked:true}));
+ state=apply(state,cmd('lock',{orderId:'stay',locked:true}));
+ assert.throws(()=>apply(state,cmd('assign',move)),/locked/);
+ state=apply(state,cmd('lock',{orderId:'stay',locked:false}));
+ assert.throws(()=>apply(state,cmd('assign',{...move,dragDate:'2027-01-31'})),/date/);
+ assert.equal(apply(state,cmd('assign',move)).orders[0].resourceId,move.resourceId);
+ state.businessDate='2027-01-31';state.nightAudits=[{businessDate:start}];
+ assert.throws(()=>apply(state,cmd('assign',move)),/audited/);
+});
+test('status reversals preserve receipts and respect audited dates, including KL cancellation time',()=>{
+ let state=create(seed());
+ state=apply(state,cmd('checkin',{orderId:'stay'}));
+ const reverse=type=>apply(state,cmd(type,{orderId:'stay'}));
+ assert.equal(reverse('undo_checkin').orders[0].status,'confirmed');
+ state.businessDate='2027-01-31';state.nightAudits=[{businessDate:start}];
+ assert.throws(()=>reverse('undo_checkin'),/audited/);
+ state=create(seed());
+ state=apply(state,cmd('cancel',{orderId:'stay',reason:'TEST',finalCharge:0,at:'2027-01-29T17:00:00Z'}));
+ assert.equal(reverse('restore_cancel').orders[0].status,'confirmed');
+ state.businessDate='2027-01-31';state.nightAudits=[{businessDate:start}];
+ assert.throws(()=>reverse('restore_cancel'),/audited/);
+});
+
+test('undo checkout does not touch money, respects the audit, and refuses reassigned inventory',()=>{
+ let state=create(seed());const orderId='stay';
+ state=apply(state,cmd('payment',{orderId,kind:'payment',amount:30000,method:'cash'}));
+ state=apply(state,cmd('checkin',{orderId}));
+ state=apply(state,cmd('checkout',{orderId,date:end}));
+ const undo=()=>apply(state,cmd('undo_checkout',{orderId}));
+ assert.equal(undo().orders[0].status,'checked_in');
+ assert.deepEqual(undo().orders[0].transactions,state.orders[0].transactions);
+ const checkedOut=state;
+ state=create(state,'replacement');
+ assert.throws(undo,/inventory|conflict/i);
+ state=checkedOut;state.businessDate='2027-02-03';state.nightAudits=[{businessDate:end}];
+ assert.throws(undo,/audited/);
+});
+test('restoring a cancellation does not erase a posted cancellation fee',()=>{
+ let state=create(seed());
+ state=apply(state,cmd('cancel',{orderId:'stay',reason:'TEST fee',finalCharge:1000}));
+ assert.throws(()=>apply(state,cmd('restore_cancel',{orderId:'stay'})),/bill_state/);
+ assert.equal(folio(state.orders[0]).charge,1000);
+});

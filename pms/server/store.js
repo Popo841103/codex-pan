@@ -15,7 +15,7 @@ export class ServiceError extends Error {
 }
 const error = (status, code) => { throw new ServiceError(status, code); };
 const hash = value => createHash('sha256').update(value).digest('hex');
-const stayTypes=['edit','assign','checkin','checkout','cancel','lock'];
+const stayTypes=['undo_checkin','undo_checkout','restore_cancel','edit','assign','checkin','checkout','cancel','lock'];
 // Defaults and override validation live in src/demo-store.js, which both the shared
 // backend and the desk page import, so a level can never mean one thing in the list
 // and another in the settings form. The list is read by what is waiting on a person:
@@ -1192,7 +1192,7 @@ export class Store {
       if(command.type==='create_reservation'&&command.mode==='checkin'&&!allowed.includes('checkin'))error(403,'forbidden');
       // Rewriting nights already closed by a night audit stays an administrator-only override.
       if(command.auditOverride===true&&rowUser.role!=='admin')error(403,'forbidden');
-      if(!allowed.includes(command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
+      if(!allowed.includes(({undo_checkin:'checkin',undo_checkout:'checkout',restore_cancel:'cancel'})[command.type]||command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
       // A request is decided once. Replaying the same key answers from the receipt above;
