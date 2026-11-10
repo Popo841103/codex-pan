@@ -2,6 +2,8 @@
 
 换电脑后按这份清单跑，不要只信「Actions 显示成功」。所有命令在 `pms/` 目录下执行，Node 要求 **24**（用到 `node:sqlite`）。
 
+当前验证基线（2026-11-11）：运行时 `03d67f6`，Node490/490、Python5/5、DOM29/29；Actions42855630092已部署且GET核验通过，详见本文末尾。
+
 ## 本地测试
 
 ```bash
@@ -13,7 +15,7 @@ bash -n deploy/ci/setup-server.sh
 bash -n deploy/ci/receive-release.sh
 ```
 
-当前基线（2026-11-04，`4baad16`）：Node **402/402**，Python **5/5**，**18** 个 DOM 脚本，37 个运行时 JS 语法检查，部署 shell `bash -n`。改 `deploy/update-vultr-test.sh` 后必须同步 `deploy/ci/BOOTSTRAP.txt` 内嵌的 base64+gzip 副本与 SHA-256（`test_release_archive.py` 会拦截不同步，否则新服务器会装回旧脚本）；重生成用确定性 gzip：`gzip.compress(data, compresslevel=9, mtime=0)`。
+历史基线（2026-11-04，`4baad16`）：Node **402/402**，Python **5/5**，**18** 个 DOM 脚本，37 个运行时 JS 语法检查，部署 shell `bash -n`。改 `deploy/update-vultr-test.sh` 后必须同步 `deploy/ci/BOOTSTRAP.txt` 内嵌的 base64+gzip 副本与 SHA-256（`test_release_archive.py` 会拦截不同步，否则新服务器会装回旧脚本）；重生成用确定性 gzip：`gzip.compress(data, compresslevel=9, mtime=0)`。
 
 ## 可选的 DOM 流程验证
 
@@ -363,3 +365,40 @@ Windows Node 427/429，余两项为已知私有文件权限用例。Python 5/5�
 - GET `/web/app.js`、`/web/workspace-ui.js`、`/src/demo-store.js`、`/src/financial-reports.js` 均200，四份文件与本地逐字节/SHA256一致。新标识分别包括 `runParityQuery` / `data-internal-invoice`，`parityWorkspacePage` / `directoryPanel`，`changeDirectory` / `memoHistory`，`parityReport` / `occupancyIcal` / `previewIcal` / `ical_unresolved`。
 - 全部web JS及app.js直接导入模块合并去重的GET检查全部200；`/server/store.js`仍404，不公开后端源码。
 - 上述交互验收为本地真实HTTP + jsdom + 合成账号/内存SQLite；公网只有GET资产核验，未登录线上写业务数据。后端部署行为依赖源码、合成服务测试和成功发布重启推断，未取得主机执行或供应商联调证据。
+
+
+## 餐食、库存、清洁与营业日报表续跑（2026-11-11，UTC+8）
+
+基线运行时 `7e41bf3`、文档 `f0a4796`；本批运行时 **`03d67f677ac7835db1f39e7ab9a5046010037823`**，已推送 `jovian-pms-test` 并实际部署。Actions [42855630092](https://github.com/Popo841103/codex-pan/actions/runs/42855630092)，job `129967754962`，Verify与Deploy成功；`gh run watch 42855630092 --exit-status --interval 5`退出0。2026-11-10 16:33:35 UTC完成（本地11月11日00:33:35）。发布器原有备份 `update-b18ZFksR`，不代表自动加密。
+
+矩阵114条：**已有48、部分51、缺失0、禁止或需外部接入15**。本批16条从部分/缺失提升为已有：**2.7–2.13、4.13、6.7、6.11–6.12、7.5、7.25–7.26、9.10、9.21**。已有指明确列出的JOVIAN内部能力，不代表供应商全部字段或接入。
+
+| 入口 | 本批实现与边界 |
+|---|---|
+| 客户 / 设置→房型与房间 / 统计→运营查询工作台下方 | 餐食分类、计价单位、单价、启停追加版本；管理员分配使用日权益、运营核销、管理员带原因撤销。快照保留，超量/重复撤销/跨门店/取消或暂存住宿拒绝；核销按马来西亚使用日，不自动收费或重报价。 |
+| 工作台→餐食明细/汇总、失败及未完成预订 | 使用日权益/已核销/剩余与CSV；人工内部失败记录加现有网站拒绝/撤回等请求统一查询/状态/渠道/CSV，无OTA失败推送、自动重试或供应商字段假造。 |
+| 工作台→每日/未来库存 | 全分项、房型/渠道占用过滤、31日纵向或横向矩阵及同结果CSV；共享套房竞争在房型过滤后仍保留。渠道不分摊门店容量，各房型共享选择不能相加，干净/脏房只是当前快照。 |
+| 工作台→房价及可售变更历史 | 同时过滤受影响日、操作日、房型、计划、人员和实际变化项目；原批次及before/after保留。 |
+| 目录→清洁检查项；工作台→清洁列表/日历/检查记录 | 管理员检查项启停/改名/关联房型；完整适用检查表逐项保存名称快照、结果、备注、人员、时间；人工任务指派/进行/完成/取消，负责人限有效本门店账号；检查/任务不自动改房态，不生成历史状态。 |
+| 目录→节假日与活动；工作台→节假日历 | 日期、名称、类型、热度、显示追加版本；逐日日历、列表、搜索、CSV。仅人工内部假日，无未经核验国家节假日或官方订阅。 |
+| 工作台→交班/经理/账簿/权责经营/客账余额 | 五类新增营业日查询和CSV；新交易记录权威营业日并另列马来西亚交易日，旧缺日期不倒填。权责借贷及押金负债分开，期间与截至结束日所在月累计；客账期初+费用−净收款−AR−账单转入=期末，押金独列，仅涵盖已知日期账项。原自然日现金流与经理公式页保留。 |
+
+**仍保留部分的业务报表**：6.8/6.9虽新增收银汇总/明细、接待分页、交班窗口/操作员/方式/渠道筛选和CSV，房卡明确未接通；接待仅可读最近500条审计，新日志记录营业日，不追造历史。班次仅筛选已完成交班窗口内有时间戳的操作，房晚不凭空分班。6.10新增营业日统一明细及当前整单住宿账簿快照，但仍缺完整创建/完成时间过滤及全部业务分类。没有储值、外部会计、房卡供应商集成。
+
+**验证**：本地Linux Node24 **490/490**（新增27），Python **5/5**；27个DOM脚本加folio `--lines`/`--amend`共 **29/29**；37个运行时JS、4个部署shell语法及`git diff --check`通过。Ubuntu Actions同样Node490/490、Python5/5。新Node逐命令比对双状态机、权限/门店隔离/幂等/原记录保留、共享套房/逾期/矩阵、两种日期口径及财务公式；新DOM在本地真实HTTP+jsdom+合成账号/内存SQLite操作完整新增链。首轮旧internal-operations DOM等待内容入库后抢先导航，已明确等待新form替换，完整29分支重跑全过；没有放松业务busy guard或Ubuntu门禁。Windows既有私有文件权限规则未改。
+
+**后续优先**：独立客户档案、6.1–6.6统计完整维度及有住宿归属的快记账、6.10创建/完成日期账簿过滤、小时预订；之后再评估明确授权范围内iCal持久导入。房卡/储值/OTA失败推送及真实外部会计不冒充接通。全部Do NOT项继续不做，跨夜审暂存恢复、AR、资金/押金分离等原保护保留。
+
+本批未重置数据、修改既有账号/数据库或操作真实订单/资金/门锁；SmartOrder仅本机只读入口资料参考，无个人数据/截图复制。新增运行逻辑并入5个既有runtime文件，未新增部署runtime文件、未改发布工作流。详见 `pms/verification/operations-completion-audit.md` 和 `pms/verification/parity-matrix.md`。
+
+### 本批发布后只读GET证据
+
+检查时间：`2026-11-10T16:34:17.820762+00:00`。
+
+- GET `/healthz`：200，精确返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`。
+- GET `/web/app.js`：200，本地逐字节及SHA256一致（`81a3a728e4d1cd6b50d6ad9cb371bd8bf7cbca116e3340332785342e8d3b2d9d`）；标识 `data-operations-command`, `updateInspectionItems`全部命中。
+- GET `/web/workspace-ui.js`：200，本地逐字节及SHA256一致（`6fed3a9fe5f2a0c6acfc6880e28a9632bb04eb098dce7644d3e3843a7788a9b5`）；标识 `data-operations-panel`, `data-holiday-calendar`, `data-inspection-item`全部命中。
+- GET `/src/demo-store.js`：200，本地逐字节及SHA256一致（`3e6d01962a30c3d72d930d97eb6be630ae20921cae619c1f42ae2718cd5c3022`）；标识 `operationsActions`, `mealEntitlements`, `housekeepingTasks`, `postingBusinessDate`全部命中。
+- GET `/src/financial-reports.js`：200，本地逐字节及SHA256一致（`9d6abc789edbba235e95dc7bf0c3467898e235bcc99fa87548be75744416282e`）；标识 `mealRedemption`, `guestBalances`, `monthAmount`, `q.layout==='matrix'`全部命中。
+- 所有web JS与app.js直接导入模块合并去重26个，GET **26/26** 为200；GET `/server/store.js` 为404，后端仍不公开。
+- 公网验收仅健康和资产GET，未登录线上、发通知、提交预订、核销餐食或修改任何业务。后端功能依据源码、内存SQLite合成测试及成功部署重启，未冒充主机执行或真实供应商联调。

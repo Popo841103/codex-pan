@@ -1,10 +1,10 @@
-# JOVIAN WorkBuddy continuation — 2026-10-31
+# JOVIAN WorkBuddy continuation — 2026-11-11
 
 Repository Popo841103/codex-pan; release branch jovian-pms-test. Pushes touching pms/** automatically run Ubuntu checks then deploy the existing test service. Preserve production accounts, database, guest and financial records. Never reset or replace data. Do not edit the deployment workflow or expose credentials.
 
-最新续跑发布（2026-11-11）：`7e41bf3`，Actions `42851378626`成功，Node463/463、Python5/5、DOM28/28。对照矩阵已补齐1–9节114入口；原A7“清单未找到”已由本批取代。完整范围和剩余缺口见本文末尾中文续跑节。
+最新续跑发布（2026-11-11）：`03d67f6`，Actions `42855630092`成功，Node490/490、Python5/5、DOM29/29；16条提升为已有，矩阵114条：已有48、部分51、缺失0、禁止/外部15。公网健康及四份JS SHA256匹配，详细入口/限制/后续见本文末尾中文续跑节。
 
-Latest verified deployed baseline: `40df39059a0e0de2ce056bd7fcb31a04cac49b81` (2026-11-10 internal operations A1–A9), Actions `42836859905` / job `129901265793`, Ubuntu Node449/449 and Python5/5, actual deploy successful. Backup `/var/backups/jovian-pms-test/update-8Fpq4WBO` remains the publisher's existing backup format: offline encryption tools are available but have NOT been wired into the deployment workflow. Local DOM27/27. Public GET health and three changed browser/source files match local SHA256. See the Chinese batch section at the end and `pms/verification/internal-operations-audit.md` for exact scope, A6 operational boundary and the unavailable shared A7 inventory. Existing folio closure, deposits, guest data and night-audit/AR protections remain. Historical release entries below describe their own batches.
+Historical verified deployed baseline: `40df39059a0e0de2ce056bd7fcb31a04cac49b81` (2026-11-10 internal operations A1–A9), Actions `42836859905` / job `129901265793`, Ubuntu Node449/449 and Python5/5, actual deploy successful. Backup `/var/backups/jovian-pms-test/update-8Fpq4WBO` remains the publisher's existing backup format: offline encryption tools are available but have NOT been wired into the deployment workflow. Local DOM27/27. Public GET health and three changed browser/source files match local SHA256. See the Chinese batch section at the end and `pms/verification/internal-operations-audit.md` for exact scope, A6 operational boundary and the unavailable shared A7 inventory. Existing folio closure, deposits, guest data and night-audit/AR protections remain. Historical release entries below describe their own batches.
 
 Implemented since the older handoff: composer rate-plan selection with server re-quote and snapshot; multi-date/weekday rate batches; fixed/delta/percent pricing; min/max/CTA/CTD; scoped history; one-level derived plans; safe archive; cancellation policy snapshots and Malaysia deadline previews; standalone rate/availability calendar accounting for shared suite/bed atoms and overdue occupancy; business revenue grouping by date/channel/room type; cash ledger kind/method filters, counts and trusted actors; manual payment/deposit separation. Cancel previews do not automatically charge or refund. Existing orders keep agreed prices.
 
@@ -654,3 +654,28 @@ SmartOrder 权限目录是历史实见；具体分录结构及自动差异规则
 **边界**：没有重置数据、修改既有账号/数据库或真实订单/资金/门锁，没有新增运行时文件或修改发布工作流。用户全部Do NOT项继续不做；特别是日历Overview/Reserve/Combined Room/Share，自动夜审/00:00交班/跨午夜截账/补跑、无人归属流水、清空/历史批量夜审或一键结账、自动重报价/移附加费、Booking Engine Configure内部、税费/跟踪代码/划线倍率/身份提交、锁购买/远开/密码、NOBEDS/支付/TTHotel。跨夜审暂存恢复及AR保护保留并通过既有回归。
 
 公网GET、证据等级及复现详见continuity/VERIFICATION.md本批章节。
+
+
+## 餐食、库存、清洁与营业日报表续跑（2026-11-11，UTC+8）
+
+基线运行时 `7e41bf3`、文档 `f0a4796`；本批运行时 **`03d67f677ac7835db1f39e7ab9a5046010037823`**，已推送 `jovian-pms-test` 并实际部署。Actions [42855630092](https://github.com/Popo841103/codex-pan/actions/runs/42855630092)，job `129967754962`，Verify与Deploy成功；`gh run watch 42855630092 --exit-status --interval 5`退出0。2026-11-10 16:33:35 UTC完成（本地11月11日00:33:35）。发布器原有备份 `update-b18ZFksR`，不代表自动加密。
+
+矩阵114条：**已有48、部分51、缺失0、禁止或需外部接入15**。本批16条从部分/缺失提升为已有：**2.7–2.13、4.13、6.7、6.11–6.12、7.5、7.25–7.26、9.10、9.21**。已有指明确列出的JOVIAN内部能力，不代表供应商全部字段或接入。
+
+| 入口 | 本批实现与边界 |
+|---|---|
+| 客户 / 设置→房型与房间 / 统计→运营查询工作台下方 | 餐食分类、计价单位、单价、启停追加版本；管理员分配使用日权益、运营核销、管理员带原因撤销。快照保留，超量/重复撤销/跨门店/取消或暂存住宿拒绝；核销按马来西亚使用日，不自动收费或重报价。 |
+| 工作台→餐食明细/汇总、失败及未完成预订 | 使用日权益/已核销/剩余与CSV；人工内部失败记录加现有网站拒绝/撤回等请求统一查询/状态/渠道/CSV，无OTA失败推送、自动重试或供应商字段假造。 |
+| 工作台→每日/未来库存 | 全分项、房型/渠道占用过滤、31日纵向或横向矩阵及同结果CSV；共享套房竞争在房型过滤后仍保留。渠道不分摊门店容量，各房型共享选择不能相加，干净/脏房只是当前快照。 |
+| 工作台→房价及可售变更历史 | 同时过滤受影响日、操作日、房型、计划、人员和实际变化项目；原批次及before/after保留。 |
+| 目录→清洁检查项；工作台→清洁列表/日历/检查记录 | 管理员检查项启停/改名/关联房型；完整适用检查表逐项保存名称快照、结果、备注、人员、时间；人工任务指派/进行/完成/取消，负责人限有效本门店账号；检查/任务不自动改房态，不生成历史状态。 |
+| 目录→节假日与活动；工作台→节假日历 | 日期、名称、类型、热度、显示追加版本；逐日日历、列表、搜索、CSV。仅人工内部假日，无未经核验国家节假日或官方订阅。 |
+| 工作台→交班/经理/账簿/权责经营/客账余额 | 五类新增营业日查询和CSV；新交易记录权威营业日并另列马来西亚交易日，旧缺日期不倒填。权责借贷及押金负债分开，期间与截至结束日所在月累计；客账期初+费用−净收款−AR−账单转入=期末，押金独列，仅涵盖已知日期账项。原自然日现金流与经理公式页保留。 |
+
+**仍保留部分的业务报表**：6.8/6.9虽新增收银汇总/明细、接待分页、交班窗口/操作员/方式/渠道筛选和CSV，房卡明确未接通；接待仅可读最近500条审计，新日志记录营业日，不追造历史。班次仅筛选已完成交班窗口内有时间戳的操作，房晚不凭空分班。6.10新增营业日统一明细及当前整单住宿账簿快照，但仍缺完整创建/完成时间过滤及全部业务分类。没有储值、外部会计、房卡供应商集成。
+
+**验证**：本地Linux Node24 **490/490**（新增27），Python **5/5**；27个DOM脚本加folio `--lines`/`--amend`共 **29/29**；37个运行时JS、4个部署shell语法及`git diff --check`通过。Ubuntu Actions同样Node490/490、Python5/5。新Node逐命令比对双状态机、权限/门店隔离/幂等/原记录保留、共享套房/逾期/矩阵、两种日期口径及财务公式；新DOM在本地真实HTTP+jsdom+合成账号/内存SQLite操作完整新增链。首轮旧internal-operations DOM等待内容入库后抢先导航，已明确等待新form替换，完整29分支重跑全过；没有放松业务busy guard或Ubuntu门禁。Windows既有私有文件权限规则未改。
+
+**后续优先**：独立客户档案、6.1–6.6统计完整维度及有住宿归属的快记账、6.10创建/完成日期账簿过滤、小时预订；之后再评估明确授权范围内iCal持久导入。房卡/储值/OTA失败推送及真实外部会计不冒充接通。全部Do NOT项继续不做，跨夜审暂存恢复、AR、资金/押金分离等原保护保留。
+
+本批未重置数据、修改既有账号/数据库或操作真实订单/资金/门锁；SmartOrder仅本机只读入口资料参考，无个人数据/截图复制。新增运行逻辑并入5个既有runtime文件，未新增部署runtime文件、未改发布工作流。详见 `pms/verification/operations-completion-audit.md` 和 `pms/verification/parity-matrix.md`。
