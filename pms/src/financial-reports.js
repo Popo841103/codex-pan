@@ -1,3 +1,4 @@
+import {isBoxed} from './inventory-actions.js';
 import {replayReceivables,commissionPeriod,folioTransferCredit} from './demo-store.js';
 import {localDay,comparisonDay} from './dashboard.js';
 import {stayDays} from './reservations.js';
@@ -13,6 +14,7 @@ export function accommodationReport(state,q){const orders=scope(state,q),rows=[]
 export function orderChargeLines(order){
   const base={orderId:order.id,reservationId:order.reservationId||null,guest:order.guest||'',source:order.source||'direct',roomTypeId:order.roomTypeId||'unspecified',productId:order.productId||'unspecified'};
   const lines=[],unallocated=[];
+  if(order.status==='confirmed'&&isBoxed(order))return {lines,unallocated};
   if(order.status==='cancelled'){
     if(order.finalCharge!==undefined&&order.finalCharge!==null){
       const value=amount(order.finalCharge),date=order.cancelBusinessDate;
@@ -95,6 +97,7 @@ export function dailyOperations(state,q){
     settlements[tr.kind]+=value;settlements.count++;
   }
   const arNet=orders.flatMap(o=>o.arMoves||[]).filter(m=>m.businessDate===q.date).reduce((sum,m)=>sum+amount(m.amount),0);
+  const folioCreditNet=orders.reduce((sum,order)=>sum+folioTransferCredit(order,date=>date===q.date),0);
   settlements.net=settlements.payment-settlements.refund;
   settlements.depositNet=settlements.deposit_in-settlements.deposit_out;
   const metrics={arrivals:orders.filter(o=>o.start===q.date).length,departures:orders.filter(o=>o.end===q.date).length,inHouse:orders.filter(o=>o.status==='checked_in').length,expectedArrivals:orders.filter(o=>o.status==='confirmed'&&o.start===q.date).length};
@@ -102,9 +105,9 @@ export function dailyOperations(state,q){
   // they do not, the page says the day is unreconciled instead of showing a total that
   // no longer ties back to the guest ledger.
   const expected={charge:opening.charge+charges.total,paid:opening.paid+settlements.net,deposit:opening.deposit+settlements.depositNet};
-  const balanced=expected.charge===closing.charge&&expected.paid===closing.paid&&expected.deposit===closing.deposit&&opening.due+charges.total-settlements.net-arNet===closing.due;
+  const balanced=expected.charge===closing.charge&&expected.paid===closing.paid&&expected.deposit===closing.deposit&&opening.due+charges.total-settlements.net-arNet-folioCreditNet===closing.due;
   const businessDate=state.businessDates?.[q.propertyId]??state.businessDate??null;
-  return {date:q.date,opening,closing,charges,settlements,arNet,chargeLines,unallocated,metrics,expected,balanced,orderCount:orders.length,businessDate,businessDateSet:BusinessDate(businessDate)};
+  return {date:q.date,opening,closing,charges,settlements,arNet,...(folioCreditNet?{folioCreditNet}:{}),chargeLines,unallocated,metrics,expected,balanced,orderCount:orders.length,businessDate,businessDateSet:BusinessDate(businessDate)};
 }
 const BusinessDate=value=>typeof value==='string'&&validDate(value);
 export function managerDailyReport(state,q){
@@ -306,7 +309,7 @@ const signedExtra=extra=>amount(extra.quantity*extra.unitAmount)*(extra.kind==='
 // A cancelled order, or one carrying a final charge, no longer bills its extra
 // lines: the final charge replaced them. Listing them again would charge the
 // same stay twice, so those orders are counted as superseded and named on the page.
-const extrasBillable=order=>order.status!=='cancelled'&&(order.finalCharge===undefined||order.finalCharge===null);
+const extrasBillable=order=>!isBoxed(order)&&order.status!=='cancelled'&&(order.finalCharge===undefined||order.finalCharge===null);
 const emptyExtras=()=>({charge:0,discount:0,net:0,count:0});
 
 export function extraChargeDetail(state,q){

@@ -35,8 +35,8 @@ test('expected till cash is payments less refunds, split by method, never deposi
   assert.equal(summary.depositNet, 7500);
   assert.equal(summary.byMethod.cash.amount, 37500, 'the existing byMethod figure is unchanged');
   assert.deepEqual(summary.cashExpectedByMethod, { cash: 15000, card: 7000 });
-  assert.equal(summary.cashExpectedTotal, 22000);
-  assert.equal(summary.cashExpectedTotal, summary.net, 'expected cash equals net room receipts');
+  assert.equal(summary.cashExpectedTotal, 15000);
+  assert.equal(summary.net, 22000, 'transaction net includes noncash receipts');
 });
 
 test('an empty shift expects no cash rather than inventing a zero handover', () => {
@@ -205,4 +205,14 @@ test('a variance approval is idempotent and stays scoped to its own property', f
     assert.equal(f0.store.read(f0.admin).audit.filter(a => a.type === 'cash_variance_approve').length, 1);
     assert.equal(f0.store.read(f0.admin).handovers.find(h => h.propertyId === other).cashCount.status, 'pending');
   } finally { f0.store.close(); }
+});
+
+test('shift boundaries use instants and reject other properties',()=>{
+ const state={orders:[
+  {propertyId:'TEST-KL',transactions:[{kind:'payment',amount:1200,method:'cash',at:'2027-01-01T23:00:00Z'},{kind:'payment',amount:9900,method:'cash',at:'2027-01-02T07:00:00Z'}]},
+  {propertyId:'TEST-PG',transactions:[{kind:'payment',amount:3000,method:'cash',at:'2027-01-01T23:00:00Z'}]}
+ ]};
+ const result=shiftSummary(state,{propertyId:'TEST-KL',from:'2027-01-02T07:00:00+08:00',to:'2027-01-02T15:00:00+08:00'});
+ assert.equal(result.net,1200);
+ assert.equal(result.cashExpectedTotal,1200);
 });

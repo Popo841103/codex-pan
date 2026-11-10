@@ -252,3 +252,9 @@ Actions 42754425077 成功，Linux Node 424/424、Python 5/5。外部实见 `/he
 Windows Node 423/425，通过的范围包括本批；其余为两项既有权限测试。Python 5/5，改期续住 DOM 通过。
 
 Actions 42757051292 成功，Linux Node 425/425、Python 5/5。公网健康检查和两个页面标识实见通过。测试覆盖合成数据，未在真实门店执行改期。
+
+### 班次、夜审及金额核对
+
+合成回归覆盖暂存库存与费用、保留收款、结账时恢复库存、交班跨时区时间边界、现金和非现金区分、按来源的账页转移余额核对。发布后检查公开健康端点、workspace-ui.js 的 data-night-audit-settings 与 data-night-audit-workbench，以及 financial-ui.js 的 data-financial-basis、data-movement-charge。
+
+本机 Windows Node 425/427，只有两项既有私有文件权限测试失败。Python 5/5。夜审、财务、主订单收付、AR 和佣金月结 DOM 均通过。

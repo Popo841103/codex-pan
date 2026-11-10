@@ -74,8 +74,8 @@ export function nightAuditExceptions(state, businessDate, isBoxed) {
       exceptions.push({ kind: 'no_show', severity: 'required', orderId: order.id, guest: order.guest || '', date: order.start });
     else if (order.status === 'checked_in' && order.end <= businessDate)
       exceptions.push({ kind: 'overdue_checkout', severity: 'required', orderId: order.id, guest: order.guest || '', date: order.end });
-    else if (order.status === 'confirmed' && boxed(order, isBoxed) && order.end <= businessDate)
-      exceptions.push({ kind: 'box_expiring', severity: 'advisory', orderId: order.id, guest: order.guest || '', date: order.end });
+    else if (order.status === 'confirmed' && boxed(order, isBoxed) && order.start <= businessDate)
+      exceptions.push({ kind: 'box_expiring', severity: 'advisory', orderId: order.id, guest: order.guest || '', date: order.start });
     else if (order.status === 'checked_out' && order.folioClosed !== true && order.end <= businessDate)
       exceptions.push({ kind: 'unsettled_history', severity: 'advisory', orderId: order.id, guest: order.guest || '', date: order.end });
   }
@@ -84,7 +84,9 @@ export function nightAuditExceptions(state, businessDate, isBoxed) {
 }
 
 export function shiftSummary(state, { from, to, propertyId }) {
-  if (typeof from !== 'string' || typeof to !== 'string' || !from || !to || from >= to) fail('shift_window');
+  const lower=Date.parse(from),upper=Date.parse(to);
+  if(typeof from!=='string'||typeof to!=='string'||!Number.isFinite(lower)||!Number.isFinite(upper)||lower>=upper)fail('shift_window');
+  const inWindow=at=>{const instant=Date.parse(at);return instant>=lower&&instant<upper;};
   const kinds = ['payment', 'refund', 'deposit_in', 'deposit_out'];
   const byKind = Object.fromEntries(kinds.map(kind => [kind, { count: 0, amount: 0 }]));
   const byMethod = {};
@@ -94,7 +96,7 @@ export function shiftSummary(state, { from, to, propertyId }) {
   const cashByMethod = {};
   let count = 0;
   for (const order of state.orders || []) for (const transaction of order.transactions || []) {
-    if (typeof transaction.at !== 'string' || transaction.at < from || transaction.at >= to) continue;
+    if ((propertyId&&order.propertyId!==propertyId)||!inWindow(transaction.at)) continue;
     if (!kinds.includes(transaction.kind)) continue;
     byKind[transaction.kind].count += 1;
     byKind[transaction.kind].amount += transaction.amount;
@@ -109,7 +111,7 @@ export function shiftSummary(state, { from, to, propertyId }) {
   }
   let arNet=0, arCash=0;
   for (const entry of state.arEvents || []) {
-    if (propertyId && entry.propertyId!==propertyId || entry.at<from || entry.at>=to) continue;
+    if (propertyId && entry.propertyId!==propertyId || !inWindow(entry.at)) continue;
     if (!['ar_write_off','ar_undo_write_off'].includes(entry.type)) continue;
     const movement=entry.type==='ar_write_off'?entry.amount:-entry.amount;
     arNet+=movement;
@@ -120,7 +122,7 @@ export function shiftSummary(state, { from, to, propertyId }) {
     net: byKind.payment.amount - byKind.refund.amount,
     depositNet: byKind.deposit_in.amount - byKind.deposit_out.amount,
     cashExpectedByMethod: cashByMethod,
-    cashExpectedTotal: Object.values(cashByMethod).reduce((sum, value) => sum + value, 0) };
+    cashExpectedTotal: cashByMethod.cash||0 };
 }
 
 // Commands are applied to an already-cloned draft; every failure throws before any mutation lands.
@@ -379,6 +381,14 @@ export function apply(state, command) {
   if (order && type==='cancel' && command.auditOverride !== true &&
       (isAudited(next, order.start) || isAudited(next, order.end))) reject('audited');
   if (order && isBoxed(order) && ['assign','checkin','checkout','lock'].includes(type)) reject('box_state');
+  const changesBoxedCharges=o=>isAudited(next,o.start)||(o.extraCharges||[]).some(row=>isAudited(next,row.businessDate));
+  const restoreForSettlement=stays=>{
+    const boxedStays=stays.filter(isBoxed);
+    if(!boxedStays.length)return;
+    if(boxedStays.some(changesBoxedCharges))reject('audited');
+    changeOrderBox(next,{...command,type:'restore_stays',orderIds:boxedStays.map(o=>o.id),autoAssign:false,reason:'Folio settlement'},preview);
+  };
+  if(order&&['settle','ar_post'].includes(type)&&order.status==='confirmed')restoreForSettlement([order]);
   if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
   if (type==='commission_close_month') {
     closeCommissionMonth(next,command);
@@ -396,12 +406,14 @@ export function apply(state, command) {
     const open=stays.filter(stay=>!stay.folioClosed);
     if(!open.length)reject('folio_closed');
     if(open.some(stay=>stay.splitBills))reject('bill_state');
+    restoreForSettlement(open.filter(stay=>stay.status==='confirmed'));
     for(const stay of open)settleFolio(stay,command,command.id);
     settledStayIds=open.map(stay=>stay.id);
   }
   else if(type==='reopen_folio'){if(order.arItemId)reject('ar_state');if(!order.folioClosed)reject('state');const reason=text(command.reason||'',500).trim();if(!reason)reject('reason');order.folioClosed=false;(order.folioEvents??=[]).push({type:'reopen',at:command.at,actor:command.actor||'local',reason});}
   else if(['rate_plan_save','rate_plan_archive','rates_bulk_update'].includes(type)){changeRates(next,command);}
   else if (['box_stays','restore_stays'].includes(type)) {
+    if(next.orders.some(o=>o.propertyId===propertyId&&Array.isArray(command.orderIds)&&command.orderIds.includes(o.id)&&changesBoxedCharges(o)))reject('audited');
     changeOrderBox(next,command,preview);
   } else if(type==='create_reservation') {
     next=createReservation(next,command,apply,preview);
@@ -448,7 +460,7 @@ export function apply(state, command) {
     const find=id=>next.orders.find(o=>o.id===id&&o.propertyId===propertyId&&o.reservationId===parent.id&&parent.stayIds.includes(id));
     const from=find(command.fromId), to=find(command.toId);
     if(!from||!to)reject('scope');
-    if([from,to].some(o=>o.folioClosed||o.splitBills||o.arMoves?.length))reject('bill_state');
+    if([from,to].some(o=>o.folioClosed||o.splitBills||o.arMoves?.length||isBoxed(o)))reject('bill_state');
     if(!isDate(next.businessDate))reject('business_date');
     const reason=text(command.reason,500).trim();
     if(!reason)reject('reason');
@@ -688,7 +700,7 @@ export function folio(order) {
   const nights = Math.round((Date.parse(order.end)-Date.parse(order.start))/86400000);
   const roomCharge=roomChargeFor(order,nights);
   const extras=(order.extraCharges||[]).reduce((n,r)=>n+signedFolioExtra(r),0);
-  const charge = order.finalCharge ?? roomCharge+extras;
+  const charge = order.status==='confirmed'&&isBoxed(order)?0:order.finalCharge??roomCharge+extras;
   const transactions = order.transactions || [];
   const sum = kind => transactions.filter(t=>t.kind===kind).reduce((n,t)=>n+t.amount,0);
   const paid = sum('payment')-sum('refund');
@@ -728,7 +740,7 @@ function changeSplitBills(order, command) {
   const event = {type,id,at,actor:command.actor || 'local'};
   const totals = folio(order);
   if (type === 'settle_split') {
-    if (order.splitBills || order.folioClosed || order.folioTransfers?.length) reject('bill_state');
+    if (order.splitBills || order.folioClosed || order.folioTransfers?.length || isBoxed(order)) reject('bill_state');
     if (!Array.isArray(command.bills) || command.bills.length < 2 || command.bills.length > 20) reject('bill_total');
     const byLine = command.mode === 'lines';
     if (command.mode !== undefined && !byLine) reject('bill_total');

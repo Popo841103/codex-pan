@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { apply, folio, seed } from '../src/demo-store.js';
+import { dailyOperations, cashflowReport } from '../src/financial-reports.js';
+import { apply, folio, seed, shiftSummary } from '../src/demo-store.js';
 
 test('batch settlement preserves individual balances and rejects offsetting stays', () => {
   const base = { propertyId:'TEST-KL', at:'2027-01-01T10:00:00Z', actor:'TEST' };
@@ -68,6 +69,8 @@ test('transfer applies an overpayment to another stay without new cash',()=>{
     id,propertyId,reservationId:'parent',status:'checked_out',productId:'room',
     start:'2027-01-01',end:'2027-01-02',nightly:10000,transactions:[]
   }));
+  state.orders[0].source='direct';
+  state.orders[1].source='booking';
   state.orders[0].transactions.push({kind:'payment',amount:15000,at:'2027-01-01T10:00:00Z',method:'cash'});
   const command={type:'transfer_folio_credit',id:'move',propertyId,reservationId:'parent',fromId:'a',toId:'b',amount:5000,reason:'Apply overpayment',at:'2027-01-02T10:00:00Z'};
   assert.throws(()=>apply(state,{...command,amount:5001}),/balance/);
@@ -76,11 +79,18 @@ test('transfer applies an overpayment to another stay without new cash',()=>{
   assert.deepEqual(moved.orders.map(o=>folio(o).due),[0,5000]);
   assert.deepEqual(moved.orders.map(o=>o.transactions),state.orders.map(o=>o.transactions));
   assert.deepEqual(moved.orders.map(o=>o.folioTransfers[0].id),['move','move']);
+  const day={propertyId,date:'2027-01-02',source:'booking'};
+  assert.equal(dailyOperations(moved,day).closing.due,5000);
+  assert.equal(dailyOperations(moved,day).balanced,true);
+  assert.equal(cashflowReport(moved,{propertyId,from:day.date,to:day.date}).totals.payment,0);
+  assert.equal(shiftSummary(moved,{propertyId,from:'2027-01-01T16:00:00Z',to:'2027-01-02T16:00:00Z'}).cashExpectedTotal,0);
   assert.throws(()=>apply(moved,{...command,id:'repeat'}),/balance/);
   const undo={...command,id:'undo-move',reverses:'move',reason:'Correct allocation'};
   const restored=apply(moved,undo);
   assert.deepEqual(restored.orders.map(o=>folio(o).due),[-5000,10000]);
   assert.deepEqual(restored.orders.map(o=>o.transactions),state.orders.map(o=>o.transactions));
   assert.deepEqual(restored.orders.map(o=>o.folioTransfers.at(-1).reverses),['move','move']);
+  assert.equal(dailyOperations(restored,day).closing.due,10000);
+  assert.equal(dailyOperations(restored,day).balanced,true);
   assert.throws(()=>apply(restored,{...undo,id:'duplicate'}),/bill_state/);
 });

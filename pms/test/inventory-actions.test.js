@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {seed,apply,preview,folio} from '../src/demo-store.js';
+import {accommodationReport,cashflowReport,dailyOperations} from '../src/financial-reports.js';
 import {dashboard,queueOrders} from '../src/dashboard.js';
 import {Store} from '../server/store.js';
 import {selectedRange,validateSelection} from '../web/calendar-actions.js';
@@ -11,11 +12,15 @@ const create=(state,id='stay',resourceId='TEST-KL-R1')=>apply(state,cmd('create'
 const box=(state,ids=['stay'])=>apply(state,cmd('box_stays',{orderIds:ids,reason:'TEST inventory review'}));
 const restore=(state,extra={})=>apply(state,cmd('restore_stays',{orderIds:['stay'],reason:'TEST inventory confirmed',autoAssign:false,...extra}));
 
-test('boxing releases inventory without cancelling or changing money, deposits and nightly prices',()=>{
+test('boxing excludes fees but preserves receipts, deposits and stored prices',()=>{
  let state=create(seed());state=apply(state,cmd('payment',{orderId:'stay',kind:'payment',amount:10000,method:'cash'}));
  state=apply(state,cmd('payment',{orderId:'stay',kind:'deposit_in',amount:5000,method:'cash'}));
  const old=structuredClone(state.orders[0]),fees=folio(old);state=box(state);
- const order=state.orders[0];assert.equal(order.status,'confirmed');assert.equal(order.resourceId,null);assert.equal(order.inventoryStatus,'boxed');assert.deepEqual(folio(order),fees);assert.deepEqual(order.transactions,old.transactions);assert.equal(preview(state,pid).length,0);
+ const order=state.orders[0];assert.equal(order.status,'confirmed');assert.equal(order.resourceId,null);assert.equal(order.inventoryStatus,'boxed');assert.equal(folio(order).charge,0);assert.equal(folio(order).due,-10000);assert.deepEqual(order.transactions,old.transactions);assert.equal(preview(state,pid).length,0);
+ const q={propertyId:pid,from:start,to:start,date:start};
+ assert.equal(accommodationReport(state,q).total,0);
+ assert.equal(cashflowReport(state,q).totals.payment,10000);
+ assert.equal(dailyOperations(state,q).closing.due,-10000);
  assert.equal(dashboard(state,pid,start).today.roomFee,0);assert.equal(dashboard(state,pid,start).cashflow.deposits,5000);assert.equal(queueOrders(state,pid,start,'unassigned').length,0);assert.equal(queueOrders(state,pid,start,'arrivals').length,0);
  assert.throws(()=>apply(state,cmd('assign',{orderId:'stay',resourceId:'TEST-KL-R2'})),/box_state/);assert.throws(()=>apply(state,cmd('checkin',{orderId:'stay'})),/box_state/);
  const restored=restore(state);assert.equal(restored.orders[0].resourceId,null);assert.equal(preview(restored,pid).length,1);assert.deepEqual(folio(restored.orders[0]),fees);assert.equal(restored.orders[0].inventoryHistory.length,2);
@@ -91,4 +96,16 @@ test('durable block audit keeps typed before/after evidence when one atom and da
   const state=store.read(user),audit=state.audit.find(a=>a.type==='bulk_unblock');assert.equal(audit.blockChange.before.length,1);assert.equal(audit.blockChange.after.length,3);assert(state.blocks.every(b=>b.blockType==='hold'&&b.reason==='TEST selected hold'&&b.createdBy===user.username));
   assert.equal(state.revisions[pid],2);assert.equal(store.db.prepare('SELECT COUNT(*) n FROM receipts').get().n,2);
  }finally{store.close();}
+});
+
+test('settling a boxed booking restores inventory atomically before closing the folio',()=>{
+ let state=box(create(seed()));
+ assert.throws(()=>apply(state,cmd('settle',{orderId:'stay'})),/balance/);
+ assert.equal(state.orders[0].inventoryStatus,'boxed');
+ state=apply(state,cmd('payment',{orderId:'stay',kind:'payment',amount:30000,method:'cash'}));
+ state=apply(state,cmd('settle',{orderId:'stay'}));
+ assert.equal(state.orders[0].inventoryStatus,'reserved');
+ assert.equal(state.orders[0].folioClosed,true);
+ assert.equal(preview(state,pid).length,1);
+ assert.throws(()=>box(state),/box_state/);
 });

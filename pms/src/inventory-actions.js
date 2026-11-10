@@ -19,6 +19,7 @@ export function changeOrderBox(state, command, preview) {
   if (orders.some(o => !o)) throw new Error('scope');
   if (orders.some(o => o.status !== 'confirmed' || o.locked)) throw new Error('box_state');
   const boxing = command.type === 'box_stays';
+  if(boxing&&orders.some(o=>o.folioClosed||o.splitBills||o.arMoves?.length||o.folioTransfers?.length))throw new Error('box_state');
   if (orders.some(o => isBoxed(o) === boxing)) throw new Error('box_state');
   const reason = command.reason;
   if (typeof reason !== 'string' || !reason.trim() || reason.length > 200 || !boxing && typeof command.autoAssign !== 'boolean') throw new Error('box_input');

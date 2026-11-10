@@ -34,9 +34,8 @@ const send=(command,key=randomUUID())=>store.command(operator,{key,expectedRevis
 const openNightAudit=async()=>{
   await import(new URL('../web/app.js?night-audit-check='+randomUUID(),import.meta.url).href);
   $('[data-property="TEST-KL"]').click();
-  $('#global-nav [data-view="business"]').click();
-  await until(()=>document.querySelector('#nav [data-view="nightAudit"]'),'night audit entry in the statistics group');
-  $('#nav [data-view="nightAudit"]').click();
+  $('#global-nav [data-view="home"]').click();
+  $('[data-home="nightAudit"]').click();
   await until(()=>document.body.dataset.view==='nightAudit','night audit view active');
   await until(()=>document.querySelector('#content .panel'),'night audit page rendered');
 };
@@ -45,6 +44,11 @@ try {
   assert.equal(login.status,200);
   await openNightAudit();
   assert.match($('#content').textContent,/尚未设定营业日|Business date not set/,'an unset business date must be stated, never guessed');
+  assert($('[data-night-audit-workbench]'));
+  assert.equal(document.querySelector('#business-date-init'),null);
+  $('[data-night-audit-settings-link]').click();
+  assert($('[data-night-audit-settings]'));
+  assert.equal(document.querySelector('#night-audit-run'),null);
   assert($('#business-date-init'),'administrators get an explicit opening-date control');
   set('#business-date-init','2027-01-10');
   $('#business-date-save').click();
