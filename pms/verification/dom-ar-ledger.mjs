@@ -82,6 +82,13 @@ try {
  $(close+' button').click();
  await until(()=>store.read(operator).arPeriods.length===1&&$('#content').textContent.includes('2027-01 ·'),'frozen balance rendered');
  assert.equal(store.read(operator).arPeriods[0].totals.closing,10000);
+ const correction='[data-ar-correction="credit"]';
+ set(correction+' [name="amount"]','5');
+ set(correction+' [name="reason"]','TEST closed AR correction');
+ $(correction+' button').click();
+ await until(()=>document.querySelector('[data-ar-correction-history]')?.textContent.includes('TEST closed AR correction'),'correction history displayed');
+ assert.equal(store.read(operator).arPeriods[0].totals.closing,10000);
+ assert.equal(store.read(operator).arEvents.find(e=>e.correctsPeriodId).amount,-500);
 
  $('#nav [data-view="arLedger"]').click();
  const debit='[data-ar-command="ar_adjust"]:has([value="debit"])';

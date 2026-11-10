@@ -95,6 +95,16 @@ test('month close snapshots open AR, rejects an active month and never rewrites 
  s=send(s,'later','ar_write_off',{accountId:'a',method:'cash',amount:1000});
  assert.equal(JSON.stringify(s.arPeriods[0]),frozen);
  assert.equal(s.arItems[0].open,9000);
+ const correction={periodId:'close',accountId:'a',direction:'credit',itemId:'post',amount:500,reason:'Closed month correction'};
+ assert.throws(()=>send({...s,businessDate:'2027-01-31'},'backdated','ar_close_month',correction),/ar_period/);
+ s=send(s,'correction','ar_close_month',correction);
+ assert.equal(s.arItems[0].open,8500);
+ assert.equal(JSON.stringify(s.arPeriods[0]),frozen);
+ assert.equal(s.arEvents.at(-1).correctsPeriodId,'close');
+ assert.throws(()=>send(s,'undo','ar_undo_adjust',{accountId:'a',adjustmentId:'correction',reason:'TEST'}),/ar_state/);
+ s=send({...s,businessDate:'2027-03-01'},'close-feb','ar_close_month',{month:'2027-02'});
+ assert.equal(s.arPeriods[1].totals.closing,8500);
+ assert.equal(s.arPeriods[1].corrections[0].amount,-500);
 });
 
 test('shared month close is authorized, scoped and idempotent',()=>{
@@ -110,6 +120,8 @@ test('shared month close is authorized, scoped and idempotent',()=>{
    run(admin,'ar-close-one',1,close);
    assert.equal(run(admin,'ar-close-one',1,close).replayed,true);
    assert.equal(store.read(finance).arPeriods.length,1);
+   const periodId=store.read(finance).arPeriods[0].id;
+   assert.throws(()=>run(finance,'ar-correct-no',2,{type:'ar_close_month',periodId}),/forbidden/);
    assert.equal(store.read(viewer).arPeriods.length,0);
    assert.equal(store.read(admin).audit[0].arPeriod.month,'2027-01');
  }finally{store.close();}

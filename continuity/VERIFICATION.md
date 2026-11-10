@@ -236,3 +236,9 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 ### 主订单合并收款
 
 沿用主订单批量结账测试及 DOM 脚本，先登记一笔合并收款，再核验两个账页的分配流水和批次号。线上检查 `/web/app.js` 的 `reservation-payment`，主机检查 `grep -n payment_reservation /opt/jovian-pms-test/current/server/store.js`。
+
+### 月结更正
+
+运行 `node --test test/ar-ledger.test.js test/commission-period.test.js`，以及 `verification/dom-ar-ledger.mjs` 和 `verification/dom-commission-period.mjs`（传入 jsdom 路径）。合成测试覆盖原快照不变、已关闭日期拒绝、后续期末纳入差额及财务权限。发布后查 Actions 成功状态、公开 `/healthz` 和 `/web/financial-ui.js` 的 `data-ar-correction`。DOM 是合成数据验收，实际门店页面交互另验。
+
+本机 Windows Node 424 项中 422 通过，余两项为既有私有文件权限用例；Python 5/5，AR 与佣金 DOM 均通过。

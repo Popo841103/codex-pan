@@ -1188,6 +1188,7 @@ export class Store {
       // A property override decides what this account may do here, not its account role.
       // The override may name a built-in role or one this property defined itself.
       const allowed=this.permissionsFor(rowUser,propertyId);
+      if(command.type==='commission_save'&&command.correction===true&&!allowed.includes('commission_close_month'))error(403,'forbidden');
       if(command.type==='create_reservation'&&command.mode==='checkin'&&!allowed.includes('checkin'))error(403,'forbidden');
       // Rewriting nights already closed by a night audit stays an administrator-only override.
       if(command.auditOverride===true&&rowUser.role!=='admin')error(403,'forbidden');
@@ -1247,7 +1248,8 @@ export class Store {
         fields:Object.keys(command).filter(k=>!['type','propertyId'].includes(k)),
         ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{}),
         ...(cmd.type.startsWith('ar_')?{arEventId:cmd.id}:{}),
-        ...(cmd.type==='ar_close_month'?{arPeriod:{month:cmd.month,id:cmd.id}}:{}),
+        ...(cmd.type==='ar_close_month'&&cmd.periodId===undefined?{arPeriod:{month:cmd.month,id:cmd.id}}:{}),
+        ...(cmd.type==='ar_close_month'&&cmd.periodId!==undefined?{arCorrection:next.arEvents.find(event=>event.id===cmd.id)}:{}),
         ...(['settle_split','settle_bill','settle_undo','settle_unsplit'].includes(cmd.type)?{billEvent:next.orders.find(o=>o.id===cmd.orderId)?.folioEvents?.at(-1)}:{}),
         ...(cmd.type==='transfer_folio_credit'?{reservationId:cmd.reservationId,fromId:cmd.fromId,toId:cmd.toId,amount:next.orders.find(o=>o.id===cmd.toId)?.folioTransfers?.at(-1)?.amount,reverses:cmd.reverses,reason:cmd.reason.trim()}:{}),
         ...(cmd.type==='undo_reservation_payment'?{reservationId:cmd.reservationId,reversesBatchId:cmd.batchId,reason:cmd.reason.trim()}:{}),

@@ -476,7 +476,7 @@ export function arLedgerPage(state,{propertyId,selected,t,currency,can}) {
   });
   const history=[...events].reverse().map(e=>{
     const reversible=!events.some(x=>x.reverses===e.id);
-    const reverse=e.type==='ar_write_off'?form('ar_undo_write_off',id+hidden('receiptId',e.id)+note()):e.type==='ar_adjust'?form('ar_undo_adjust',id+hidden('adjustmentId',e.id)+note()):'';
+    const reverse=e.type==='ar_write_off'?form('ar_undo_write_off',id+hidden('receiptId',e.id)+note()):e.type==='ar_adjust'&&!e.correctsPeriodId?form('ar_undo_adjust',id+hidden('adjustmentId',e.id)+note()):'';
     const allocation=(e.allocations||[]).map(a=>esc(a.itemId)+' · '+money(a.amount)).join('<br>');
     return '<tr><td>'+esc(e.businessDate||'—')+'</td><td>'+label(e.type)+'</td><td>'+esc(e.actor)+'</td><td>'+esc(e.reference||e.reason||'')+
       (e.targetId?' · '+esc(accounts.find(a=>a.id===e.targetId)?.name||e.targetId):'')+(allocation?'<br>'+allocation:'')+
@@ -538,17 +538,33 @@ function arPeriodPanel(state,{propertyId,t,currency,can}) {
   const label=k=>esc(t(k));
   const money=v=>esc(currency(v));
   const periods=(state.arPeriods||[]).filter(row=>row.propertyId===propertyId);
+  const corrections=(state.arEvents||[]).filter(row=>row.propertyId===propertyId&&row.correctsPeriodId);
+  const correctionControls=(period,row)=>{
+    if(!can('ar_close_month'))return '';
+    const items=(state.arItems||[]).filter(item=>item.propertyId===propertyId&&item.accountId===row.accountId&&
+      !item.reversedBy&&item.open>0&&item.businessDate<=period.to);
+    const form=(direction,extra)=>'<form data-ar-command="ar_close_month" data-ar-correction="'+direction+'">'+
+      '<input type="hidden" name="periodId" value="'+esc(period.id)+'"><input type="hidden" name="accountId" value="'+esc(row.accountId)+'">'+
+      '<input type="hidden" name="direction" value="'+direction+'">'+extra+
+      '<label>'+label('amount')+'<input name="amount" type="number" min=".01" max="1000000" step=".01" required></label>'+
+      '<label>'+label('notes')+'<input name="reason" maxlength="500" required></label><button>'+label(direction==='debit'?'arDebit':'arCredit')+'</button></form>';
+    return '<details><summary>'+label('arMonthCorrection')+'</summary>'+form('debit','<label>'+label('arDueDate')+'<input type="date" name="dueDate" required></label>')+
+      (items.length?form('credit','<label>'+label('arOpen')+'<select name="itemId">'+items.map(item=>'<option value="'+esc(item.id)+'">'+esc(item.id)+' · '+money(item.open)+'</option>').join('')+'</select></label>'):'')+'</details>';
+  };
+  const correctionRows=(period)=>corrections.filter(row=>row.correctsPeriodId===period.id).map(row=>
+    '<li>'+esc(row.businessDate)+' · '+esc(period.balances.find(account=>account.accountId===row.accountId)?.name||row.accountId)+' · '+money(row.amount)+
+    ' · '+esc(row.actor)+' · '+esc(row.at)+' · '+esc(row.reason)+'</li>').join('');
   const history=[...periods].reverse().map(period=>'<details><summary>'+esc(period.month)+' · '+money(period.totals.closing)+' · '+esc(period.actor)+' · '+esc(period.at)+'</summary>'+
     '<div class="table-wrap"><table><thead><tr>'+['arAccountName','mdrOpening','arMovement','mdrClosing'].map(k=>'<th>'+label(k)+'</th>').join('')+'</tr></thead><tbody>'+
-    period.balances.map(row=>'<tr><td>'+esc(row.name)+'</td><td>'+money(row.opening)+'</td><td>'+money(row.change)+'</td><td>'+money(row.closing)+'</td></tr>').join('')+
-    '</tbody></table></div></details>').join('');
+    period.balances.map(row=>'<tr><td>'+esc(row.name)+'</td><td>'+money(row.opening)+'</td><td>'+money(row.change)+'</td><td>'+money(row.closing)+correctionControls(period,row)+'</td></tr>').join('')+
+    '</tbody></table></div><ul data-ar-correction-history>'+correctionRows(period)+'</ul></details>').join('');
   const form=can('ar_close_month')?'<form data-ar-command="ar_close_month"><label>'+label('arMonth')+'<input name="month" type="month" required></label><label><input type="checkbox" required> '+label('arCloseConfirm')+'</label><button>'+label('ar_close_month')+'</button></form>':'';
   return '<details><summary>'+label('arPeriods')+'</summary><p>'+label('arPeriodRule')+'</p>'+form+history+'</details>';
 }
 
-Object.assign(financialWords.zh,{"arPeriods":"AR 月结记录","arMonth":"应收月份","ar_close_month":"关闭应收账期","arCloseConfirm":"确认保存期末快照并关闭该月","arPeriodRule":"只能关闭已结束的月份。首次月结后须按月连续关闭。","ar_period":"月份无效、仍在营业、已经关闭或不连续。"});
-Object.assign(financialWords.en,{"arPeriods":"AR month-end records","arMonth":"Receivable month","ar_close_month":"Close AR month","arCloseConfirm":"Confirm snapshot and close month","arPeriodRule":"Only elapsed months can be closed. After the first close, months must be consecutive.","ar_period":"The month is invalid, active, already closed or out of sequence."});
-Object.assign(financialWords.ms,{"arPeriods":"Rekod tutup bulan AR","arMonth":"Bulan AR","ar_close_month":"Tutup bulan AR","arCloseConfirm":"Sahkan baki dan tutup bulan","arPeriodRule":"Hanya bulan yang telah tamat boleh ditutup. Selepas penutupan pertama, bulan mesti berturutan.","ar_period":"Bulan tidak sah, aktif, sudah ditutup atau tidak berturutan."});
+Object.assign(financialWords.zh,{"arMonthCorrection":"登记月结更正","arPeriods":"AR 月结记录","arMonth":"应收月份","ar_close_month":"关闭应收账期","arCloseConfirm":"确认保存期末快照并关闭该月","arPeriodRule":"只能关闭已结束的月份。首次月结后须按月连续关闭。","ar_period":"月份无效、仍在营业、已经关闭或不连续。"});
+Object.assign(financialWords.en,{"arMonthCorrection":"Record month-end correction","arPeriods":"AR month-end records","arMonth":"Receivable month","ar_close_month":"Close AR month","arCloseConfirm":"Confirm snapshot and close month","arPeriodRule":"Only elapsed months can be closed. After the first close, months must be consecutive.","ar_period":"The month is invalid, active, already closed or out of sequence."});
+Object.assign(financialWords.ms,{"arMonthCorrection":"Rekod pembetulan bulan tutup","arPeriods":"Rekod tutup bulan AR","arMonth":"Bulan AR","ar_close_month":"Tutup bulan AR","arCloseConfirm":"Sahkan baki dan tutup bulan","arPeriodRule":"Hanya bulan yang telah tamat boleh ditutup. Selepas penutupan pertama, bulan mesti berturutan.","ar_period":"Bulan tidak sah, aktif, sudah ditutup atau tidak berturutan."});
 Object.assign(financialWords.zh,{"ar_adjust":"新增应收调账","ar_undo_adjust":"冲销应收调账","arDebit":"加记应收","arCredit":"减记应收","arAdjustConfirm":"确认按本营业日登记此分录","arAdjustNote":"加记生成独立应收。减记抵减指定开放应收。两者均不产生现金或住宿收入。"});
 Object.assign(financialWords.en,{"ar_adjust":"Post AR adjustment","ar_undo_adjust":"Reverse AR adjustment","arDebit":"Increase receivable","arCredit":"Decrease receivable","arAdjustConfirm":"Confirm posting on this business date","arAdjustNote":"An increase creates a standalone receivable. A decrease reduces the selected open item. Neither changes cash or accommodation revenue."});
 Object.assign(financialWords.ms,{"ar_adjust":"Catat pelarasan AR","ar_undo_adjust":"Balikkan pelarasan AR","arDebit":"Tambah belum terima","arCredit":"Kurangkan belum terima","arAdjustConfirm":"Sahkan catatan pada tarikh operasi ini","arAdjustNote":"Tambahan mencipta baki berasingan. Pengurangan mengurangkan baki dipilih. Tiada perubahan tunai atau hasil penginapan."});
@@ -559,7 +575,7 @@ export function commissionPeriodPanel(state,{propertyId,t,currency,can}){
   const orders=state.orders.filter(order=>order.propertyId===propertyId);
   const correctionForm=row=>{
     const order=orders.find(order=>order.id===row.orderId);
-    if(row.originalPeriod||!order||!can('commission_save'))return '';
+    if(row.originalPeriod||!order||!can('commission_save')||!can('commission_close_month'))return '';
     const current=order.commissionCorrections?.at(-1)?.correctedAmount??row.amount;
     return '<details><summary>'+label('commissionCorrection')+'</summary><form data-commission-correct="'+esc(row.orderId)+'">'+
       '<label>'+label('commissionCorrectedAmount')+'<input name="amount" type="number" min="0" max="1000000" step=".01" required value="'+esc((current/100).toFixed(2))+'"></label>'+

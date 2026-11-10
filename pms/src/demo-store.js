@@ -765,8 +765,10 @@ function changeSplitBills(order, command) {
 }
 
 function changeReceivables(state, order, command) {
-  const {type,id,propertyId,accountId,at} = command;
+  const {id,propertyId,accountId,at} = command;
   const businessDate = state.businessDate;
+  const correction=command.type==='ar_close_month'&&command.periodId!==undefined;
+  const type=correction?'ar_adjust':command.type;
   if(type==='ar_close_month'){closeReceivableMonth(state,command);return;}
   const last=(state.arPeriods||[]).filter(row=>row.propertyId===propertyId).at(-1);
   if(last && type!=='ar_account_save' && businessDate<=last.to)reject('ar_period');
@@ -793,6 +795,12 @@ function changeReceivables(state, order, command) {
     if (!account) reject('scope');
     if (!isDate(businessDate)) reject('ar_business_date');
     const item = items.find(x=>x.id===command.itemId&&x.accountId===accountId&&x.propertyId===propertyId&&!x.reversedBy);
+    if(correction){
+      const period=(state.arPeriods||[]).find(row=>row.propertyId===propertyId&&row.id===command.periodId);
+      if(!period||!period.balances.some(row=>row.accountId===accountId))reject('ar_period');
+      if(command.direction==='credit'&&(!item||item.businessDate>period.to))reject('ar_state');
+      Object.assign(event,{correctsPeriodId:period.id,correctsMonth:period.month});
+    }
     if (type === 'ar_post') {
       if (order.folioClosed || order.status!=='cancelled'&&order.end>businessDate || !isDate(command.dueDate) || command.dueDate<businessDate) reject('ar_state');
       const totals = folio(order);
@@ -826,7 +834,7 @@ function changeReceivables(state, order, command) {
       }
     } else if (type === 'ar_undo_adjust') {
       const original=events.find(e=>e.id===command.adjustmentId&&e.type==='ar_adjust'&&e.accountId===accountId&&e.propertyId===propertyId);
-      if(!original||events.some(e=>e.type===type&&e.reverses===original.id))reject('ar_state');
+      if(!original||original.correctsPeriodId||events.some(e=>e.type===type&&e.reverses===original.id))reject('ar_state');
       const target=items.find(x=>x.id===original.itemId&&x.accountId===accountId&&x.propertyId===propertyId&&!x.reversedBy);
       if(!target)reject('ar_state');
       event.reason=reason();
@@ -985,7 +993,8 @@ function closeReceivableMonth(state,command){
   const balances=report.balances;
   const totals={opening:0,change:0,closing:0};
   for(const row of balances)for(const key of Object.keys(totals))totals[key]+=row[key];
-  periods.push({id,propertyId,month,from,to,at,actor:command.actor||'local',balances,totals});
+  const corrections=(state.arEvents||[]).filter(event=>event.propertyId===propertyId&&event.correctsPeriodId&&event.businessDate>=from&&event.businessDate<=to);
+  periods.push({id,propertyId,month,from,to,at,actor:command.actor||'local',balances,totals,...(corrections.length?{corrections:structuredClone(corrections)}:{})});
 }
 
 export function commissionPeriod(entry){
