@@ -268,3 +268,7 @@ Actions 42757051292 成功，Linux Node 425/425、Python 5/5。公网健康检�
 Windows Node 427/429，余两项为已知私有文件权限用例。Python 5/5，夜审工作台 DOM 通过。
 
 运行时 `0ccc249` 已部署测试站。Actions 42792436206 成功，Linux Node 429/429、Python 5/5。公网健康检查和夜审工作台、设置、处理全部及交班方式标识已核对。实际交互使用本地合成订单验证。
+
+### 预订引擎设置预览
+
+合成 `verification/dom-booking-engine.mjs` 通过，覆盖四张卡片、空状态、划线价状态、四个只读核验字段和房型房价维护跳转，页面操作不改变门店版本。Windows Node 427/429，余两项为既有私有文件权限失败。Python 5/5。公网验收检查 `/healthz` 与 `/web/workspace-ui.js` 的 `data-booking-engine-setup`。
