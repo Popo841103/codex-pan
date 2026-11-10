@@ -73,7 +73,7 @@ export function nightAuditExceptions(state, businessDate, isBoxed) {
     if (order.status === 'cancelled') continue;
     if (order.status === 'confirmed' && !boxed(order, isBoxed) && order.start <= businessDate)
       exceptions.push({ kind: 'no_show', severity: 'required', orderId: order.id, guest: order.guest || '', date: order.start });
-    else if (order.status === 'checked_in' && order.end <= businessDate)
+    else if (order.status === 'checked_in' && (order.hourly?order.start:order.end) <= businessDate)
       exceptions.push({ kind: 'overdue_checkout', severity: 'required', orderId: order.id, guest: order.guest || '', date: order.end });
     else if (order.status === 'confirmed' && boxed(order, isBoxed) && order.start <= businessDate)
       exceptions.push({ kind: 'box_expiring', severity: 'advisory', orderId: order.id, guest: order.guest || '', date: order.start });
@@ -341,6 +341,7 @@ export function apply(state, command) {
   const catalogActions = ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'];
   const needsOrder = ['ar_post','settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock','commission_save'].includes(type);
   if ((needsOrder||reversal) && !order) reject('scope');
+  if(order?.hourly&&type==='edit')reject('hourly_state');
   if(order?.folioClosed&&['edit','payment','cancel'].includes(type))reject('folio_closed');
   // Clearing test bookings removes them outright rather than cancelling them, so a
   // property can be emptied of seeded or rehearsal data without leaving it in the
@@ -403,7 +404,8 @@ export function apply(state, command) {
   };
   if(order&&['settle','ar_post'].includes(type)&&order.status==='confirmed')restoreForSettlement([order]);
   if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
-  if(operationsActions.includes(type)){changeOperations(next,command);}
+  if(completionActions.includes(type)){changeCompletion(next,command);}
+  else if(operationsActions.includes(type)){changeOperations(next,command);}
   else if(['directory_entry_save','customer_tag_set'].includes(type)){changeDirectory(next,command);}
   else if(batchActions.includes(type)){
     changeBatchState(next,command);
@@ -670,7 +672,7 @@ export function apply(state, command) {
         if(!assigned)reject('state');
         if(inHouse(assigned))reject('occupied');
       }
-      order.status=type==='undo_checkout'?'checked_in':'confirmed';
+      order.status=type==='undo_checkout'?'checked_in':'confirmed';if(type==='undo_checkout')order.completedAt=null;
     }
   } else if (type === 'checkin') {
     if(next.nightAudits.length&&isAudited(next,command.date)&&command.auditOverride!==true)reject('audited');
@@ -682,10 +684,10 @@ export function apply(state, command) {
     if (inHouse(resource)) reject('occupied');
     order.status = 'checked_in';
   } else if (type === 'checkout') {
-    if (order.status !== 'checked_in' || command.date !== order.end) reject('date');
+    if (order.status !== 'checked_in' || command.date !== (order.hourly?order.start:order.end)) reject('date');
     const balance = folio(order);
     if (balance.due !== 0 || balance.deposit !== 0 || order.splitBills?.some(b=>b.charge!==b.paid+(b.arAmount||0))) reject('balance');
-    order.status = 'checked_out';
+    order.status = 'checked_out';order.completedAt=command.at;
     setCleaning(next, next.resources.find(r => r.id === order.resourceId), 'dirty');
   } else if (['bulk_clean','bulk_block','bulk_unblock'].includes(type)) {
     if (!Array.isArray(command.resourceIds) || !command.resourceIds.length || command.resourceIds.length>100 || new Set(command.resourceIds).size!==command.resourceIds.length) reject('input');
@@ -737,6 +739,10 @@ export function apply(state, command) {
   preview(next, propertyId);
   const statusRows=roomStatusRows(state,next,command);
   const movedTo = next.orders.find(o => o.id === (order?.id || command.id)) || null;
+  if(['create','create_reservation','create_hourly','checkin','checkout','cancel','undo_checkin','undo_checkout','restore_cancel'].includes(type)){
+    const record={id:command.id,propertyId,type,at:command.at,actor:command.actor||'local',postingBusinessDate:next.businessDate||null,orderId:order?.id||(['create','create_hourly'].includes(type)?command.id:null),reservationId:type==='create_reservation'?command.id:null};
+    (next.receptionHistory??=[]).push(record);
+  }
   next.audit.unshift({ id: command.id || `${command.at}-${next.audit.length}`, propertyId, type, postingBusinessDate:next.businessDate||null, orderId: order?.id || null, resourceId: resource?.id || null, resourceIds: command.resourceIds, cleaning:command.cleaning, actor: command.actor || 'local',
     ...(stayBefore || ['create','box_stays','restore_stays'].includes(type) ? { stayChange:{ before:stayBefore,
       after:['box_stays','restore_stays'].includes(type) ? null : staySnapshot(movedTo),
@@ -744,6 +750,7 @@ export function apply(state, command) {
     ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}),
     ...(['directory_entry_save','customer_tag_set'].includes(type)?{directoryChange:type==='directory_entry_save'?next.directoryHistory.at(-1):next.customerTagHistory.at(-1)}:{}),
     ...(operationsActions.includes(type)?{operationsChange:next.operationsHistory.at(-1)}:{}),
+    ...(completionActions.includes(type)?{completionChange:next.completionHistory.at(-1)}:{}),
     ...(type==='memo_save'?{memoChange:next.memoHistory.at(-1)}:{}),
     ...(type==='transfer_folio_credit'?{reservationId:command.reservationId,fromId:command.fromId,toId:command.toId,amount:next.orders.find(o=>o.id===command.toId)?.folioTransfers?.at(-1)?.amount,reverses:command.reverses,reason:command.reason.trim()}:{}),
     ...(type==='undo_reservation_payment'?{reservationId:command.reservationId,reversesBatchId:command.batchId,reason:command.reason.trim()}:{}),
@@ -1310,7 +1317,7 @@ export function reminderForAccount(state,notice,username,at=new Date().toISOStri
 
 // Append-only internal directories. These definitions never price an existing
 // stay or create meal entitlements, hourly bookings, charges or AR postings.
-export const directoryKinds=['tagGroup','tag','corporate','meal','item','hourly','holiday','inspectionItem','mealCategory'];
+export const directoryKinds=['tagGroup','tag','corporate','meal','item','hourly','holiday','inspectionItem','mealCategory','customer','quickCategory','invoiceTemplate'];
 export function directoryEntries(state,propertyId,kind){
  const latest=new Map();for(const row of state.directoryHistory||[])if(row.propertyId===propertyId&&(!kind||row.kind===kind))latest.set(row.entryId,row);return [...latest.values()];
 }
@@ -1324,8 +1331,15 @@ function changeDirectory(state,c){
  const rows=directoryEntries(state,propertyId),before=c.entryId?rows.find(r=>r.entryId===c.entryId&&r.kind===c.kind):null;
  if(c.entryId&&!before)reject('scope');
  const entryId=before?.entryId||id;
- if(rows.some(r=>r.kind===c.kind&&r.entryId!==entryId&&r.name.toLowerCase()===c.name.trim().toLowerCase()))reject('input');
+ if(c.kind!=='customer'&&rows.some(r=>r.kind===c.kind&&r.entryId!==entryId&&r.name.toLowerCase()===c.name.trim().toLowerCase()))reject('input');
  const row={id,entryId,propertyId,at,actor,kind:c.kind,name:c.name.trim()};
+ if(c.kind==='customer'){
+  for(const key of ['phone','email','country','guestLanguage','birthday','documentHint','note']){const value=c[key]??'';if(typeof value!=='string'||value.length>(key==='note'?500:100))reject('input');row[key]=value.trim();}
+  if(row.birthday&&!isDate(row.birthday)||row.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)||row.documentHint&&!/^[A-Za-z0-9]{1,4}$/.test(row.documentHint))reject('input');
+  if(typeof c.active!=='boolean')reject('input');row.active=c.active;
+ }
+ if(c.kind==='quickCategory'){if(!['payment','refund'].includes(c.direction)||typeof c.active!=='boolean')reject('input');Object.assign(row,{direction:c.direction,active:c.active});}
+ if(c.kind==='invoiceTemplate'){for(const key of ['heading','footer']){if(typeof c[key]!=='string'||c[key].length>500||/[<>]/.test(c[key]))reject('input');row[key]=c[key];}if(typeof c.active!=='boolean')reject('input');row.active=c.active;}
  if(c.kind==='tag'){
   if(c.groupId&&!rows.some(r=>r.entryId===c.groupId&&r.kind==='tagGroup'))reject('scope');row.groupId=c.groupId||'';
  }
@@ -1404,3 +1418,41 @@ function changeOperations(state,c){
 }
 
 export function housekeepingTasks(state,propertyId){const tasks=new Map();for(const r of state.operationsHistory||[])if(r.propertyId===propertyId&&r.type==='housekeeping_task')tasks.set(r.taskId,r);return [...tasks.values()];}
+
+// Completion batch: explicit identity links and attributed financial shortcuts.
+export const completionActions=['customer_link','quick_entry','item_charge','create_hourly'];
+export function customerLinks(state,propertyId){const map=new Map();for(const r of state.completionHistory||[])if(r.propertyId===propertyId&&r.type==='customer_link')map.set(r.orderId,r.customerId);return map;}
+function changeCompletion(state,c){
+ if(c.type==='create_hourly'){
+  const plan=directoryEntries(state,c.propertyId,'hourly').find(r=>r.entryId===c.hourlyId),resource=state.resources.find(r=>r.id===c.resourceId&&r.propertyId===c.propertyId&&!r.archived);
+  if(!plan||!resource||resource.roomTypeId!==plan.roomTypeId)reject('scope');
+  if(state.orders.some(o=>o.propertyId===c.propertyId&&o.status==='checked_in'&&o.end<=state.businessDate&&state.resources.find(r=>r.id===o.resourceId)?.atoms.some(a=>resource.atoms.includes(a))))reject('occupied');
+  if(!isDate(c.usageDate)||typeof c.startTime!=='string'||!/^([01]\d|2[0-3]):00$/.test(c.startTime)||!Number.isSafeInteger(c.hours)||c.hours<plan.minHours||c.hours>plan.maxHours||Number(c.startTime.slice(0,2))+c.hours>24)reject('input');
+  const amount=money(plan.baseAmount+Math.ceil((c.hours-plan.minHours)/plan.unitHours)*plan.unitAmount),end=new Date(Date.parse(c.usageDate+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+  const result=apply(state,{...c,type:'create',start:c.usageDate,end,nightly:amount,roomTypeId:resource.roomTypeId,productId:resource.productId,gender:resource.gender||'any',source:'direct'});
+  const order=result.orders.find(o=>o.id===c.id);order.hourly={planId:plan.entryId,name:plan.name,minHours:plan.minHours,unitHours:plan.unitHours,baseAmount:plan.baseAmount,unitAmount:plan.unitAmount,hours:c.hours,startTime:c.startTime,endTime:String(Number(c.startTime.slice(0,2))+c.hours).padStart(2,'0')+':00',usageDate:c.usageDate,inventoryPolicy:'whole_day_hold'};
+  state.orders=result.orders;(state.completionHistory??=[]).push({id:c.id,propertyId:c.propertyId,type:c.type,orderId:c.id,at:c.at,actor:c.actor||'local',businessDate:state.businessDate||null,amount,...order.hourly});return;
+ }
+ const o=state.orders.find(o=>o.id===c.orderId&&o.propertyId===c.propertyId);if(!o)reject('scope');
+ const row={id:c.id,propertyId:c.propertyId,at:c.at,actor:c.actor||'local',type:c.type,orderId:o.id,businessDate:state.businessDate||null};
+ if(c.type==='customer_link'){
+  if(c.customerId&&!directoryEntries(state,c.propertyId,'customer').some(r=>r.entryId===c.customerId&&r.active))reject('scope');
+  Object.assign(row,{customerId:c.customerId||'',reason:text(c.reason||'',500).trim()});if(!row.reason)reject('reason');
+ }else{
+  if(o.folioClosed||o.splitBills||o.arMoves?.length||isBoxed(o)||o.status==='cancelled')reject('bill_state');
+  if(!isDate(state.businessDate)||isAudited(state,state.businessDate))reject('business_date');
+  if(c.type==='quick_entry'){
+   const category=directoryEntries(state,c.propertyId,'quickCategory').find(r=>r.entryId===c.categoryId&&r.active);if(!category)reject('scope');
+   const note=text(c.note||'',500).trim();if(!note)reject('reason');
+   const result=apply(state,{...c,type:'payment',kind:category.direction,note});
+   state.orders=result.orders;
+   Object.assign(row,{categoryId:category.entryId,name:category.name,kind:category.direction,amount:money(c.amount),method:c.method,note});
+  }else{
+   const item=directoryEntries(state,c.propertyId,'item').find(r=>r.entryId===c.itemId);if(!item)reject('scope');
+   if(!Number.isSafeInteger(c.quantity)||c.quantity<1||c.quantity>100||!String(c.note||'').trim())reject('input');
+   const extra={id:c.id,kind:'charge',name:item.name,quantity:c.quantity,unitAmount:item.unitAmount,businessDate:state.businessDate,at:c.at,actor:c.actor||'local',itemId:item.entryId,note:text(c.note,500)};
+   money(folio(o).charge+extra.quantity*extra.unitAmount);(o.extraCharges??=[]).push(extra);Object.assign(row,extra,{type:c.type,amount:extra.quantity*extra.unitAmount});
+  }
+ }
+ (state.completionHistory??=[]).push(row);
+}

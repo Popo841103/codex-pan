@@ -2,7 +2,7 @@
 
 仅参考本机只读目录的入口和流程；没有复制个人资料、金额、订单号或截图。状态为本批完成后的保守评估，已有表示JOVIAN已提供对应内部能力，并不代表字段/商业服务完全相同。部分表示基础能力已存在但明确列出差距。禁止项即使有只读预览也不宣称接通。
 
-本批基线：运行时7e41bf3 / 文档f0a4796。A7第9节此次已逐项对照。通用边界：不改账号/数据库，不自动夜审、不跨午夜截账、不改历史夜审保护、不接真实资金/OTA/锁。
+本批基线：运行时03d67f6 / 文档1e9924c。A7第9节此次已逐项对照。通用边界：不改账号/数据库，不自动夜审、不跨午夜截账、不改历史夜审保护、不接真实资金/OTA/锁。
 
 | 编号 | 参考入口 | 状态 | JOVIAN入口 | 证据与差距 |
 |---|---|---|---|---|
@@ -40,41 +40,41 @@
 | 4.8 | Reservations > Accommodation > reservation detail > Payment | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
 | 4.9 | Reservations > Accommodation > reservation detail > Settle | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
 | 4.10 | Reservations > Accommodation > reservation detail > More > Cancel | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
-| 4.11 | Reservations > Accommodation > reservation detail > Invoice | 部分 | 统计 → 运营查询工作台 → invoice | pms/src/financial-reports.js parityReport；test/parity-workbench.test.js；verification/dom-parity-workbench.mjs。完整住宿费用/押金独立快照；不含税务票据提交 |
+| 4.11 | Reservations > Accommodation > reservation detail > Invoice | 已有 | 统计→运营查询工作台→内部账单；住宿详情→内部账单 | customer-statistics Node/DOM + 全量回归；完整费用快照、收付和押金独列、管理员纯文字标题/页脚、同结果CSV及专用打印；内部核对票据，不提交税务发票。 |
 | 4.12 | Reservations > Booking Engine | 部分 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
 | 4.13 | Reservations > Failed | 已有 | 统计 → 运营查询工作台 → 失败及未完成预订 | operations-completion Node/DOM + 既有回归；人工内部失败记录与现有网站拒绝/撤回等请求统一检索/状态/渠道/日期/CSV；无OTA失败推送、自动重试或真实下单。 |
-| 4.14 | Reservations > Transactions | 部分 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 4.15 | Reservations > Transactions | 部分 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 5.1 | Customers > List | 部分 | 客户 / 应收账户 | pms/web/app.js、pms/web/workspace-ui.js；ar-ledger.test.js、ar-reports.test.js、dom-ar-ledger.mjs。住宿关联客户，不合并同名；尚无独立客户档案CRUD |
-| 5.2 | Customers > List > Customer Details (one existing customer, view only) | 部分 | 统计 → 运营查询工作台 → customerDetails | pms/src/financial-reports.js parityReport；test/parity-workbench.test.js；verification/dom-parity-workbench.mjs。住宿详情/标签/费用；尚缺独立生日证件档案 |
+| 4.14 | Reservations > Transactions | 已有 | 统计→运营查询工作台→收退款流水明细 | customer-statistics Node/DOM + 全量回归；逐笔收款/退款/收押金/退押金，住宿归属、参考号、备注、操作员、方式、渠道、房型、马来西亚交易日及另列营业日；搜索/类型/状态筛选。 |
+| 4.15 | Reservations > Transactions | 已有 | 统计→运营查询工作台→收退款流水明细 / 交易汇总 | customer-statistics Node/DOM + 全量回归；明细与双维度汇总及同筛选CSV互相核对；收退款和押金分列，混合明细不生成误导性合计；不连接支付服务。 |
+| 5.1 | Customers > List | 已有 | 客户→内部目录→独立客户档案；客户档案与有归属业务 | customer-statistics Node/DOM + 全量回归；独立编号新建/修改/停用追加版本；允许同名；明确绑定/解绑已有住宿及原因审计，不按姓名/电话自动合并，不改住宿快照。 |
+| 5.2 | Customers > List > Customer Details (one existing customer, view only) | 已有 | 客户→客户档案与有归属业务；工作台→独立客户档案及绑定住宿 | customer-statistics Node/DOM + 全量回归；电话、邮箱、国籍、语言、生日及证件末四位选填、备注、启停、绑定住宿及费用/净收款/待收/待退/押金；不保存完整证件，不提交身份验证。 |
 | 5.3 | Customers > Tag > Ungrouped Tags | 已有 | 客户 / 设置房型与房间 / 运营查询工作台 → 内部目录 | demo-store.js changeDirectory、server/store.js；parity-workbench Node/DOM。本批标签版本/住宿关联追加历史 |
 | 5.4 | Customers > Tag > Tag Group | 已有 | 客户 / 设置房型与房间 / 运营查询工作台 → 内部目录 | demo-store.js changeDirectory、server/store.js；parity-workbench Node/DOM。本批标签组版本/门店范围校验 |
 | 5.5 | Customers > Corporate Client | 部分 | 客户 / 设置房型与房间 / 运营查询工作台 → 内部目录 | demo-store.js changeDirectory、server/store.js；parity-workbench Node/DOM。本批公司目录及现有AR关联；非公司储值系统 |
 | 5.6 | Customers > AR Account | 已有 | 客户 / 应收账户 | pms/web/app.js、pms/web/workspace-ui.js；ar-ledger.test.js、ar-reports.test.js、dom-ar-ledger.mjs。 |
-| 6.1 | Analytics > Statistics > Summary > Revenue Summary | 部分 | 统计 → 运营查询工作台 → revenueSummary | pms/src/financial-reports.js parityReport；test/parity-workbench.test.js；verification/dom-parity-workbench.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 6.2 | Analytics > Statistics > Summary > Transaction Summary | 部分 | 统计 → 运营查询工作台 → transactionSummary | pms/src/financial-reports.js parityReport；test/parity-workbench.test.js；verification/dom-parity-workbench.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 6.3 | Analytics > Statistics > Summary > Channel Summary | 部分 | 统计 → 运营查询工作台 → channelSummary | pms/src/financial-reports.js parityReport；test/parity-workbench.test.js；verification/dom-parity-workbench.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 6.4 | Analytics > Statistics > Summary > Sales Summary | 部分 | 统计 → 运营查询工作台 → salesSummary | pms/src/financial-reports.js parityReport；test/parity-workbench.test.js；verification/dom-parity-workbench.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 6.5 | Analytics > Statistics > Accommodation | 部分 | 统计 → 运营查询工作台 → accommodationSummary | pms/src/financial-reports.js parityReport；test/parity-workbench.test.js；verification/dom-parity-workbench.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 6.6 | Analytics > Statistics > Quick Note | 部分 | 统计 → 运营查询工作台 → quickNoteSummary | pms/src/financial-reports.js parityReport；test/parity-workbench.test.js；verification/dom-parity-workbench.mjs。本批营业日备忘历史；不是独立收支快记账 |
+| 6.1 | Analytics > Statistics > Summary > Revenue Summary | 已有 | 统计→运营查询工作台→营收汇总 | customer-statistics Node/DOM + 全量回归；按营业日费用，日期/渠道/房型/产品/房间/已记录计划/预订类型/公司/国籍/创建人等双维度；房费、附加费/钟点/取消费和单位夜分开，条件/搜索/CSV，缺字段留空。 |
+| 6.2 | Analytics > Statistics > Summary > Transaction Summary | 已有 | 统计→运营查询工作台→交易汇总 | customer-statistics Node/DOM + 全量回归；按马来西亚交易日，双维度加方式/操作员/快记分类快照；四类收退款独列、住宿净收与押金净额分开；筛选/搜索/CSV，不混作营收。 |
+| 6.3 | Analytics > Statistics > Summary > Channel Summary | 已有 | 统计→运营查询工作台→渠道汇总 | customer-statistics Node/DOM + 全量回归；营业日营收按渠道及第二维度展开、渠道/房型/计划/状态/账项类型过滤、CSV；缺渠道字段不猜，渠道不分摊房间容量。 |
+| 6.4 | Analytics > Statistics > Summary > Sales Summary | 已有 | 统计→运营查询工作台→销售汇总 | customer-statistics Node/DOM + 全量回归；预订类型/公司及第二维度，明确读取既有预订快照；可按房型/渠道/计划/状态/创建与完成日期检索及CSV；不是销售佣金或公司储值。 |
+| 6.5 | Analytics > Statistics > Accommodation | 已有 | 统计→运营查询工作台→住宿汇总 | customer-statistics Node/DOM + 全量回归；日期/房型/产品/房间/渠道五维度；按产品独立计算共享原子容量、单位夜、房费、ADR/入住率/RevPAR；渠道/客户/计划/创建或完成时间细分不虚构容量归属，小时费不充房晚。 |
+| 6.6 | Analytics > Statistics > Quick Note | 已有 | 客户→客户档案与有归属业务→有住宿归属快记账；工作台→快记账/备忘录历史 | customer-statistics Node/DOM + 全量回归；按启用分类手工记录已有住宿收款/退款、原因和MYR分；沿用余额/账单关闭/拆账/AR/暂存保护；分类快照及营业日查询/CSV，不允许无人归属收支。 |
 | 6.7 | Analytics > Reports libraries and Quick Open Reports picker | 已有 | 统计 → 运营查询工作台 → 视图选择器及既有统计导航 | operations-completion Node/DOM + 既有回归；23类内部查询统一选择、日期与搜索、同筛选CSV；原AR/住宿/经理报表入口保留；非外部供应商报表库。 |
-| 6.8 | Analytics > Reports > Business Reports > Shift Handover Report (Accrual Basis) | 部分 | 统计 → 运营查询工作台 → 交班营业日明细 | operations-completion Node/DOM；新增营业日收银明细/汇总、班次交班窗口/操作员/方式/渠道、接待记录及CSV；房卡明确未接通；接待仅最近500可读审计，不冒充完整发卡/接待历史。 |
-| 6.9 | Analytics > Reports > Business Reports > Manager Daily Report | 部分 | 统计 → 运营查询工作台 → 经理营业日报表 | operations-completion Node/DOM；保留既有开闭余额经理日报；新增营业日收银/接待分页与CSV；房卡未接通、旧流水缺营业日不倒填，仍非完整参考全部页签。 |
-| 6.10 | Analytics > Reports > Business Reports > Ledger Records | 部分 | 统计 → 运营查询工作台 → 统一账簿记录 | operations-completion Node/DOM；新增营业日费用/收款/押金/AR/账单转账统一明细与CSV，整单住宿账簿快照另页；仍缺完整按创建/完成时间检索及全部业务分类。 |
+| 6.8 | Analytics > Reports > Business Reports > Shift Handover Report (Accrual Basis) | 部分 | 统计 → 运营查询工作台 → 交班营业日明细 | operations-completion Node/DOM；新增营业日收银明细/汇总、班次交班窗口/操作员/方式/渠道、接待记录及CSV；房卡明确未接通；接待仅最近500可读审计，不冒充完整发卡/接待历史。 本批新增从版本起完整追加接待事件与旧可读审计去重；不追造旧缺失历史，房卡仍未接通。 |
+| 6.9 | Analytics > Reports > Business Reports > Manager Daily Report | 部分 | 统计 → 运营查询工作台 → 经理营业日报表 | operations-completion Node/DOM；保留既有开闭余额经理日报；新增营业日收银/接待分页与CSV；房卡未接通、旧流水缺营业日不倒填，仍非完整参考全部页签。 本批新增从版本起完整追加接待事件与旧可读审计去重；不追造旧缺失历史，房卡仍未接通。 |
+| 6.10 | Analytics > Reports > Business Reports > Ledger Records | 已有 | 统计→运营查询工作台→统一账簿记录 | customer-statistics Node/DOM + 全量回归；营业日费用/四类收退款/AR/账单转账分类及整单快照；增加创建与实际退房马来西亚日期起止交集过滤、创建人/状态及时间列；缺旧时间不补猜，不以计划退房冒充完成时间。 |
 | 6.11 | Analytics > Reports > Business Reports > Accrual Basis Operating Report | 已有 | 统计 → 运营查询工作台 → 权责经营明细 | operations-completion Node/DOM + 既有回归；已记录营业日借方费用、贷方净收款/AR/账单转账、押金独立负债，期间与截至结束日所在月累计及CSV；不含储值/外部会计。 |
 | 6.12 | Analytics > Reports > Business Reports > Guest Account Balance Records | 已有 | 统计 → 运营查询工作台 → 营业日客账余额 | operations-completion Node/DOM + 既有回归；逐住宿期初+期间费用−净收款−AR−账单转入=期末，押金独列；房型/渠道及CSV。只算已知日期账项，旧缺日期明确计数；非储值系统。 |
 | 7.1 | Settings > Room > Room Type | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
 | 7.2 | Settings > Room > Rate Plan | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
-| 7.3 | Settings > Room > Hourly Room | 部分 | 客户 / 设置房型与房间 / 运营查询工作台 → 内部目录 | demo-store.js changeDirectory、server/store.js；parity-workbench Node/DOM。本批管理员钟点房定义；尚无按小时售卖库存 |
+| 7.3 | Settings > Room > Hourly Room | 部分 | 客户/设置→目录→钟点房定义；客户档案与有归属业务→小时预订；工作台→小时预订 | customer-statistics Node/DOM；按最低时长基础价+向上取整额外单位保存快照、指定资源、整点小时数、同日入住/退房及费用；整日库存保留至实际退房。保守策略尚无同时段分配、同日自动周转，继续部分。 |
 | 7.4 | Settings > Room > Combined Room | 禁止或需外部接入 | 设置 | 用户明确禁止或需要供应商/订阅；不执行。 |
 | 7.5 | Settings > Room > Meal | 已有 | 客户 / 设置房型与房间 / 工作台 → 内部目录 → 餐食分类 / 餐食 | operations-completion Node/DOM + 既有回归；分类、单位计价、单价、启停追加版本；权益保存名称/分类/计价与价格快照，手工数量/使用日，不重报价旧住宿。 |
-| 7.6 | Settings > Room > Item | 部分 | 客户 / 设置房型与房间 / 运营查询工作台 → 内部目录 | demo-store.js changeDirectory、server/store.js；parity-workbench Node/DOM。本批物品目录及既有附加费；非自动联动库存 |
+| 7.6 | Settings > Room > Item | 已有 | 客户/设置房型与房间→内部目录→物品；客户档案与有归属业务→物品费用 | customer-statistics Node/DOM + 全量回归；管理员目录版本，运营逐笔确认住宿/数量/原因后保存当时名称与单价快照到当前营业日费用；整数金额及关闭/拆账/AR/暂存保护；不声称自动库存。 |
 | 7.7 | Settings > Room > Group | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
 | 7.8 | Settings > Room > Sort | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
 | 7.9 | Settings > Room > Frontdesk | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
 | 7.10 | Settings > Finance > Payment Method | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
-| 7.11 | Settings > Finance > Quick Note | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
-| 7.12 | Settings > Finance > Invoice | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
+| 7.11 | Settings > Finance > Quick Note | 已有 | 客户/设置房型与房间→内部目录→快记账分类 | customer-statistics Node/DOM + 全量回归；管理员维护收款/退款方向与启停追加版本；历史分类名与方向快照不重算，服务端权限及门店隔离；无非住宿费用或无人归属流水。 |
+| 7.12 | Settings > Finance > Invoice | 已有 | 客户/设置房型与房间→内部目录→内部账单模板 | customer-statistics Node/DOM + 全量回归；管理员纯文字标题/页脚/启停追加版本，最新启用模板用于内部账单，字符转义/打印及CSV；不维护税费、不生成税务票据或跟踪代码。 |
 | 7.13 | Settings > Account > Account List | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
 | 7.14 | Settings > Account > Account Role | 部分 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
 | 7.15 | Settings > Account > Shift | 已有 | 设置 | pms/web/app.js、pms/web/workspace-ui.js；catalog.test.js、display-preferences.test.js、member-access.test.js、dom-front-desk-tools.mjs。 |
@@ -123,11 +123,11 @@
 
 ## 数量与下一优先级
 
-共114条：已有 48、部分 51、缺失 0、禁止或需外部接入 15。
+共114条：已有 63、部分 36、缺失 0、禁止或需外部接入 15。
 
-本批16条由部分/缺失提升为已有：2.7–2.13、4.13、6.7、6.11–6.12、7.5、7.25–7.26、9.10、9.21。另扩展6.8–6.10，仍保留部分，未以未接通的房卡或不完整历史宣称完整同款。已有仅指上表明确的JOVIAN内部能力，不承诺参考供应商全部字段或服务。
+本批15条由部分提升为已有：4.11、4.14–4.15、5.1–5.2、6.1–6.6、6.10、7.6、7.11–7.12。已有仅指上表明确列出的JOVIAN内部能力，不代表供应商所有字段/外部服务。6.8/6.9仍有房卡外部缺口；7.3有小时计价预订但仍采用整日库存保护，保留部分。
 
-下一优先：独立客户档案、6.1–6.6完整统计维度与有归属的快记账、6.10创建/完成日期账簿过滤、小时预订；再考虑明确授权范围内iCal持久导入。6.8/6.9房卡、真实OTA失败推送、储值与外部会计不冒充接通；所有禁止项继续不做。
+下一优先：小时库存精细时间窗及人工周转、明确授权边界内iCal持久导入、公司目录内部非储值能力、前台/首页仍未覆盖的内部设置。继续禁止自动夜审/跨午夜交班/历史批量操作与全部Do NOT项；房卡、OTA、储值及外部会计不冒充接通。
 
 ## 补充入口（目录非编号部分）
 
@@ -142,7 +142,7 @@
 | Settings sidebar / Housekeeping Settings | 部分 | 房态清洁设置；尚无完整派工检查项 |
 | Follow-up notes | 禁止或需外部接入 | 仅参考观察范围说明，无新增执行动作 |
 
-## 本批验收范围
+## 前批验收范围（保留历史，最新见下节）
 
 - 13个查询共用 `parityReport`，在演示和共享SQLite模式读取同一结构；不写revision/audit。营业日营收/备注与马来西亚交易自然日分列；CSV使用相同筛选结果、BOM和公式前缀防护。
 - 6个管理员目录（标签组、标签、公司、餐食、物品、钟点定义）追加版本；客户标签追加绑定/解绑事件；服务端强制账号admin并校验门店、父项、整数金额和小时范围。旧住宿/资金不变。
@@ -151,3 +151,9 @@
 - 本批未实现行保持缺失/部分；尤其餐食核销、失败预订统一列表、完整经营会计报表仍待后续。没有新增运行时模块、修改部署工作流或接触真实业务记录。
 
 复现：`npm test --prefix pms`；`python3 -m unittest discover -s pms/test -p 'test_*.py' -v`；`node pms/verification/dom-parity-workbench.mjs /tmp/pms-verification-deps/node_modules/jsdom/lib/api.js`。全部DOM脚本另逐个执行，folio附加`--lines`与`--amend`分支。部署及公网GET证据见continuity/VERIFICATION.md本批章节。
+
+## 客户、统计与账簿续跑（2026-11-11）
+
+本批新增逻辑仅并入既有server/store.js、src/demo-store.js、src/financial-reports.js、web/app.js、web/workspace-ui.js及既有打印CSS；未改发布流程、claims表或既有账号/数据。新增测试与DOM文件不参与运行时部署。
+
+独立客户档案、归属快记账、物品费用、小时预订均追加版本或事件，门店隔离/管理员设置/服务端权限/revision/幂等保留；客户/统计查询不写审计。营业日费用与马来西亚自然日交易、创建和实际完成时间分列，未知旧字段留空。全部升级行的复现与边界见customer-statistics-audit.md，部署与公网证据见continuity/VERIFICATION.md本批章节。

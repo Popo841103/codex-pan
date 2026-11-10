@@ -1140,7 +1140,7 @@ export class Store {
       result.shiftTypes.push(...(body.shiftTypes||[]).map(entry=>({...entry,propertyId:id})));
       result.handovers.push(...(body.handovers||[]).map(entry=>({...entry,propertyId:id})));
       const visibleNotice=n=>fresh.role==='admin'||!n.recipient||n.recipient===fresh.username||n.actor===fresh.username;
-      for(const field of ['operationsHistory','directoryHistory','customerTagHistory','memoHistory','noticeScopes','staffNotices','noticeWithdrawals','commissionRates','listingDrafts','contentHistory']){
+      for(const field of ['receptionHistory','completionHistory','operationsHistory','directoryHistory','customerTagHistory','memoHistory','noticeScopes','staffNotices','noticeWithdrawals','commissionRates','listingDrafts','contentHistory']){
         result[field]??=[];result[field].push(...(body[field]||[]).filter(r=>r.propertyId===id&&
           (field!=='staffNotices'||visibleNotice(r))&&(field!=='noticeWithdrawals'||(body.staffNotices||[]).some(n=>n.id===r.noticeId&&visibleNotice(n)))));
       }
@@ -1218,7 +1218,7 @@ export class Store {
       // A property override decides what this account may do here, not its account role.
       // The override may name a built-in role or one this property defined itself.
       const allowed=this.permissionsFor(rowUser,propertyId);
-      const batchAdmin=['meal_grant','meal_reverse','directory_entry_save','customer_tag_set','commission_close_month','notice_scope_save','commission_rate_save','listing_draft_save','booking_content_save'];
+      const batchAdmin=['customer_link','meal_grant','meal_reverse','directory_entry_save','customer_tag_set','commission_close_month','notice_scope_save','commission_rate_save','listing_draft_save','booking_content_save'];
       if(batchAdmin.includes(command.type)&&rowUser.role!=='admin')error(403,'forbidden');
       if(command.type==='housekeeping_task'&&command.assignee&&!this.db.prepare('SELECT 1 FROM users u JOIN user_properties p ON p.user_id=u.id WHERE u.username=? AND p.property_id=? AND u.active=1').get(command.assignee,propertyId))error(400,'scope');
       if(['notice_scope_save','notice_send'].includes(command.type)){const account=command.username||command.recipient;if(account&&!this.db.prepare('SELECT 1 FROM users u JOIN user_properties p ON p.user_id=u.id WHERE u.username=? AND p.property_id=? AND u.active=1').get(account,propertyId))error(400,'scope');}
@@ -1226,7 +1226,7 @@ export class Store {
       if(command.type==='create_reservation'&&command.mode==='checkin'&&!allowed.includes('checkin'))error(403,'forbidden');
       // Rewriting nights already closed by a night audit stays an administrator-only override.
       if(command.auditOverride===true&&rowUser.role!=='admin')error(403,'forbidden');
-      if(!allowed.includes(({housekeeping_task:'clean',reservation_failure_record:'create',meal_grant:'room_type_save',meal_redeem:'checkin',meal_reverse:'room_type_save',inspection_record:'clean',directory_entry_save:'room_type_save',customer_tag_set:'room_type_save',notice_scope_save:'notice_rule_save',commission_rate_save:'commission_close_month',listing_draft_save:'room_type_save',booking_content_save:'site_save',notice_send:'memo_save',notice_withdraw:'memo_save',undo_checkin:'checkin',undo_checkout:'checkout',restore_cancel:'cancel'})[command.type]||command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
+      if(!allowed.includes(({create_hourly:'create',customer_link:'room_type_save',quick_entry:'payment',item_charge:'edit',housekeeping_task:'clean',reservation_failure_record:'create',meal_grant:'room_type_save',meal_redeem:'checkin',meal_reverse:'room_type_save',inspection_record:'clean',directory_entry_save:'room_type_save',customer_tag_set:'room_type_save',notice_scope_save:'notice_rule_save',commission_rate_save:'commission_close_month',listing_draft_save:'room_type_save',booking_content_save:'site_save',notice_send:'memo_save',notice_withdraw:'memo_save',undo_checkin:'checkin',undo_checkout:'checkout',restore_cancel:'cancel'})[command.type]||command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
       // A request is decided once. Replaying the same key answers from the receipt above;
@@ -1264,13 +1264,13 @@ export class Store {
         cmd.type==='physical_room_save' ? body.physicalRooms.find(r=>r.id===(cmd.physicalRoomId||`${cmd.id}-space`)) :
         body.resources.find(r=>r.id===(cmd.resourceId||cmd.id));
       const created=cmd.type==='create_reservation'?next.reservations.find(r=>r.id===cmd.id):null;
-      const summary={postingBusinessDate:next.businessDate||null,operationsChange:localAudit.operationsChange,...(created?{reservationId:cmd.id,stayIds:created.stayIds}:{}),
+      const summary={postingBusinessDate:next.businessDate||null,operationsChange:localAudit.operationsChange,completionChange:localAudit.completionChange,...(created?{reservationId:cmd.id,stayIds:created.stayIds}:{}),
         ...(cmd.bookingRequestId?{bookingRequestId:cmd.bookingRequestId}:{}),
         // A purge is destructive, so the audit keeps what was removed: which stays, whose
         // names, which nights and what state they were in. The orders themselves are gone.
         ...(cmd.type==='purge_test_orders'?{purged:before.orders.filter(o=>!next.orders.some(n=>n.id===o.id))
           .map(o=>({id:o.id,guest:o.guest,start:o.start,end:o.end,status:o.status,reservationId:o.reservationId||null})),
-          prefix:typeof cmd.prefix==='string'?cmd.prefix:null}:{}),orderId:cmd.type==='create'?cmd.id:cmd.orderId||null,
+          prefix:typeof cmd.prefix==='string'?cmd.prefix:null}:{}),orderId:['create','create_hourly'].includes(cmd.type)?cmd.id:cmd.orderId||null,
         ...(stayTypes.includes(cmd.type)?{stayChange:{before:staySnapshot(before,cmd.orderId),after:staySnapshot(next,cmd.orderId),reason:typeof cmd.reason==='string'?cmd.reason.trim():null}}:{}),
         ...(cmd.type==='create'?{stayChange:{before:null,after:staySnapshot(next,cmd.id),reason:null}}:{}),resourceId:cmd.resourceId||null,
         ...(cmd.roomTypeId?{roomTypeId:cmd.roomTypeId}:{}),

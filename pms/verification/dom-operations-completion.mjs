@@ -63,7 +63,7 @@ try {
  assert(query('housekeepingList').textContent.includes(taskId+':done'));
  assert(query('managerBusiness','2027-02-01','2027-02-01',{section:'cashierSummary'}).textContent.includes('5000'));
  assert(query('managerBusiness','2027-02-01','2027-02-01',{section:'roomCards'}).textContent.includes('未接通'));
- const before=store.read(operator);for(const language of ['en','ms','zh']){set('#language',language);assert($('[data-operations-panel]'));assert.equal($('[data-parity-query] [name=kind]').options.length,23);query('mealSummary');}
+ const before=store.read(operator);for(const language of ['en','ms','zh']){set('#language',language);assert($('[data-operations-panel]'));assert.equal($('[data-parity-query] [name=kind]').options.length,27);query('mealSummary');}
  assert.equal(store.read(operator).audit.length,before.audit.length);assert.deepEqual(store.read(operator).orders,before.orders);
  set('#property','TEST-PG');assert(!$('#content').textContent.includes('TEST breakfast'));assert(!$('#content').textContent.includes('TEST failed DOM'));
  URL.createObjectURL=oldCreate;URL.revokeObjectURL=oldRevoke;dom.window.HTMLAnchorElement.prototype.click=oldClick;
