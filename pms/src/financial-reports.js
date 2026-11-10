@@ -644,7 +644,7 @@ export function parityReport(state,q){
  }else if(['shiftAccrual','managerBusiness','ledgerRecords','accrualOperating','guestBalances'].includes(q.kind)){
   columns=['businessDate','orderId','source','roomTypeId','kind','amount','method','actor','at','localDate'];
   const charges=selected.flatMap(o=>orderChargeLines(o).lines).filter(r=>inRange(r.date,q));
-  const transactions=selected.flatMap(o=>(o.transactions||[]).map(t=>({...t,orderId:o.id,source:o.source,roomTypeId:o.roomTypeId,localDate:localDay(t.at)})));
+  const transactions=selected.flatMap(o=>(o.transactions||[]).map(t=>({...t,orderId:o.id,source:o.source,roomTypeId:o.roomTypeId,localDate:t.at?localDay(t.at):''})));
   unallocated=selected.reduce((n,o)=>n+orderChargeLines(o).unallocated.length,0)+transactions.filter(t=>!validDate(t.businessDate)).length;
   rows=charges.map(r=>({...r,businessDate:r.date}));
   rows.push(...transactions.filter(t=>inRange(t.businessDate,q)));
@@ -695,7 +695,7 @@ export function parityReport(state,q){
   const cash=q.kind==='transactionSummary',groups=new Map();unallocated=0;
   columns=['key','key2',...(cash?['payment','refund','deposit_in','deposit_out','netAccommodation','netDeposit','count']:['total','roomFee','extras','unitNights','count'])];
   for(const o of selected){const parent=(state.reservations||[]).find(r=>r.propertyId===q.propertyId&&r.id===o.reservationId),base={...o,bookingKind:parent?.bookingKind||'',companyName:parent?.companyName||''};
-   const lines=cash?(o.transactions||[]).map(t=>({...t,date:localDay(t.at)})):orderChargeLines(o).lines;
+   const lines=cash?(o.transactions||[]).map(t=>({...t,date:t.at?localDay(t.at):''})):orderChargeLines(o).lines;
    unallocated+=cash?lines.filter(l=>!validDate(l.date)).length:orderChargeLines(o).unallocated.length;
    for(const l of lines.filter(l=>inRange(l.date,q)&&(!q.actor||l.actor===q.actor)&&(!q.method||l.method===q.method)&&(!q.lineKind||l.kind===q.lineKind))){
     const history=(state.completionHistory||[]).find(r=>r.propertyId===q.propertyId&&r.id===l.id&&r.type==='quick_entry');
@@ -710,7 +710,7 @@ export function parityReport(state,q){
  }
  if(q.kind==='transactionDetail'){
   columns=['id','orderId','guest','source','roomTypeId','kind','amount','method','actor','at','localDate','businessDate','reference','note'];
-  const transactions=selected.flatMap(o=>(o.transactions||[]).map(t=>({...t,orderId:o.id,guest:o.guest,source:o.source,roomTypeId:o.roomTypeId,localDate:localDay(t.at)})));
+  const transactions=selected.flatMap(o=>(o.transactions||[]).map(t=>({...t,orderId:o.id,guest:o.guest,source:o.source,roomTypeId:o.roomTypeId,localDate:t.at?localDay(t.at):''})));
   rows=transactions.filter(t=>inRange(t.localDate,q)&&(!q.actor||t.actor===q.actor)&&(!q.method||t.method===q.method));unallocated=transactions.filter(t=>!validDate(t.localDate)).length;
  }
  if(q.kind==='hourlyReservations'){

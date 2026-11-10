@@ -31,7 +31,7 @@ python3 -m unittest discover -s pms/test -p 'test_*.py' -v
 node pms/verification/dom-customer-statistics.mjs /tmp/pms-verification-deps/node_modules/jsdom/lib/api.js
 ```
 
-本地Linux Node24 **533/533**（基线490，新增43），Python **5/5**；28个DOM脚本加folio `--lines`/`--amend`共**30/30**；37个runtime JS、6个shell语法及`git diff --check`通过。新增Node逐命令比较Store和本地reducer的orders/directory/completion/reception状态，覆盖权限/隔店/幂等/旧记录不变、余额/关账/AR保护、统计勾稽、两种日期、缺时间不猜、小时冲突及夜审。新DOM通过本地HTTP+jsdom+合成账号和内存SQLite完成整链；三语控件与切店清空旧结果，查询不增加revision/audit；打印用window.print桩确认专用样式，没有真实打印机验收。既有DOM选择器报表数从23更新为27。
+本地Linux Node24 **534/534**（基线490，新增44），Python **5/5**；28个DOM脚本加folio `--lines`/`--amend`共**30/30**；37个runtime JS、6个shell语法及`git diff --check`通过。新增Node逐命令比较Store和本地reducer的orders/directory/completion/reception状态，覆盖权限/隔店/幂等/旧记录不变、余额/关账/AR保护、统计勾稽、两种日期、缺时间不猜、小时冲突及夜审。新DOM通过本地HTTP+jsdom+合成账号和内存SQLite完成整链；三语控件与切店清空旧结果，查询不增加revision/audit；打印用window.print桩确认专用样式，没有真实打印机验收。既有DOM选择器报表数从23更新为27。
 
 Windows已知私有文件权限测试未弱化；Ubuntu完整门禁仍必需。部署Actions与公网GET证据在`continuity/VERIFICATION.md`本批中文节记录，不能从本地通过推断线上行为。公网只做GET健康和静态文件核验，不登录或写任何真实业务。全部Do NOT项继续不做，既有账号/数据库/客人与财务记录不重建、不回退、不重置。
 
