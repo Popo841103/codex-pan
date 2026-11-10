@@ -1,3 +1,7 @@
+import {directoryPanel} from './workspace-ui.js';
+import {directoryEntries} from '../src/demo-store.js';
+import {parityReport,parityCsv,occupancyIcal,previewIcal} from '../src/financial-reports.js';
+import {parityWorkspacePage,parityReportTable,parityLabel} from './workspace-ui.js';
 import {internalOperationsPanel} from './workspace-ui.js';
 import {operationsReports,reminderForAccount} from '../src/demo-store.js';
 import {defaultComparisonPeriods} from '../src/financial-reports.js';
@@ -165,6 +169,7 @@ function render() {
   if(view==='home') { const scoped=nightAuditState();$('#content').innerHTML=dashboardPage(state,propertyId,date,lang,t,currency,can,{items:homeShortcuts(),memoText:memoDrafts.get(propertyId),businessDate:scoped.businessDate,lastAudit:(scoped.nightAudits||[]).slice().sort((a,b)=>b.at.localeCompare(a.at))[0]||null}); }
   else if(['business','cashflow','comparison','managerDaily','guestLedger','roomCharge','roomBusiness','roomMovement','extraCharge','cancellation','occupants','registration','commission','arLedger','arReports'].includes(view)) { $('#content').innerHTML=financialSummary(view); }
   else if(['nightAudit','nightAuditSettings'].includes(view)) { $('#content').innerHTML=nightAuditPage(nightAuditState(),propertyId,{t,escape,currency,can,lang,settings:view==='nightAuditSettings'}); }
+  else if(view==='parityWorkspace') { $('#content').innerHTML=parityWorkspacePage({state,propertyId,lang,date,escape}); }
   else if(view==='customers') { $('#content').innerHTML=customersPage(state,propertyId,t,escape,customerQuery); }
   else if(view==='channels') { $('#content').innerHTML=channelsPage(t,escape,channelProperty===propertyId?channelProvider:null,can)+`<p data-configured-channels>${channelChoices().map(id=>escape(t(id))).join(' · ')||escape(t('empty'))}</p><button data-rates-open>${rateLabel('房价管理','Rate management','Pengurusan kadar')}</button>`; }
   else if(view==='resourcesSettings') { $('#content').innerHTML=catalogPage(state,propertyId,lang,t,can); }
@@ -190,6 +195,8 @@ function render() {
     $('#content').innerHTML = `<section class="panel"><h2>${t('audit')}</h2><div class="table-wrap"><table><thead><tr><th>${t('time')}</th><th>${t('action')}</th><th>ID</th></tr></thead><tbody>${state.audit.filter(a=>a.propertyId===propertyId).map(a=>`<tr><td>${escape(new Date(a.at).toLocaleString(lang==='zh'?'zh-CN':lang==='ms'?'ms-MY':'en-GB',{timeZone:'Asia/Kuala_Lumpur'}))}</td><td>${t(a.type==='clean'?'cleanAction':a.type==='block'?'blockAction':a.type)}</td><td>${escape((a.orderId||a.resourceId||a.id).slice(0,20))}<small>${escape(a.actor||'')}</small></td></tr>`).join('')}</tbody></table></div><p class="muted">${t('footer')}</p></section>`;
   }
   $('#content').insertAdjacentHTML('beforeend',internalOperationsPanel({state,propertyId,lang,username:backend.user?.username||'local',admin:backend.shared?backend.user?.role==='admin':true,view,escape}));
+  if(view==='parityWorkspace')runParityQuery();
+  if(['customers','resourcesSettings','parityWorkspace'].includes(view))$('#content').insertAdjacentHTML('beforeend',directoryPanel({state,propertyId,lang,admin:backend.shared?backend.user?.role==='admin':true,escape}));
   loadInternalContent(document.querySelector('[data-internal-command="booking_content_save"]'));
   updateBell();
 }
@@ -423,7 +430,7 @@ function openDetail(id) {
   let policyPreview='';try{const preview=previewCancellation(o,new Date().toISOString());policyPreview='<p>'+escape(rateLabel('订单政策快照','Booked policy snapshot','Polisi tempahan'))+': '+escape(o.cancellationPolicy?.kind||'manual')+' · '+(preview.fee===null?escape(rateLabel('人工核定费用','Manually confirm fee','Sahkan caj manual')):escape(currency(preview.fee)))+(preview.deadline?' · '+escape(preview.deadline):'')+'</p><p class="muted">'+escape(rateLabel('仅房费政策预览；附加消费需另核定，不会自动取消、收款或退款。','Room-fee policy preview only; confirm extras separately. No automatic cancellation, charge or refund.','Pratonton polisi caj bilik sahaja; semak caj tambahan berasingan. Tiada pembatalan atau bayaran automatik.'))+'</p>';}catch{policyPreview='<p>'+escape(rateLabel('政策预览不可用，请人工核定。','Policy preview unavailable; confirm manually.','Pratonton polisi tiada; sahkan manual.'))+'</p>';}
   const cancellation=o.status==='confirmed'&&!o.folioClosed?`<details><summary>${t('cancel')}</summary><form id="cancel-form">${policyPreview}<p class="muted">${t('cancelNote')}</p><label>${t('reason')}<input name="reason" required maxlength="500"></label><label>${t('finalCharge')}<input name="finalCharge" type="number" min="0" max="1000000" step="0.01" required></label><button ${can('cancel')?'':'disabled'}>${t('cancel')}</button></form></details>`:'';
   const undo={checked_in:['undo_checkin','checkin'],checked_out:['undo_checkout','checkout'],cancelled:['restore_cancel','cancel']}[o.status];
-  $('#detail-body').innerHTML=`<div class="detail-head"><div role="tablist" aria-label="${t('details')}">${[['details','details'],['bill','billInfo'],['audit','audit'],['channel','channelInfo']].map(([key,label])=>`<button role="tab" id="detail-tab-${key}" aria-selected="${key===detailTab}" aria-controls="detail-panel" data-detail-tab="${key}" tabindex="${key===detailTab?0:-1}">${t(label)}</button>`).join('')}</div><button id="detail-close" aria-label="${t('close')}">×</button></div><div id="detail-error" role="alert"></div><div class="detail-scroll" id="detail-panel" role="tabpanel" aria-labelledby="detail-tab-${detailTab}">${{details:basic,bill,audit,channel}[detailTab]}${detailTab==='details'?cancellation:''}</div><div class="detail-footer"><button data-detail-go="details">${t('edit')}</button><button data-detail-go="bill">${t('billInfo')}</button>${!finished&&!isBoxed(o)?button(o.status==='confirmed'?'checkin':'checkout',id):''}${undo?`<button data-stay-reversal="${undo[0]}" ${can(undo[1])?'':'disabled'}>${t(undo[0])}</button>`:''}${o.status==='confirmed'?`<button id="detail-box" ${can(isBoxed(o)?'restore_stays':'box_stays')&&!o.locked&&(isBoxed(o)||!o.folioClosed&&!o.splitBills&&!o.arMoves?.length&&!o.folioTransfers?.length)?'':'disabled'}>${t(isBoxed(o)?'restore_stays':'box_stays')}</button>`:''}<button data-reservation-history="${escape(id)}">${rateLabel('整单住宿与日志','Reservation stays and history','Penginapan dan sejarah tempahan')}</button><button data-stay-preview="scheduled">${t('scheduled')}</button><button id="print-order" data-stay-preview="print">${t('printCenter')}</button><button data-stay-preview="self-checkin">${t('selfCheckinPreview')}</button></div>`;
+  $('#detail-body').innerHTML=`<div class="detail-head"><div role="tablist" aria-label="${t('details')}">${[['details','details'],['bill','billInfo'],['audit','audit'],['channel','channelInfo']].map(([key,label])=>`<button role="tab" id="detail-tab-${key}" aria-selected="${key===detailTab}" aria-controls="detail-panel" data-detail-tab="${key}" tabindex="${key===detailTab?0:-1}">${t(label)}</button>`).join('')}</div><button id="detail-close" aria-label="${t('close')}">×</button></div><div id="detail-error" role="alert"></div><div class="detail-scroll" id="detail-panel" role="tabpanel" aria-labelledby="detail-tab-${detailTab}">${{details:basic,bill,audit,channel}[detailTab]}${detailTab==='details'?cancellation:''}</div><div class="detail-footer"><button data-detail-go="details">${t('edit')}</button><button data-detail-go="bill">${t('billInfo')}</button>${!finished&&!isBoxed(o)?button(o.status==='confirmed'?'checkin':'checkout',id):''}${undo?`<button data-stay-reversal="${undo[0]}" ${can(undo[1])?'':'disabled'}>${t(undo[0])}</button>`:''}${o.status==='confirmed'?`<button id="detail-box" ${can(isBoxed(o)?'restore_stays':'box_stays')&&!o.locked&&(isBoxed(o)||!o.folioClosed&&!o.splitBills&&!o.arMoves?.length&&!o.folioTransfers?.length)?'':'disabled'}>${t(isBoxed(o)?'restore_stays':'box_stays')}</button>`:''}<button data-internal-invoice="${escape(id)}">${parityLabel('invoice',lang)}</button><button data-reservation-history="${escape(id)}">${rateLabel('整单住宿与日志','Reservation stays and history','Penginapan dan sejarah tempahan')}</button><button data-stay-preview="scheduled">${t('scheduled')}</button><button id="print-order" data-stay-preview="print">${t('printCenter')}</button><button data-stay-preview="self-checkin">${t('selfCheckinPreview')}</button></div>`;
   $('#detail-close').onclick=()=>$('#detail-dialog').close();
   const act=async command=>{try{await commit({...command,orderId:id});openDetail(id);}catch(e){$('#detail-error').textContent=errorText(e);}};
   $('#detail-body').onclick=e=>{
@@ -1392,4 +1399,53 @@ $('#content').addEventListener('click',event=>{
  const stays=state.orders.filter(o=>o.propertyId===propertyId&&o.start<end&&o.end>calendarDate);
  openUtility(rateLabel('日历区间住宿查询','Calendar range stay query','Carian penginapan julat kalendar'),`<section data-calendar-range-results><p>${escape(calendarDate+' → '+end)}</p><label>${t('search')}<input data-calendar-query-search></label><table><tbody>${stays.map(o=>`<tr data-calendar-query-row><td>${escape(o.id)}</td><td>${escape(o.guest)}</td><td>${escape(o.source)}</td><td>${escape(o.status)}</td><td>${escape(o.start+' → '+o.end)}</td><td>${escape(o.resourceId||'—')}</td></tr>`).join('')}</tbody></table></section>`);
  $('[data-calendar-query-search]').oninput=event=>{for(const row of document.querySelectorAll('[data-calendar-query-row]'))row.hidden=!row.textContent.toLowerCase().includes(event.target.value.toLowerCase());};
+});
+
+// Recompute CSV from the current property and controls, never a previous report.
+function runParityQuery(){
+ const form=document.querySelector('[data-parity-query]');if(!form)return null;
+ const output=form.querySelector('output'),csv=form.querySelector('[data-parity-csv]');
+ try{const data=Object.fromEntries(new FormData(form));
+  const report=parityReport(state,{...data,propertyId,businessDate:businessDate()});
+  $('[data-parity-results]').innerHTML=parityReportTable(report,lang,escape);
+  const note=['housekeepingCalendar','housekeepingList'].includes(data.kind)?rateLabel('计划周转不是任务；未生成派工、检查员或历史清洁状态。','Planned turnover is not a task; no assignments, inspectors or historical cleanliness are inferred.','Pertukaran dirancang bukan tugas; tiada tugasan, pemeriksa atau kebersihan sejarah disimpulkan.'):
+   data.kind==='rateHistory'?rateLabel('按受影响房价日筛选；操作时间另列，原快照保留。','Filtered by affected rate date; recorded time is separate and original snapshots remain.','Ditapis mengikut tarikh kadar terjejas; masa rekod berasingan dan petikan asal kekal.'):
+   data.kind==='invoice'?rateLabel('完整住宿项费用快照，不按查询区间切割账项；仅内部核对，无税务提交。搜索住宿项编号可查看单项。','Full stay charges, not sliced by query dates; internal review only, no tax submission. Search a stay ID for one invoice.','Caj penuh penginapan, tidak dipotong mengikut julat; semakan dalaman sahaja, tiada penyerahan cukai. Cari ID penginapan untuk satu invois.'):
+   data.kind==='salesSummary'?rateLabel('按已记录的预订类型和公司分组；没有业务员归属时不推断。','Groups recorded booking types and companies; salesperson attribution is not inferred.','Kumpulan jenis tempahan dan syarikat direkod; jurujual tidak disimpulkan.'):
+   data.kind==='customerDetails'?rateLabel('每住宿项独立显示，不按同名合并客户；账页余额为当前完整快照。','One row per stay; matching names do not merge customers. Balances are current complete folios.','Satu baris setiap penginapan; nama sama tidak menggabungkan pelanggan. Baki ialah folio penuh semasa.'):
+   data.kind==='quickNoteSummary'?rateLabel('仅本版本起保存的备注历史；旧备忘录无营业日，不倒填。','History begins with this version; legacy notes without a business date are not backdated.','Sejarah bermula versi ini; nota lama tanpa hari perniagaan tidak ditarikh semula.') : '';
+  $('[data-parity-note]').textContent=note+' '+rateLabel('未分配日期账项数：','Items with unallocated dates: ','Item tanpa tarikh diperuntuk: ')+report.unallocated;
+  output.textContent='';csv.disabled=false;return report;
+ }catch{output.textContent=rateLabel('查询无效：请检查日期及范围。','Invalid query: check dates and range.','Pertanyaan tidak sah: semak tarikh dan julat.');$('[data-parity-results]').textContent='';$('[data-parity-note]').textContent='';csv.disabled=true;return null;}
+}
+function parityDownload(text,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
+$('#content').addEventListener('submit',event=>{
+ if(event.target.matches('[data-parity-query]')){event.preventDefault();runParityQuery();}
+ if(event.target.matches('[data-parity-ical]')){event.preventDefault();const form=event.target;try{const rows=previewIcal(form.elements.ics.value);form.querySelector('[data-ical-preview]').textContent=rows.map(r=>r.start+' → '+r.end).join('\n');form.querySelector('output').textContent=rateLabel('只读预览区间数：','Read-only preview intervals: ','Selang pratonton baca sahaja: ')+rows.length;}catch{form.querySelector('[data-ical-preview]').textContent='';form.querySelector('output').textContent=rateLabel('ICS格式不支持或无效；未导入。','Unsupported or invalid ICS; nothing imported.','ICS tidak disokong atau tidak sah; tiada import.');}}
+});
+$('#content').addEventListener('change',event=>{if(event.target.closest('[data-parity-query]'))runParityQuery();});
+$('#content').addEventListener('input',event=>{if(event.target.closest('[data-parity-query]')){$('[data-parity-csv]').disabled=true;}});
+$('#content').addEventListener('click',event=>{
+ if(event.target.closest('[data-parity-csv]')){const report=runParityQuery();if(report)parityDownload(parityCsv(report,k=>parityLabel(k,lang)),'jovian-'+report.kind+'-'+report.from+'-'+report.to+'.csv','text/csv;charset=utf-8');}
+ if(event.target.closest('[data-parity-ical-export]')){const form=$('[data-parity-query]');try{parityDownload(occupancyIcal(state,{propertyId,resourceId:$('[data-parity-ical] [name=resourceId]').value,from:form.elements.from.value,to:form.elements.to.value}),'jovian-occupancy.ics','text/calendar;charset=utf-8');}catch{$('[data-parity-ical] output').textContent=rateLabel('请检查日期、资源、未分房或逾期在住；有未确定区间时拒绝导出。','Check dates, resource, unassigned or overdue stays; unresolved intervals prevent export.','Semak tarikh, sumber, penginapan tanpa bilik atau lewat; selang belum pasti menghalang eksport.');}}
+});
+
+$('#content').addEventListener('change',event=>{
+ const form=event.target.closest('[data-directory-save]');if(!form||event.target.name!=='entryId')return;
+ const row=directoryEntries(state,propertyId).find(r=>r.entryId===event.target.value);
+ for(const input of form.elements)if(input.name&&input.name!=='entryId')input.value=row?.[input.name]??'';
+});
+$('#content').addEventListener('submit',async event=>{
+ const form=event.target;if(!form.matches('[data-directory-save],[data-customer-tag]'))return;
+ event.preventDefault();const data=Object.fromEntries(new FormData(form)),button=form.querySelector('button');button.disabled=true;
+ try{if(form.matches('[data-directory-save]')){for(const k of ['unitAmount','baseAmount','minHours','unitHours','maxHours'])if(k in data)data[k]=Number(data[k]);await commit({type:'directory_entry_save',kind:form.dataset.directorySave,...data});}
+ else await commit({type:'customer_tag_set',...data,active:data.active==='true'});render();}
+ catch(error){form.querySelector('output').textContent=errorText(error);button.disabled=false;}
+});
+
+$('#detail-body').addEventListener('click',event=>{
+ const button=event.target.closest('[data-internal-invoice]');if(!button)return;
+ const o=state.orders.find(o=>o.propertyId===propertyId&&o.id===button.dataset.internalInvoice);if(!o)return;
+ const report=parityReport(state,{propertyId,from:o.start,to:o.start,kind:'invoice',search:o.id});report.rows=report.rows.filter(r=>r.orderId===o.id);
+ openUtility(parityLabel('invoice',lang),'<section data-internal-invoice-view><p>'+rateLabel('内部费用核对，无税务提交。金额为MYR分；押金单独列示。','Internal charge review, no tax submission. Amounts are MYR cents; deposits are separate.','Semakan caj dalaman, tiada penyerahan cukai. Amaun dalam sen MYR; deposit berasingan.')+'</p>'+parityReportTable(report,lang,escape)+'</section>');
 });

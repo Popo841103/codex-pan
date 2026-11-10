@@ -402,7 +402,8 @@ export function apply(state, command) {
   };
   if(order&&['settle','ar_post'].includes(type)&&order.status==='confirmed')restoreForSettlement([order]);
   if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
-  if(batchActions.includes(type)){
+  if(['directory_entry_save','customer_tag_set'].includes(type)){changeDirectory(next,command);}
+  else if(batchActions.includes(type)){
     changeBatchState(next,command);
   } else if(type==='night_audit_handle_all'){
     if(!isDate(next.businessDate))reject('business_date');
@@ -467,7 +468,9 @@ export function apply(state, command) {
   } else if(type==='display_preferences_save') {
     saveDisplayPreferences(next, command);
   } else if(type==='memo_save') {
-    next.properties.find(p=>p.id===propertyId).memo={text:text(command.text,3000),at:command.at,actor:command.actor||'local'};
+    const memo={text:text(command.text,3000),at:command.at,actor:command.actor||'local'};
+    next.properties.find(p=>p.id===propertyId).memo=memo;
+    (next.memoHistory??=[]).push({id:command.id,propertyId,businessDate:next.businessDate||null,...memo});
   } else if (catalogActions.includes(type)) {
     configureCatalog(next, command);
   } else if (type === 'create') {
@@ -737,6 +740,8 @@ export function apply(state, command) {
       after:['box_stays','restore_stays'].includes(type) ? null : staySnapshot(movedTo),
       reason: typeof command.reason === 'string' ? command.reason.trim() : null } } : {}),
     ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}),
+    ...(['directory_entry_save','customer_tag_set'].includes(type)?{directoryChange:type==='directory_entry_save'?next.directoryHistory.at(-1):next.customerTagHistory.at(-1)}:{}),
+    ...(type==='memo_save'?{memoChange:next.memoHistory.at(-1)}:{}),
     ...(type==='transfer_folio_credit'?{reservationId:command.reservationId,fromId:command.fromId,toId:command.toId,amount:next.orders.find(o=>o.id===command.toId)?.folioTransfers?.at(-1)?.amount,reverses:command.reverses,reason:command.reason.trim()}:{}),
     ...(type==='undo_reservation_payment'?{reservationId:command.reservationId,reversesBatchId:command.batchId,reason:command.reason.trim()}:{}),
     ...(type==='payment_reservation'?{reservationId:command.reservationId,amount:command.amount,method:command.method,allocations:command.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
@@ -1298,4 +1303,41 @@ export function reminderForAccount(state,notice,username,at=new Date().toISOStri
  const d=new Date(instant+8*3600000),minute=d.getUTCHours()*60+d.getUTCMinutes(),m=v=>Number(v.slice(0,2))*60+Number(v.slice(3));
  const shift=(state.shiftTypes||[]).filter(r=>!r.propertyId||r.propertyId===notice.propertyId).find(r=>{const a=m(r.start),b=m(r.end);return a<b?minute>=a&&minute<b:minute>=a||minute<b;});
  return scopedReminder(state,notice,{username,shiftId:shift?.id});
+}
+
+// Append-only internal directories. These definitions never price an existing
+// stay or create meal entitlements, hourly bookings, charges or AR postings.
+export const directoryKinds=['tagGroup','tag','corporate','meal','item','hourly'];
+export function directoryEntries(state,propertyId,kind){
+ const latest=new Map();for(const row of state.directoryHistory||[])if(row.propertyId===propertyId&&(!kind||row.kind===kind))latest.set(row.entryId,row);return [...latest.values()];
+}
+function changeDirectory(state,c){
+ const {propertyId,id,at,actor='local'}=c;
+ if(c.type==='customer_tag_set'){
+  if(!state.orders.some(o=>o.id===c.orderId&&o.propertyId===propertyId)||!directoryEntries(state,propertyId,'tag').some(t=>t.entryId===c.tagId)||typeof c.active!=='boolean')reject('scope');
+  (state.customerTagHistory??=[]).push({id,propertyId,at,actor,orderId:c.orderId,tagId:c.tagId,active:c.active});return;
+ }
+ if(!directoryKinds.includes(c.kind)||typeof c.name!=='string'||!c.name.trim()||c.name.length>100)reject('input');
+ const rows=directoryEntries(state,propertyId),before=c.entryId?rows.find(r=>r.entryId===c.entryId&&r.kind===c.kind):null;
+ if(c.entryId&&!before)reject('scope');
+ const entryId=before?.entryId||id;
+ if(rows.some(r=>r.kind===c.kind&&r.entryId!==entryId&&r.name.toLowerCase()===c.name.trim().toLowerCase()))reject('input');
+ const row={id,entryId,propertyId,at,actor,kind:c.kind,name:c.name.trim()};
+ if(c.kind==='tag'){
+  if(c.groupId&&!rows.some(r=>r.entryId===c.groupId&&r.kind==='tagGroup'))reject('scope');row.groupId=c.groupId||'';
+ }
+ if(c.kind==='corporate'){
+  for(const key of ['contact','phone']){if(c[key]!==undefined&&(typeof c[key]!=='string'||c[key].length>100))reject('input');row[key]=c[key]||'';}
+  if(c.arAccountId&&!(state.arAccounts||[]).some(r=>r.propertyId===propertyId&&r.id===c.arAccountId))reject('scope');row.arAccountId=c.arAccountId||'';
+ }
+ if(['meal','item','hourly'].includes(c.kind)){
+  if(!Number.isSafeInteger(c.unitAmount)||c.unitAmount<0||c.unitAmount>100000000)reject('amount');row.unitAmount=c.unitAmount;
+ }
+ if(c.kind==='hourly'){
+  if(!state.roomTypes.some(r=>r.propertyId===propertyId&&r.id===c.roomTypeId&&!r.archived))reject('scope');
+  for(const key of ['minHours','unitHours','maxHours'])if(!Number.isSafeInteger(c[key])||c[key]<1||c[key]>24)reject('input');
+  if(c.minHours>c.maxHours||c.unitHours>c.maxHours||!Number.isSafeInteger(c.baseAmount)||c.baseAmount<0||c.baseAmount>100000000)reject('input');
+  Object.assign(row,{roomTypeId:c.roomTypeId,minHours:c.minHours,unitHours:c.unitHours,maxHours:c.maxHours,baseAmount:c.baseAmount});
+ }
+ (state.directoryHistory??=[]).push(row);
 }

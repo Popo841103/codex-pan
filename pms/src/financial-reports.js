@@ -556,3 +556,113 @@ export function receivableReports(state,q){
     accrual:accrual.rows,unallocated:accrual.unallocatedCharges,
     orderName:id=>orders.get(id)?.guest||id};
 }
+
+// Read-only parity workbench. Every view consumes the same scoped state in demo
+// and SQLite modes. No view records money, changes inventory, or repairs history.
+import {rateAvailability} from './rate-availability.js';
+import {saleResources} from './catalog.js';
+import {folio,directoryEntries} from './demo-store.js';
+export const parityKinds=['dailyInventory','futureInventory','housekeepingCalendar','housekeepingList','rateHistory','customerDetails','revenueSummary','transactionSummary','channelSummary','salesSummary','accommodationSummary','quickNoteSummary','invoice'];
+export function parityReport(state,q){
+ const orders=scope(state,q);
+ if(!parityKinds.includes(q.kind))throw Error('report_input');
+ const span=(Date.parse(q.to)-Date.parse(q.from))/86400000+1;
+ if(span>366||(['dailyInventory','futureInventory','housekeepingCalendar'].includes(q.kind)&&span>31))throw Error('report_range');
+ const days=[];for(let d=q.from;d<=q.to;d=nextDay(d))days.push(d);
+ const selected=orders.filter(o=>!q.roomTypeId||o.roomTypeId===q.roomTypeId);
+ const allSource=!q.source||q.source==='all';
+ let columns=[],rows=[],unallocated=0;
+ if(['dailyInventory','futureInventory'].includes(q.kind)){
+  if(!validDate(q.businessDate)||!allSource)throw Error('report_input');
+  columns=['date','roomTypeId','productId','capacity','occupied','available'];
+  const dates=q.kind==='dailyInventory'?[q.from]:days;
+  for(const date of dates)for(const type of (state.roomTypes||[]).filter(r=>r.propertyId===q.propertyId&&!r.archived&&(!q.roomTypeId||r.id===q.roomTypeId))){
+   rows.push({date,roomTypeId:type.id,productId:type.productId,capacity:saleResources(state,q.propertyId).filter(r=>r.roomTypeId===type.id).length,occupied:selected.filter(o=>o.roomTypeId===type.id&&occupiesInventory(o)&&o.start<=date&&o.end>date).length,available:rateAvailability(state,q.propertyId,type.id,date,q.businessDate)});
+  }
+ }else if(['housekeepingCalendar','housekeepingList'].includes(q.kind)){
+  if(!allSource)throw Error('report_input');
+  columns=['date','roomTypeId','resourceId','cleaning','arrivals','departures'];
+  for(const date of q.kind==='housekeepingList'?['']:days)for(const r of saleResources(state,q.propertyId).filter(r=>!q.roomTypeId||r.roomTypeId===q.roomTypeId)){
+   const stays=selected.filter(o=>o.resourceId===r.id&&!isBoxed(o)&&o.status!=='cancelled');
+   rows.push({date,roomTypeId:r.roomTypeId,resourceId:r.id,cleaning:date?'':r.cleaning||'',arrivals:date?stays.filter(o=>o.start===date).length:'',departures:date?stays.filter(o=>o.end===date).length:''});
+  }
+ }else if(q.kind==='rateHistory'){
+  columns=['date','at','actor','batchId','roomTypeId','planCode','before','after'];
+  rows=(state.rateChanges||[]).filter(r=>r.propertyId===q.propertyId&&inRange(r.after.date,q)&&(!q.roomTypeId||r.after.roomTypeId===q.roomTypeId)).map(r=>({date:r.after.date,at:r.at,actor:r.actor,batchId:r.batchId,roomTypeId:r.after.roomTypeId,planCode:r.after.planCode,before:r.before?JSON.stringify(r.before):'',after:JSON.stringify(r.after)}));
+ }else if(q.kind==='customerDetails'){
+  columns=['orderId','guest','phone','email','country','tags','start','end','status','charge','paid','due','deposit'];
+  rows=selected.filter(o=>o.start<=q.to&&o.end>=q.from).map(o=>({orderId:o.id,guest:o.guest,phone:o.phone||'',email:o.email||'',country:o.country||'',tags:activeStayTags(state,q.propertyId,o.id).join(' / '),start:o.start,end:o.end,status:o.status,...folio(o)}));
+ }else if(q.kind==='revenueSummary'||q.kind==='channelSummary'){
+  const report=accommodationBreakdown(state,{...q,propertyId:q.propertyId},q.kind==='channelSummary'?'source':'date');unallocated=report.unallocatedCharges.length;
+  columns=['key','total','roomFee','extras','unitNights'];rows=report.groups;
+ }else if(q.kind==='transactionSummary'){
+  const report=cashflowReport(state,q);columns=['method','payment','refund','deposit_in','deposit_out','netAccommodation','netDeposit'];rows=report.methods;
+ }else if(q.kind==='salesSummary'){
+  columns=['bookingKind','companyName','total','unitNights'];const groups=new Map();
+  for(const o of selected){const parent=(state.reservations||[]).find(r=>r.id===o.reservationId&&r.propertyId===q.propertyId);const bookingKind=parent?.bookingKind||'',companyName=parent?.companyName||'';const key=JSON.stringify([bookingKind,companyName]);
+   for(const line of orderChargeLines(o).lines.filter(r=>inRange(r.date,q))){const g=groups.get(key)||{bookingKind,companyName,total:0,unitNights:0};g.total+=line.amount;if(line.kind==='room')g.unitNights++;groups.set(key,g);}
+   unallocated+=orderChargeLines(o).unallocated.length;
+  }rows=[...groups.values()];
+ }else if(q.kind==='accommodationSummary'){
+  const report=roomBusinessSummary(state,q);columns=['key','productId','revenue','soldNights','sellableNights','occupancy','adr','revpar'];
+  rows=report.rows.flatMap(r=>r.byProduct.map(p=>({key:r.key,productId:p.productId,revenue:p.revenue,soldNights:p.sold+p.unassigned,sellableNights:p.supplyNights,occupancy:p.occ??'',adr:p.adr??'',revpar:p.revpar??''}))); // retain product and atom-aware denominators
+ }else if(q.kind==='quickNoteSummary'){
+  columns=['businessDate','at','actor','text'];rows=(state.memoHistory||[]).filter(r=>r.propertyId===q.propertyId&&inRange(r.businessDate,q));
+  unallocated=(state.memoHistory||[]).filter(r=>r.propertyId===q.propertyId&&!validDate(r.businessDate)).length;
+ }else if(q.kind==='invoice'){
+  columns=['orderId','date','kind','name','amount','charge','paid','due','deposit'];
+  for(const o of selected.filter(o=>o.start<=q.to&&o.end>=q.from)){
+   const report=orderChargeLines(o);unallocated+=report.unallocated.length;
+   for(const line of report.lines)rows.push({...line,name:line.name||''});
+   rows.push({orderId:o.id,kind:'folio',...folio(o)});
+  }
+ }
+ if(q.roomTypeId&&['revenueSummary','channelSummary','transactionSummary','accommodationSummary'].includes(q.kind))throw Error('report_input');
+ const query=String(q.search||'').trim().toLowerCase();rows=rows.filter(r=>!query||columns.some(k=>String(r[k]??'').toLowerCase().includes(query))).map(r=>Object.fromEntries(columns.map(k=>[k,r[k]??''])));
+ return {kind:q.kind,from:q.from,to:q.to,columns,rows,unallocated};
+}
+function activeStayTags(state,propertyId,orderId){
+ const latest=new Map();for(const r of state.customerTagHistory||[])if(r.propertyId===propertyId&&r.orderId===orderId)latest.set(r.tagId,r.active);
+ return directoryEntries(state,propertyId,'tag').filter(t=>latest.get(t.entryId)).map(t=>t.name);
+}
+export function parityCsv(report,label=k=>k){
+ const cell=v=>'"'+String(v??'').replace(/^[\s]*[=+@-]/,"'$&").replace(/"/g,'""')+'"';
+ return '\ufeff'+[report.columns.map(label),...report.rows.map(r=>report.columns.map(k=>r[k]))].map(r=>r.map(cell).join(',')).join('\r\n');
+}
+// Deliberately privacy-minimal, date-only occupancy export. It is a downloaded
+// fixture, not a public subscription and does not identify a guest or reservation.
+function icalUid(value){let hash=14695981039346656037n;for(const ch of value)hash=BigInt.asUintN(64,(hash^BigInt(ch.codePointAt(0)))*1099511628211n);return hash.toString(16);}
+export function occupancyIcal(state,{propertyId,resourceId,from,to}){
+ const orders=scope(state,{propertyId,from,to});
+ const resources=saleResources(state,propertyId),resource=resources.find(r=>r.id===resourceId);
+ if(!resource)throw Error('scope');
+ const overlaps=atoms=>resource.atoms.some(a=>atoms?.includes(a));
+ const relevant=orders.filter(o=>occupiesInventory(o)&&o.start<=to&&o.end>from);
+ // An unassigned stay cannot truthfully be exported as a particular free unit.
+ // Overdue in-house stays also have no known future departure interval.
+ if(relevant.some(o=>!o.resourceId)||orders.some(o=>o.status==='checked_in'&&o.end<=to))throw Error('ical_unresolved');
+ const rows=relevant.filter(o=>overlaps(resources.find(r=>r.id===o.resourceId)?.atoms)).map(o=>({start:o.start,end:o.end}));
+ for(const block of state.blocks||[])if(block.propertyId===propertyId&&block.start<=to&&block.end>from&&overlaps(block.atoms))rows.push({start:block.start,end:block.end});
+ const unique=[...new Map(rows.map(r=>[r.start+'|'+r.end,r])).values()];
+ const compact=d=>d.replaceAll('-','');
+ return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//JOVIAN//Occupancy fixture//EN',...unique.flatMap(r=>['BEGIN:VEVENT',`UID:occupancy-${icalUid(propertyId+'|'+resourceId+'|'+r.start+'|'+r.end)}@jovian.invalid`,'DTSTAMP:20000101T000000Z',`DTSTART;VALUE=DATE:${compact(r.start)}`,`DTEND;VALUE=DATE:${compact(r.end)}`,'SUMMARY:Unavailable','END:VEVENT']),'END:VCALENDAR',''].join('\r\n');
+}
+// Strict safe subset: pasted all-day fixtures only. Unsupported recurrence,
+// timezone, URL and alarm features fail closed; nothing is fetched or committed.
+export function previewIcal(text){
+ if(typeof text!=='string'||text.length>100000)throw Error('ical_input');
+ const lines=text.replace(/\r\n[ \t]/g,'').split(/\r?\n/).filter(Boolean);let calendar=false,ended=false,event=null;const rows=[];
+ for(const line of lines){
+  if(line==='BEGIN:VCALENDAR'&&!calendar&&!ended){calendar=true;continue;}
+  if(line==='END:VCALENDAR'&&calendar&&!event){calendar=false;ended=true;continue;}
+  if(!calendar||ended)throw Error('ical_input');
+  if(line==='BEGIN:VEVENT'&&!event){event={};continue;}
+  if(line==='END:VEVENT'&&event){if(!validDate(event.start)||!validDate(event.end)||event.end<=event.start||rows.length>=200)throw Error('ical_input');rows.push({start:event.start,end:event.end});event=null;continue;}
+  const match=/^(DTSTART|DTEND);VALUE=DATE:(\d{4})(\d{2})(\d{2})$/.exec(line);
+  if(match&&event){const key=match[1]==='DTSTART'?'start':'end';if(event[key])throw Error('ical_input');event[key]=`${match[2]}-${match[3]}-${match[4]}`;continue;}
+  if(event&&/^(UID|DTSTAMP|SUMMARY|DESCRIPTION):/.test(line))continue;
+  if(!event&&/^(VERSION:2\.0|PRODID:.*|CALSCALE:GREGORIAN)$/.test(line))continue;
+  throw Error('ical_input');
+ }
+ if(!ended||event||calendar)throw Error('ical_input');return rows;
+}
