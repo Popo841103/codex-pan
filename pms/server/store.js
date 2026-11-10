@@ -3,7 +3,7 @@ import {GuestMessages,guestPermissions} from './guest-messages.js';
 import {SupportDesk,supportPermissions} from './support.js';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
-import { seed, apply, preview, nightAuditExceptions, severityOf, severityRank, cleanNoticeLevels, cleanNoticeRules, escalateSeverity } from '../src/demo-store.js';
+import { seed, apply, preview, folio, nightAuditExceptions, severityOf, severityRank, cleanNoticeLevels, cleanNoticeRules, escalateSeverity } from '../src/demo-store.js';
 export { severityOf } from '../src/demo-store.js';
 import { InventoryConflict } from '../src/inventory.js';
 import { upgradeCatalog, saleResources } from '../src/catalog.js';
@@ -21,7 +21,7 @@ const stayTypes=['edit','assign','checkin','checkout','cancel','lock'];
 // and another in the settings form. The list is read by what is waiting on a person:
 // somebody who should be here comes first, housekeeping comes last.
 const staySnapshot=(body,id)=>{const order=(body?.orders||[]).find(o=>o.id===id);return order?{start:order.start,end:order.end,
-  nightly:order.nightly,resourceId:order.resourceId,status:order.status,productId:order.productId,finalCharge:order.finalCharge??null}:null;};
+  nightly:order.nightly,resourceId:order.resourceId,status:order.status,productId:order.productId,finalCharge:order.finalCharge??null,charge:folio(order).charge}:null;};
 
 const changedBlocks = (before,after) => {
   const a=new Map(before.map(b=>[b.id,JSON.stringify(b)])),b=new Map(after.map(b=>[b.id,JSON.stringify(b)]));

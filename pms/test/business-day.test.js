@@ -164,9 +164,9 @@ test('a closed night blocks rewriting a stay but never blocks taking money for i
   const opened = cmd({ type: 'business_date_init', date: '2026-03-06' });
   const created = apply(opened, { propertyId: property, id: 'c-order', at, actor: 'tester', type: 'create',
     guest: 'TEST Historic', productId: 'room', gender: 'any', start: '2026-03-05', end: '2026-03-07', nightly: 10000 });
-  // The stay began on a night that is already closed, so rewriting it changes earned revenue.
-  assert.throws(() => apply(created, { propertyId: property, id: 'c-edit', at, actor: 'tester', type: 'edit',
-    orderId: 'c-order', guest: 'TEST Historic', start: '2026-03-05', end: '2026-03-08', nightly: 10000, source: 'direct' }), /audited/);
+  const extended=apply(created, { propertyId: property, id: 'c-edit', at, actor: 'tester', type: 'edit',
+    orderId: 'c-order', guest: 'TEST Historic', start: '2026-03-05', end: '2026-03-08', nightly: 12000, source: 'direct' });
+  assert.deepEqual(extended.orders[0].nightlyRates.map(row=>row.amount),[10000,12000,12000]);
   assert.throws(() => apply(created, { propertyId: property, id: 'c-cancel', at, actor: 'tester', type: 'cancel',
     orderId: 'c-order', reason: 'TEST late', finalCharge: 0 }), /audited/);
   // Money moving does not rewrite what the closed night earned, so a receipt still posts.

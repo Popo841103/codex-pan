@@ -244,3 +244,9 @@ grep -c "permissionsFor(actor" /opt/jovian-pms-test/current/server/support.js
 本机 Windows Node 424 项中 422 通过，余两项为既有私有文件权限用例；Python 5/5，AR 与佣金 DOM 均通过。
 
 Actions 42754425077 成功，Linux Node 424/424、Python 5/5。外部实见 `/healthz` 返回测试站健康，`/web/financial-ui.js` 命中 `data-ar-correction` 和 `data-commission-correct`。已登录门店实际交互未验收。
+
+### 改期与续住计价
+
+合成测试覆盖缩短、平移、续住同时改价、已夜审晚保护及应付与逐夜入账明细一致。运行 `node --test test/reservations.test.js test/business-day.test.js` 和 `node verification/dom-folio-split.mjs <jsdom> --amend`。发布后检查 `/healthz`、`/web/app.js` 的 `data-amend-pricing`、`/web/financial-ui.js` 的 `data-movement-charge`。NOBEDS、支付和 TTHotel 仍未配置。
+
+Windows Node 423/425，通过的范围包括本批；其余为两项既有权限测试。Python 5/5，改期续住 DOM 通过。

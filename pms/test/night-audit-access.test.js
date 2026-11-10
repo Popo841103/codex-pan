@@ -53,11 +53,11 @@ test('operations may run an audit but cannot override an audited night',t=>{
  const audited=execute(store,ops,{type:'night_audit',propertyId:'TEST-KL'},6);
  assert.equal(audited.revision,7);
  assert.equal(store.read(admin).businessDates['TEST-KL'],'2027-01-12');
- // The stay started on an audited night, so a rewrite needs the administrator override.
+ // An audited night can only be rewritten with the administrator override.
  assert.throws(()=>execute(store,ops,{type:'edit',propertyId:'TEST-KL',orderId:order.id,guest:'TEST Audit Guest',
   start:'2027-01-09',end:'2027-01-13',nightly:10000,source:'direct',auditOverride:true},7),forbidden);
  assert.throws(()=>execute(store,ops,{type:'edit',propertyId:'TEST-KL',orderId:order.id,guest:'TEST Audit Guest',
-  start:'2027-01-09',end:'2027-01-13',nightly:10000,source:'direct'},7),e=>e.status===400&&e.message==='audited');
+  start:'2027-01-09',end:'2027-01-11',nightly:10000,source:'direct'},7),e=>e.status===400&&e.message==='audited');
  const overridden=execute(store,admin,{type:'edit',propertyId:'TEST-KL',orderId:order.id,guest:'TEST Audit Guest',
   start:'2027-01-09',end:'2027-01-13',nightly:10000,source:'direct',auditOverride:true},7);
  assert.equal(overridden.revision,8);

@@ -321,7 +321,7 @@ export function apply(state, command) {
   const inHouse = target => next.orders.some(o => o.propertyId === propertyId && o.status === 'checked_in' &&
     (!['assign','checkin'].includes(type) || o.id !== order?.id) && overlapsAtoms(next.resources.find(r => r.id === o.resourceId), target));
   const staySnapshot = o => o ? { start:o.start, end:o.end, nightly:o.nightly, resourceId:o.resourceId,
-    status:o.status, productId:o.productId, finalCharge:o.finalCharge ?? null } : null;
+    status:o.status, productId:o.productId, finalCharge:o.finalCharge ?? null, charge:folio(o).charge } : null;
   const stayBefore = ['edit','assign','checkin','checkout','cancel','lock'].includes(type) ? staySnapshot(order) : null;
   const catalogActions = ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'];
   const needsOrder = ['ar_post','settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock','commission_save'].includes(type);
@@ -376,7 +376,7 @@ export function apply(state, command) {
   // A closed night freezes the revenue it earned: rewriting or cancelling a stay can
   // change history, so both need an administrator override. Taking money does not change
   // what was earned, so a receipt is never blocked by a night that is already closed.
-  if (order && ['edit','cancel'].includes(type) && command.auditOverride !== true &&
+  if (order && type==='cancel' && command.auditOverride !== true &&
       (isAudited(next, order.start) || isAudited(next, order.end))) reject('audited');
   if (order && isBoxed(order) && ['assign','checkin','checkout','lock'].includes(type)) reject('box_state');
   if(order?.splitBills && ['settle','reopen_folio','edit','cancel'].includes(type)) reject('bill_state');
@@ -432,7 +432,7 @@ export function apply(state, command) {
     if (order.status === 'checked_in' && command.start !== order.start) reject('state');
     if (typeof command.guest !== 'string' || !command.guest.trim()) reject('guest');
     order.guest = text(command.guest.trim(),100);
-    if(order.nightlyRates){const days=stayDays(command.start,command.end),rates=new Map(order.nightlyRates.map(r=>[r.date,r.amount]));order.nightlyRates=days.map(date=>({date,amount:command.nightly===order.nightly?(rates.get(date)??command.nightly):command.nightly}));}
+    amendNightlyRates(next,order,command);
     order.start = command.start; order.end = command.end;
     order.nightly = money(command.nightly);
     order.notes = text(command.notes || '',2048);
@@ -660,6 +660,25 @@ function settleFolio(order, command, batchId) {
     type:'settle',at:command.at,actor:command.actor||'local',
     charge:totals.charge,paid:totals.paid,deposit:totals.deposit,...(batchId?{batchId}:{})
   });
+}
+function amendNightlyRates(state,order,command) {
+  validRange(command.start,command.end);
+  const nightly=money(command.nightly);
+  const oldDays=stayDays(order.start,order.end);
+  const days=stayDays(command.start,command.end);
+  const prior=new Map((order.nightlyRates||oldDays.map(date=>({date,amount:order.nightly||0}))).map(row=>[row.date,row.amount]));
+  const nextDays=new Set(days);
+  const audited=date=>command.auditOverride!==true&&isAudited(state,date);
+  if(oldDays.some(date=>audited(date)&&!nextDays.has(date))||days.some(date=>audited(date)&&!prior.has(date)))reject('audited');
+  if(command.source!==order.source&&(oldDays.some(audited)||(order.extraCharges||[]).some(row=>audited(row.businessDate))))reject('audited');
+  const repricing=nightly!==order.nightly;
+  if(repricing&&days.every(audited))reject('audited');
+  if(!repricing&&command.start===order.start&&command.end===order.end)return;
+  const rates=days.map(date=>({
+    date,amount:prior.has(date)&&(audited(date)||!repricing)?prior.get(date):nightly
+  }));
+  money(rates.reduce((sum,row)=>sum+row.amount,0)+(order.extraCharges||[]).reduce((sum,row)=>sum+signedFolioExtra(row),0));
+  order.nightlyRates=rates;
 }
 function roomChargeFor(order, nights) {
   return order.nightlyRates?order.nightlyRates.reduce((n,r)=>n+r.amount,0):nights*(order.nightly||0);

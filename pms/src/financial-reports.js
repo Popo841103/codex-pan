@@ -261,9 +261,9 @@ function classify(a){
   if(a.type==='cancel')return 'cancel';
   if(a.type==='assign')return b&&after&&b.resourceId!==after.resourceId?'room_change':'assign';
   if(a.type==='edit'){
+    if(b&&after&&b.start!==after.start)return 'date_change';
     if(b&&after&&b.end&&after.end&&after.end<b.end)return 'early_departure';
     if(b&&after&&b.end&&after.end&&after.end>b.end)return 'late_departure';
-    if(b&&after&&b.start!==after.start)return 'date_change';
     if(b&&after&&b.nightly!==after.nightly)return 'price_change';
     return 'edit';
   }
@@ -289,6 +289,7 @@ export function roomMovementLog(state,q){
       afterRoom:after?label(state,'resources',after.resourceId,'label'):null,
       beforeStart:before?.start||null,beforeEnd:before?.end||null,afterStart:after?.start||null,afterEnd:after?.end||null,
       beforeNightly:before?.nightly??null,afterNightly:after?.nightly??null,
+      beforeCharge:before?.charge??null,afterCharge:after?.charge??null,
       beforeStatus:before?.status||null,afterStatus:after?.status||null,
       penalty:a.type==='cancel'?(order?.finalCharge??null):null,reason:a.stayChange?.reason||null});
   }

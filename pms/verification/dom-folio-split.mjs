@@ -29,12 +29,25 @@ const set=(selector,value)=>{const node=$(selector);if(node.type==='checkbox')no
 const until=async(check,title)=>{for(let n=0;n<1000;n++){if(check())return;await new Promise(resolve=>setTimeout(resolve,10));}throw Error('Timed out: '+title+'; UI error: '+(document.querySelector('#reservation-error')?.textContent||'')+'; DOM errors: '+errors.map(e=>e.message).join('; '));};
 try {
  const byLine=process.argv.includes('--lines');
+ const amendment=process.argv.includes('--amend');
  store.command(operator,{key:randomUUID(),expectedRevision:0,command:{type:'create_reservation',propertyId:'TEST-KL',id:'test-edit-locales',date:'2027-01-10',guest:'TEST locale editor',bookingKind:'individual',companyName:'',autoAssign:false,source:'direct',mode:'reserve',stays:[{productId:'room',roomTypeId:'TEST-KL-legacy-room-any',gender:'any',start:'2027-01-10',end:'2027-01-12',adults:1,children:0,infants:0,occupants:[{name:'TEST A',gender:'any'}],nightly:byLine?5000:10000,...(byLine?{extraCharges:[{kind:'charge',name:'TEST Extras',quantity:1,unitAmount:12000},{kind:'discount',name:'TEST Discount',quantity:1,unitAmount:2000}]}:{})}]}});
  const orderForCash=store.read(operator).orders[0];store.command(operator,{key:'cash-dom-payment',expectedRevision:1,command:{type:'payment',propertyId:'TEST-KL',orderId:orderForCash.id,kind:'payment',method:'cash',amount:10000}});store.command(operator,{key:'cash-dom-deposit',expectedRevision:2,command:{type:'payment',propertyId:'TEST-KL',orderId:orderForCash.id,kind:'deposit_in',method:'cash',amount:5000}});
+ if(amendment)store.command(operator,{key:'test-amend-date',expectedRevision:3,command:{type:'business_date_init',propertyId:'TEST-KL',date:'2027-01-11'}});
  const login=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});assert.equal(login.status,200);
  await import(new URL('../web/app.js?locale-check='+randomUUID(),import.meta.url).href);
  $('[data-property="TEST-KL"]').click();$('#global-nav [data-view="orders"]').click();
- $('#content [data-open-reservation]').click();$('#utility-body [data-open-stay]').click();$('#detail-tab-bill').click();
+ $('#content [data-open-reservation]').click();$('#utility-body [data-open-stay]').click();
+ if(amendment){
+   set('#edit-form [name=end]','2027-01-13');
+   set('#edit-form [name=nightly]','120');
+   $('#edit-form button').click();
+   await until(()=>store.read(operator).orders[0].end==='2027-01-13','amendment saved');
+   const amended=store.read(operator).orders[0];
+   assert.deepEqual(amended.nightlyRates.map(row=>row.amount),[10000,12000,12000]);
+   assert.deepEqual(amended.transactions.map(row=>row.amount),[10000,5000]);
+   console.log('Protected-night amendment DOM passed');
+ }else{
+ $('#detail-tab-bill').click();
 
  const rows=[...document.querySelectorAll(byLine?'#split-line-bills > div':'[data-split-row]')];
  for(const [index,label,charge,paid] of [[0,'TEST A','100','100'],[1,'TEST B','100','0']]){
@@ -69,6 +82,7 @@ try {
  assert.equal(store.read(operator).orders[0].folioClosed,false);
  assert(store.read(operator).orders[0].folioEvents.at(-1).reverses);
  console.log('Split folio DOM passed');
+ }
 }finally {
   global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();dom.window.close();
 }

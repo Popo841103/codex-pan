@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {seed,apply,preview,folio} from '../src/demo-store.js';
+import {orderChargeLines} from '../src/financial-reports.js';
 import {reservationSummary} from '../src/reservations.js';
 import {Store} from '../server/store.js';
 import {makeServer} from '../server/http.js';
@@ -125,3 +126,30 @@ test('reservation notes accept the observed 2048 character boundary and reject l
 });
 
 test('composer preserves selected rate plan for server-side price validation',()=>{const draft={guest:'TEST',bookingKind:'individual',companyName:'',source:'direct',reminders:[],stays:[{...row(),ratePlanCode:'STANDARD',nightly:'1.00',rates:{},extraCharges:[]}]};assert.equal(composerCommand(draft,'reserve').stays[0].ratePlanCode,'STANDARD');});
+
+test('amendments preserve retained dates, extras and receipts, and reconcile to nightly charge lines',()=>{
+  let state=apply(seed(),request({stays:[row({
+    nightlyRates:[{date:day,amount:11111},{date:'2027-01-11',amount:22222}],
+    extraCharges:[{kind:'charge',name:'TEST extra',quantity:1,unitAmount:500}]
+  })]}));
+  const orderId=state.orders[0].id;
+  state=apply(state,cmd('payment',{orderId,kind:'payment',amount:10000,method:'cash'}));
+  state=apply(state,cmd('payment',{orderId,kind:'deposit_in',amount:2500,method:'cash'}));
+  const original=state.orders[0];
+  const edit=(s,start,end,nightly=10000)=>apply(s,cmd('edit',{orderId,guest:'TEST payer',source:'direct',start,end,nightly}));
+  const check=(s,rates,charge)=>{
+    const order=s.orders[0];
+    assert.deepEqual(order.nightlyRates.map(r=>r.amount),rates);
+    assert.deepEqual(order.transactions,original.transactions);
+    assert.deepEqual(order.extraCharges,original.extraCharges);
+    assert.equal(folio(order).due,charge-10000);
+    assert.equal(folio(order).deposit,2500);
+    assert.equal(orderChargeLines(order).lines.reduce((sum,row)=>sum+row.amount,0),charge);
+  };
+  check(edit(state,day,'2027-01-11'),[11111],11611);
+  check(edit(state,'2027-01-11','2027-01-13'),[22222,10000],32722);
+  const audited={...state,businessDate:'2027-01-11'};
+  check(edit(audited,day,'2027-01-13',12000),[11111,12000,12000],35611);
+  assert.throws(()=>edit(audited,'2027-01-11','2027-01-13'),/audited/);
+  assert.throws(()=>edit(audited,'2027-01-09','2027-01-13'),/audited/);
+});
