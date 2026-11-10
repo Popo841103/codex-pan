@@ -1,4 +1,4 @@
-import {replayReceivables,commissionPeriod} from './demo-store.js';
+import {replayReceivables,commissionPeriod,folioTransferCredit} from './demo-store.js';
 import {localDay,comparisonDay} from './dashboard.js';
 import {stayDays} from './reservations.js';
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d+'T00:00:00Z'))&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
@@ -57,7 +57,7 @@ export function orderBalanceAt(order,date,inclusive=true){
     else balance.deposit-=value;
   }
   const transferred=(order.arMoves||[]).filter(m=>cut(m.businessDate)).reduce((sum,m)=>sum+amount(m.amount),0);
-  balance.due=balance.charge-balance.paid-transferred;
+  balance.due=balance.charge-balance.paid-transferred-folioTransferCredit(order,cut);
   return balance;
 }
 export function guestLedger(state,q){
@@ -516,7 +516,7 @@ export function commissionDetail(state,q){
       roomTypeName:label(state,'roomTypes',o.roomTypeId),
       resourceLabel:label(state,'resources',o.resourceId,'label'),
       status:o.status||'reserved',start:o.start||'',end:o.end||'',nights:nightCount(o),
-      room,extras,penalty,charge,paid,outstanding:charge-paid,
+      room,extras,penalty,charge,paid,outstanding:charge-paid-folioTransferCredit(o),
       commission,commissionRecorded:commission!==null,
       settlement:entry?(entry.settledAt?'settled':'recorded'):'unrecorded',
       commissionReference:entry?.reference||'',commissionNote:entry?.note||'',commissionAt:entry?.at||'',commissionPeriod:commissionPeriod(entry)};

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { apply, seed } from '../src/demo-store.js';
+import { apply, folio, seed } from '../src/demo-store.js';
 
 test('batch settlement preserves individual balances and rejects offsetting stays', () => {
   const base = { propertyId:'TEST-KL', at:'2027-01-01T10:00:00Z', actor:'TEST' };
@@ -57,4 +57,24 @@ test('a group receipt allocates the exact amount atomically to its own stays', (
   result.orders[1].folioClosed=true;
   assert.throws(()=>apply(result,undo),/bill_state/);
   assert.equal(result.orders[0].transactions.length,1);
+});
+
+test('transfer applies an overpayment to another stay without new cash',()=>{
+  const propertyId='TEST-KL';
+  const state=seed();
+  state.businessDate='2027-01-02';
+  state.reservations=[{id:'parent',propertyId,stayIds:['a','b']}];
+  state.orders=['a','b'].map(id=>({
+    id,propertyId,reservationId:'parent',status:'checked_out',productId:'room',
+    start:'2027-01-01',end:'2027-01-02',nightly:10000,transactions:[]
+  }));
+  state.orders[0].transactions.push({kind:'payment',amount:15000,at:'2027-01-01T10:00:00Z',method:'cash'});
+  const command={type:'transfer_folio_credit',id:'move',propertyId,reservationId:'parent',fromId:'a',toId:'b',amount:5000,reason:'Apply overpayment',at:'2027-01-02T10:00:00Z'};
+  assert.throws(()=>apply(state,{...command,amount:5001}),/balance/);
+  assert.throws(()=>apply(state,{...command,toId:'other'}),/scope/);
+  const moved=apply(state,command);
+  assert.deepEqual(moved.orders.map(o=>folio(o).due),[0,5000]);
+  assert.deepEqual(moved.orders.map(o=>o.transactions),state.orders.map(o=>o.transactions));
+  assert.deepEqual(moved.orders.map(o=>o.folioTransfers[0].id),['move','move']);
+  assert.throws(()=>apply(moved,{...command,id:'repeat'}),/balance/);
 });

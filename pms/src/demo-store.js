@@ -337,6 +337,7 @@ export function apply(state, command) {
     const match = prefix.toUpperCase();
     const doomed = next.orders.filter(o => o.propertyId === propertyId && String(o.guest||'').toUpperCase().startsWith(match));
     if (!doomed.length) reject('nothing_to_purge');
+    if (doomed.some(o=>o.folioTransfers?.length)) reject('bill_state');
     if (doomed.some(o=>o.arMoves?.length)) reject('ar_state');
     if (doomed.some(o=>o.commission&&isCommissionClosed(next,propertyId,commissionPeriod(o.commission))))reject('commission_period');
     const gone = new Set(doomed.map(o => o.id));
@@ -441,6 +442,22 @@ export function apply(state, command) {
   } else if (type === 'lock') {
     if (!order.resourceId || ['checked_out','cancelled'].includes(order.status)) reject('state');
     order.locked = !order.locked;
+  } else if (type === 'transfer_folio_credit') {
+    const parent=next.reservations.find(r=>r.id===command.reservationId&&r.propertyId===propertyId);
+    if(!parent||command.fromId===command.toId)reject('scope');
+    const find=id=>next.orders.find(o=>o.id===id&&o.propertyId===propertyId&&o.reservationId===parent.id&&parent.stayIds.includes(id));
+    const from=find(command.fromId), to=find(command.toId);
+    if(!from||!to)reject('scope');
+    if([from,to].some(o=>o.folioClosed||o.splitBills||o.arMoves?.length))reject('bill_state');
+    if(!isDate(next.businessDate))reject('business_date');
+    const amount=money(command.amount);
+    const reason=text(command.reason,500).trim();
+    if(!reason)reject('reason');
+    const credit=folio(from);
+    if(!amount||amount>Math.min(-credit.due,credit.paid+Math.min(credit.folioCredit||0,0),folio(to).due))reject('balance');
+    const entry={id:command.id,fromId:from.id,toId:to.id,businessDate:next.businessDate,at:command.at,actor:command.actor||'local',reason};
+    (from.folioTransfers??=[]).push({...entry,amount:-amount});
+    (to.folioTransfers??=[]).push({...entry,amount});
   } else if (type === 'undo_reservation_payment') {
     const parent=next.reservations.find(r=>r.id===command.reservationId&&r.propertyId===propertyId);
     if(!parent)reject('scope');
@@ -453,7 +470,7 @@ export function apply(state, command) {
       const index=stay.transactions.findIndex(row=>row.kind==='payment'&&row.batchId===batchId);
       if(index<0)continue;
       const original=stay.transactions[index];
-      if(stay.folioClosed||stay.splitBills||stay.transactions.slice(index+1).some(row=>row.kind==='refund'))reject('bill_state');
+      if(stay.folioClosed||stay.splitBills||stay.folioTransfers?.length||stay.transactions.slice(index+1).some(row=>row.kind==='refund'))reject('bill_state');
       if(folio(stay).paid<original.amount)reject('balance');
       originals.push({stay,original});
     }
@@ -495,7 +512,7 @@ export function apply(state, command) {
     if (!amount || !['payment','refund','deposit_in','deposit_out'].includes(command.kind)) reject('amount');
     if (!['cash','bank','card','ota'].includes(command.method)) reject('input');
     const balance = folio(order);
-    if (command.kind === 'refund' && amount > balance.paid) reject('refund');
+    if (command.kind === 'refund' && amount > balance.paid+Math.min(balance.folioCredit||0,0)) reject('refund');
     if (command.kind === 'deposit_out' && amount > balance.deposit) reject('refund');
     let bill;
     if (command.kind === 'payment' || command.kind === 'refund') {
@@ -596,6 +613,7 @@ export function apply(state, command) {
       after:['box_stays','restore_stays'].includes(type) ? null : staySnapshot(movedTo),
       reason: typeof command.reason === 'string' ? command.reason.trim() : null } } : {}),
     ...(businessDayActions.includes(type)?{businessDate:next.businessDate,closedDate:command.type==='night_audit'?next.nightAudits.at(-1).businessDate:null}:{}),
+    ...(type==='transfer_folio_credit'?{reservationId:command.reservationId,fromId:command.fromId,toId:command.toId,amount:command.amount,reason:command.reason.trim()}:{}),
     ...(type==='undo_reservation_payment'?{reservationId:command.reservationId,reversesBatchId:command.batchId,reason:command.reason.trim()}:{}),
     ...(type==='payment_reservation'?{reservationId:command.reservationId,amount:command.amount,method:command.method,allocations:command.allocations.map(({orderId,amount})=>({orderId,amount}))}:{}),
     ...(settledStayIds?{reservationId:command.reservationId,settledStayIds}:{}),
@@ -629,7 +647,12 @@ export function folio(order) {
   const sum = kind => transactions.filter(t=>t.kind===kind).reduce((n,t)=>n+t.amount,0);
   const paid = sum('payment')-sum('refund');
   const transferred = (order.arMoves||[]).reduce((sum,row)=>sum+row.amount,0);
-  return { nights, charge, paid, ...(transferred?{transferred}:{}), due: charge-paid-transferred, deposit:sum('deposit_in')-sum('deposit_out') };
+  const folioCredit=folioTransferCredit(order);
+  return { nights, charge, paid, ...(transferred?{transferred}:{}), ...(folioCredit?{folioCredit}:{}), due: charge-paid-transferred-folioCredit, deposit:sum('deposit_in')-sum('deposit_out') };
+}
+
+export function folioTransferCredit(order, include=()=>true) {
+  return (order.folioTransfers||[]).filter(entry=>include(entry.businessDate)).reduce((sum,entry)=>sum+entry.amount,0);
 }
 
 export function folioSplitLines(order) {
@@ -659,7 +682,7 @@ function changeSplitBills(order, command) {
   const event = {type,id,at,actor:command.actor || 'local'};
   const totals = folio(order);
   if (type === 'settle_split') {
-    if (order.splitBills || order.folioClosed) reject('bill_state');
+    if (order.splitBills || order.folioClosed || order.folioTransfers?.length) reject('bill_state');
     if (!Array.isArray(command.bills) || command.bills.length < 2 || command.bills.length > 20) reject('bill_total');
     const byLine = command.mode === 'lines';
     if (command.mode !== undefined && !byLine) reject('bill_total');

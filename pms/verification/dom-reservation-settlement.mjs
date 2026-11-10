@@ -64,7 +64,26 @@ try {
  await until(()=>store.read(operator).orders.every(order=>order.folioClosed),'batch closed');
  assert.equal(document.querySelector('#settle-reservation'),null);
  assert.equal(new Set(store.read(operator).orders.map(order=>order.folioEvents.at(-1).batchId)).size,1);
- console.log('Reservation batch settlement DOM passed');
+ const propertyId='TEST-KL';
+ const run=command=>store.command(operator,{key:randomUUID(),expectedRevision:store.read(operator).revisions[propertyId],command:{propertyId,...command}});
+ run({type:'business_date_init',date:'2027-01-12'});
+ const future={...stay,start:'2027-01-13',end:'2027-01-14'};
+ const created=run({type:'create_reservation',date:'2027-01-12',guest:'TEST credit transfer',bookingKind:'individual',autoAssign:false,source:'direct',mode:'reserve',stays:[future,future]});
+ const children=store.read(operator).orders.filter(order=>order.reservationId===created.id);
+ run({type:'payment',orderId:children[0].id,kind:'payment',method:'cash',amount:15000});
+ await $('#refresh').onclick();
+ const reservation=[...document.querySelectorAll('#content [data-open-reservation]')].find(button=>button.dataset.openReservation===created.id);
+ assert(reservation);
+ reservation.click();
+ const transfer=$('#folio-credit-transfer');
+ transfer.elements.amount.value='50';
+ transfer.elements.reason.value='TEST credit transfer';
+ await transfer.onsubmit({currentTarget:transfer,preventDefault(){}});
+ const updated=store.read(operator).orders.filter(order=>order.reservationId===created.id);
+ assert.deepEqual(updated.map(order=>order.folioTransfers[0].amount),[-5000,5000]);
+ assert.deepEqual(updated.map(order=>order.transactions.length),[1,0]);
+ assert.equal(document.querySelector('#folio-credit-transfer'),null);
+ console.log('Reservation settlement, receipt reversal and credit transfer DOM passed');
 }finally {
  global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();dom.window.close();
 }
