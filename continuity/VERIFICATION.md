@@ -258,3 +258,5 @@ Actions 42757051292 成功，Linux Node 425/425、Python 5/5。公网健康检�
 合成回归覆盖暂存库存与费用、保留收款、结账时恢复库存、交班跨时区时间边界、现金和非现金区分、按来源的账页转移余额核对。发布后检查公开健康端点、workspace-ui.js 的 data-night-audit-settings 与 data-night-audit-workbench，以及 financial-ui.js 的 data-financial-basis、data-movement-charge。
 
 本机 Windows Node 425/427，只有两项既有私有文件权限测试失败。Python 5/5。夜审、财务、主订单收付、AR 和佣金月结 DOM 均通过。
+
+运行时 `ad48dbb` 已部署到测试站。Actions 42789084376 成功，Linux Node 427/427、Python 5/5。公网健康检查、夜审与班次入口、交易与营业报表标识均已核验。交互验证使用合成数据。
