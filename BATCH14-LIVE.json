@@ -1,0 +1,130 @@
+{
+  "checkedAt": "2026-11-11T08:41:58.242340+00:00",
+  "runtimeCommit": "f5e8e018eb0cee3000921d6dd15175967dc5bbbf",
+  "actionsRunId": 42988977809,
+  "method": "GET",
+  "assets": {
+    "/healthz": {
+      "status": 200,
+      "sha256": "a2e67ddafe48ea4002031d9356cdb1303fe44c0f04b42a1c715408193620babb",
+      "body": "{\"ok\":true,\"service\":\"jovian-pms\",\"data\":\"test-only\"}"
+    },
+    "/web/workspace.css": {
+      "status": 200,
+      "sha256": "89c059cb89cb4b53cb2dd3c5b9d5fbe36b219b633bfdc8e0c2b39b8bab42a927",
+      "matchesLocal": true,
+      "oldForcedBoxAbsent": true
+    },
+    "/web/style.css": {
+      "status": 200,
+      "sha256": "3622258bd3603ff0c3c2f06b66c796d1ebf3e90a0d1a302dc0039062c4b42fc9",
+      "matchesLocal": true
+    },
+    "/web/index.html": {
+      "status": 200,
+      "sha256": "3f570fa80f425eb54df58b995a8edd50f372dbe61911b3cc5155cc9add1bc21f",
+      "matchesLocal": true
+    },
+    "/web/logo.png": {
+      "status": 200,
+      "sha256": "461eef1c8fb3911d61348aa2a071db5aa2074c2a0af5131007cf8731927da862",
+      "matchesLocal": true
+    },
+    "/web/icon-512.png": {
+      "status": 200,
+      "sha256": "bc301ebbe9f334938b3a61fb79838ce5a50f1bdb54c844129d950fa2a699d067",
+      "matchesLocal": true
+    }
+  },
+  "browser": {
+    "checkedAt": "2026-11-11T08:41:58.138Z",
+    "localCss": false,
+    "results": [
+      {
+        "width": 1920,
+        "src": "logo.png",
+        "height": "32px",
+        "maxHeight": "32px",
+        "display": "block",
+        "objectFit": "contain",
+        "align": "center",
+        "headerHeight": 56,
+        "top": 10.5,
+        "bottom": 13.5
+      },
+      {
+        "width": 1440,
+        "src": "logo.png",
+        "height": "32px",
+        "maxHeight": "32px",
+        "display": "block",
+        "objectFit": "contain",
+        "align": "center",
+        "headerHeight": 56,
+        "top": 10.5,
+        "bottom": 13.5
+      },
+      {
+        "width": 1201,
+        "src": "logo.png",
+        "height": "32px",
+        "maxHeight": "32px",
+        "display": "block",
+        "objectFit": "contain",
+        "align": "center",
+        "headerHeight": 56,
+        "top": 10.5,
+        "bottom": 13.5
+      },
+      {
+        "width": 1200,
+        "src": "logo.png",
+        "height": "32px",
+        "maxHeight": "32px",
+        "display": "none",
+        "objectFit": "contain",
+        "align": "center",
+        "headerHeight": 56,
+        "top": 0,
+        "bottom": 56
+      },
+      {
+        "width": 760,
+        "src": "logo.png",
+        "height": "40px",
+        "maxHeight": "40px",
+        "display": "none",
+        "objectFit": "contain",
+        "align": "center",
+        "headerHeight": 110,
+        "top": 0,
+        "bottom": 110
+      },
+      {
+        "width": 390,
+        "src": "logo.png",
+        "height": "40px",
+        "maxHeight": "40px",
+        "display": "none",
+        "objectFit": "contain",
+        "align": "center",
+        "headerHeight": 110,
+        "top": 14,
+        "bottom": 96
+      }
+    ]
+  },
+  "officialLogoAcceptance": {
+    "base": "https://pms.jovianhome.com",
+    "checkedAt": "2026-11-11T08:41:48.452Z",
+    "headerLoginImages": true,
+    "offlineEmbeddedLogo": true,
+    "favicon": true,
+    "files": {
+      "logo.png": "461eef1c8fb3911d61348aa2a071db5aa2074c2a0af5131007cf8731927da862",
+      "icon-192.png": "575cbb5a6efafd4b834921640a7e0aba88ae07b2996909bb51827e6a79f0913a",
+      "icon-512.png": "bc301ebbe9f334938b3a61fb79838ce5a50f1bdb54c844129d950fa2a699d067",
+      "icon-maskable.png": "7d5c0e59845ec6c4e60db5bd6b0a3dc5c4701b6ca63f008d52a2a2e0395115fb"
+    }
+  }
+}

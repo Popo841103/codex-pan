@@ -466,3 +466,14 @@ Runtime `7078d0d`, [Actions42981520724](https://github.com/Popo841103/codex-pan/
 本批仅品牌展示与验收调整，无新运行时文件、状态机/业务逻辑/数据库/账号/部署工作流变更，无真实订单、资金、生产数据、门锁操作。双状态机均未修改，营业日与马来西亚自然日、跨已夜审日期暂存恢复及AR保护原样保留；全部Do NOT事项继续不做。后续文档提交仅根目录与continuity，不触发部署。
 
 公网GET核验时间：`2026-11-11T08:38:03.282084+00:00`；浏览器配色核验：`2026-11-11T08:37:22.209Z`。
+
+
+## 批次14 — 缩小员工首页页头字标（2026-11-11）
+
+运行时提交 `f5e8e018eb0cee3000921d6dd15175967dc5bbbf` 已推送 `jovian-pms-test`；[Actions 42988977809](https://github.com/Popo841103/codex-pan/actions/runs/42988977809) **Verify PMS / Deploy existing PMS test service 均成功**。本地及Ubuntu Node24 **605/605**、Python **5/5**，`git diff --check`通过；没有旧92×64尺寸测试需要更新，既有官方Logo浏览器验收继续检查 `.header-wordmark` 来源为 `logo.png`。
+
+唯一运行时变更为既有 `pms/web/workspace.css` 的 `.header-wordmark`：移除强制92×64及尺寸/零padding的 `!important`，默认 `width:auto;height:40px;max-height:40px;object-fit:contain;align-self:center`；保留白底、左边框与响应式左padding。实际后段 `min-width:761px` 桌面规则使用56px页头，因此在该规则内限制为32px；既有 `max-width:1200px` 隐藏规则保留。左侧徽标、登录Logo 240px、所有官方黑色Logo资产及批次13深青token均未修改。
+
+公网只读GET证据 `BATCH14-LIVE.json`：`2026-11-11T08:41:58.242340+00:00`，`/healthz` HTTP200精确返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`；`/web/workspace.css` GET200、SHA256 `89c059cb89cb4b53cb2dd3c5b9d5fbe36b219b633bfdc8e0c2b39b8bab42a927` 与本地一致，无旧强制64px字标高度。style.css、index.html、logo.png、icon-512.png也GET200且逐字节一致。真实公网Chromium未登录检查1920/1440/1201宽：字标32px、页头56px、顶部10.5px/底部13.5px留白；1200/760/390宽均隐藏。登录Logo仍240px，官方Logo来源/解码、四份PNG、favicon及离线Logo既有浏览器验收通过。先前本地CSS拦截预验与最终实际线上CSS验证明确区分，证据中的 `localCss:false` 为最终线上结果。
+
+无新运行时文件、业务逻辑、状态机、数据库、账号或部署工作流变更；未登录线上、POST、操作真实订单/资金/生产数据/门锁。跨已夜审日期暂存恢复及AR保护保持；全部Do NOT事项继续不做。本批仅CSS尺寸修改，未重复全套业务DOM；不把公开资源一致当作私有后端执行证明。后续交接/证据提交仅根目录与continuity，不触发部署。
