@@ -1,0 +1,16 @@
+{
+  "time": "2026-11-11T09:41:33.233Z",
+  "scope": "isolated in-memory synthetic SQLite; localhost only",
+  "catalogCount": 19,
+  "connection": "TTLock synthetic without password",
+  "privateBinding": true,
+  "settingsLength": 4,
+  "keyCardOperations": 0,
+  "languages": [
+    "zh",
+    "en",
+    "ms"
+  ],
+  "pageErrors": [],
+  "productionWrites": false
+}
