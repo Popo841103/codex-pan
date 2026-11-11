@@ -451,3 +451,18 @@ Full store instructions, commit list, regression/failure corrections and evidenc
 Official supplied JOVIAN HOME artwork replaces the round J monogram and generated PWA placeholders. Emblem in compact header/icons/favicon; full artwork in login/header lockup/offline/recovery/checkin/signup/public property pages. Original JPG unchanged, black artwork preserved, rose #d6336c unchanged. Existing server embeds the full derivative for publisher compatibility; new web/logo.png is an asset, no new runtime module. Both state machines/business rules/data/accounts/workflow unchanged.
 
 Runtime `7078d0d`, [Actions42981520724](https://github.com/Popo841103/codex-pan/actions/runs/42981520724) Verify/Deploy success. Local Node24 603/603, Python5/5; Chromium isolated local branding acceptance and read-only live header/login/icon/favicon/offline checks passed. Four PNGs and seven other public assets byte-identical; exact test-only health; private server404. No live login or POST. Reproduction, crops, publisher details and limits: BATCH12-LOGO.md; structured live hashes: BATCH12-LIVE.json.
+
+
+## 批次13 — 品牌配色改为深青绿色（2026-11-11）
+
+运行时提交 `1464f5a7b8bb80b7be76735e30ecb748e4d49dd4` 已推送 `jovian-pms-test`；[Actions 42988351010](https://github.com/Popo841103/codex-pan/actions/runs/42988351010) 的 **Verify PMS / Deploy existing PMS test service 均成功**，Ubuntu Node24 **605/605**、Python **5/5**。
+
+共享 `pms/web/style.css :root` 使用业主指定的12项深青绿色 token：primary `#0f766e`、hover `#115e59`、link `#0b5f58`、tint `#ccfbf1`、soft `#f0fdfa`、selected `#99f6e4`、focus/ink `#134e4a`、border `#b6e3de`、muted `#4d6b67`、canvas `#f4fbfa`、shadow `#134e4a26`。主题元数据、manifest、离线页及现有浏览器验收同步；离线缓存升至v3，保留只缓存公开离线页的规则。日历悬停/选中使用深青文字，避免浅青底白色勾号。官方黑色星球及JOVIAN HOME字标、原图和所有Logo资产未改动。
+
+本地 Node24 **605/605**、Python **5/5**，32个dom脚本、communications及folio的lines/amend两分支共 **35/35**；37份运行时JS语法、3份CI shell语法和diff检查通过。真实本地Chromium验证主按钮/悬停/白字、选中导航、日历悬停文字、官方Logo、主题及桌面/手机截图；只用内存合成SQLite。AA对比度断言通过，旧蓝色扫描明确允许本次青绿色，但继续禁止SmartOrder蓝色范围；新增精确12项token和旧品牌色清除断言。产品UI、主题、server/src、测试及当前浏览器验收grep无指定旧色命中；旧批次文档保留历史记录。
+
+公网只读GET证据见根目录 `BATCH13-LIVE.json`：精确 `/healthz` 200返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`；40份公开资源（含两份CSS、29份JS、主题/HTML与四份Logo PNG）200且与本地逐字节一致，CSS包含全部12项深青token、无旧品牌色。自助入住使用真实公开路由 `/checkin/`。真实公网Chromium未登录验证按钮 `rgb(15, 118, 110)`、悬停 `rgb(17, 94, 89)`、白字、主题、Logo解码及断网离线Logo；favicon和四份PNG字节一致。`/server/store.js`404，未把前端哈希当作私有后端执行证明。
+
+本批仅品牌展示与验收调整，无新运行时文件、状态机/业务逻辑/数据库/账号/部署工作流变更，无真实订单、资金、生产数据、门锁操作。双状态机均未修改，营业日与马来西亚自然日、跨已夜审日期暂存恢复及AR保护原样保留；全部Do NOT事项继续不做。后续文档提交仅根目录与continuity，不触发部署。
+
+公网GET核验时间：`2026-11-11T08:38:03.282084+00:00`；浏览器配色核验：`2026-11-11T08:37:22.209Z`。

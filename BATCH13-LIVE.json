@@ -1,0 +1,298 @@
+{
+  "checkedAt": "2026-11-11T08:38:03.282084+00:00",
+  "base": "https://pms.jovianhome.com",
+  "method": "GET",
+  "commit": "1464f5a7b8bb80b7be76735e30ecb748e4d49dd4",
+  "actions": "https://github.com/Popo841103/codex-pan/actions/runs/42988351010",
+  "health": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "service": "jovian-pms",
+      "data": "test-only"
+    }
+  },
+  "publicFiles": {
+    "/web/guest-locales.js": {
+      "status": 200,
+      "bytes": 2057,
+      "sha256": "7f7396e111b90af8582b6b4ea080f3b55c648ade933053c42fa8143184aa427a",
+      "matchesLocal": true
+    },
+    "/web/app.js": {
+      "status": 200,
+      "bytes": 219555,
+      "sha256": "cdb219440f67bc3b2f835bd2a4caee7008ee6367c215fd221e7d1a161235853d",
+      "matchesLocal": true
+    },
+    "/web/rate-calendar.js": {
+      "status": 200,
+      "bytes": 1516,
+      "sha256": "92103adf408dc2d183b404cb441bf386bac357f0745b29ce579f48f3bab09b37",
+      "matchesLocal": true
+    },
+    "/web/workspace-ui.js": {
+      "status": 200,
+      "bytes": 209193,
+      "sha256": "a91e792c6f8b7e6413198e9308e17d7645c692fa801f959f69817db7c3a4179e",
+      "matchesLocal": true
+    },
+    "/web/sw.js": {
+      "status": 200,
+      "bytes": 891,
+      "sha256": "dfd9c182891ca029407c59867fdb793b79f66563bf2f44435c91dbce644c4f7c",
+      "matchesLocal": true
+    },
+    "/web/dashboard-ui.js": {
+      "status": 200,
+      "bytes": 12188,
+      "sha256": "9571e9fdc438617df572772d2f7828637796c93919be4043df1ed51d2928e3b2",
+      "matchesLocal": true
+    },
+    "/web/catalog-ui.js": {
+      "status": 200,
+      "bytes": 21325,
+      "sha256": "ad73ddf28111c9ae0eeab6f9d78c5e48ee81012bcbfdf6424ee4235662ff4741",
+      "matchesLocal": true
+    },
+    "/web/pwa.js": {
+      "status": 200,
+      "bytes": 2283,
+      "sha256": "39928ce81294f77b9cc75b4f6d6b9f4aa84f45d7f1b7f1aabd7eb3230cae0b55",
+      "matchesLocal": true
+    },
+    "/web/checkin-admin-ui.js": {
+      "status": 200,
+      "bytes": 24346,
+      "sha256": "976e69ffc0891930f337cf42840c786461672e8ac39a0668eee459d7f712bcd6",
+      "matchesLocal": true
+    },
+    "/web/financial-ui.js": {
+      "status": 200,
+      "bytes": 105503,
+      "sha256": "2e96eb94da0b983052bc034179fb29cdca59cdcf4b9ab609ef5850f4e67a41d8",
+      "matchesLocal": true
+    },
+    "/web/calendar-actions.js": {
+      "status": 200,
+      "bytes": 15762,
+      "sha256": "c845dee62e4d9a31b0d10eab7eef1c593d73189634d245dff9adeb4397b381c8",
+      "matchesLocal": true
+    },
+    "/web/self-checkin.js": {
+      "status": 200,
+      "bytes": 14614,
+      "sha256": "e17dcfbfd7a6ed546ba7ceece08d516eea9a79032450ceedd6bbcca6166b4dd6",
+      "matchesLocal": true
+    },
+    "/web/communication-ui.js": {
+      "status": 200,
+      "bytes": 36025,
+      "sha256": "c9e76b7f8b797c7ddb7edc0e77c924cfa3f7a1944e679932ac3adb5a2d20dadc",
+      "matchesLocal": true
+    },
+    "/web/backend.js": {
+      "status": 200,
+      "bytes": 2127,
+      "sha256": "260084b2b12de34b5b7bd2022f6d45b9c962ad949535a6f702f8712c4871506e",
+      "matchesLocal": true
+    },
+    "/web/order-columns.js": {
+      "status": 200,
+      "bytes": 6577,
+      "sha256": "f6676c8bf5b6eff5b3b2b5dc479076a7468503573b062e23efecce3951d81544",
+      "matchesLocal": true
+    },
+    "/web/reservation-ui.js": {
+      "status": 200,
+      "bytes": 30517,
+      "sha256": "af6d15d49f2db2130dfc10711d166349ae12494a28069cb21932ba7ce913c3f1",
+      "matchesLocal": true
+    },
+    "/web/recovery.js": {
+      "status": 200,
+      "bytes": 1921,
+      "sha256": "e5d2405df528bbe7dc81fac26a02126131bb9d05d40023b67861619546f7dda6",
+      "matchesLocal": true
+    },
+    "/src/dashboard.js": {
+      "status": 200,
+      "bytes": 5434,
+      "sha256": "9e039d3494d8fc96daf0112899e143c43e45a9427ad1991e8eac6c9850f1ce5a",
+      "matchesLocal": true
+    },
+    "/src/rate-availability.js": {
+      "status": 200,
+      "bytes": 1418,
+      "sha256": "4e1e2f056ab1cf3de766f9ab9e7d7bd44b8888b80d80b578acd56b8ed9e2910d",
+      "matchesLocal": true
+    },
+    "/src/cancellation-policy.js": {
+      "status": 200,
+      "bytes": 1816,
+      "sha256": "ce3dd6cda55a304d7738902eb14a218b37a0860bbfaa7aca94483bcaa53ab89f",
+      "matchesLocal": true
+    },
+    "/src/demo-store.js": {
+      "status": 200,
+      "bytes": 109776,
+      "sha256": "a636a0ef5844f768218c0cb17aa0396b214798a31280f5124fecc7752ce4b3fd",
+      "matchesLocal": true
+    },
+    "/src/rate-dates.js": {
+      "status": 200,
+      "bytes": 939,
+      "sha256": "a1e911e515a024ae0c49dae374fe4f6aaed3a6e3e9bda6653f829227c46dab26",
+      "matchesLocal": true
+    },
+    "/src/inventory.js": {
+      "status": 200,
+      "bytes": 4128,
+      "sha256": "c04c9e5f722575ff07eac4b7ef3f28e10efc3ea5204eee4670668861b623b216",
+      "matchesLocal": true
+    },
+    "/src/rates.js": {
+      "status": 200,
+      "bytes": 5964,
+      "sha256": "a65df5034ce4bf4838ac946dd20453ea0fe268c74fab048a2050bdbaefba34e5",
+      "matchesLocal": true
+    },
+    "/src/inventory-actions.js": {
+      "status": 200,
+      "bytes": 4571,
+      "sha256": "8d10514cfc4032723c48d85b383e000d6b9e83e39911b5a1917fabbf84cd7670",
+      "matchesLocal": true
+    },
+    "/src/reservations.js": {
+      "status": 200,
+      "bytes": 6949,
+      "sha256": "a3ec7abcdff725b732b7e6567c7540fbca883640d83b79026776514348f71f63",
+      "matchesLocal": true
+    },
+    "/src/catalog.js": {
+      "status": 200,
+      "bytes": 10128,
+      "sha256": "ac49e6eceb4e85ea654e64112b301f81844fbd8a6dc728a24d5c781598babd4f",
+      "matchesLocal": true
+    },
+    "/src/order-filters.js": {
+      "status": 200,
+      "bytes": 2560,
+      "sha256": "dfeb1fb20f46969e51e3e64e3edfdff44dfeae9af766cdbc014abbe86d1dd570",
+      "matchesLocal": true
+    },
+    "/src/financial-reports.js": {
+      "status": 200,
+      "bytes": 75197,
+      "sha256": "6873d5e64ac241c55d96d0b39e8fa6de38be7d4400e9ec10780151614729c91e",
+      "matchesLocal": true
+    },
+    "/web/index.html": {
+      "status": 200,
+      "bytes": 5364,
+      "sha256": "3f570fa80f425eb54df58b995a8edd50f372dbe61911b3cc5155cc9add1bc21f",
+      "matchesLocal": true
+    },
+    "/web/style.css": {
+      "status": 200,
+      "bytes": 28790,
+      "sha256": "3622258bd3603ff0c3c2f06b66c796d1ebf3e90a0d1a302dc0039062c4b42fc9",
+      "matchesLocal": true
+    },
+    "/web/workspace.css": {
+      "status": 200,
+      "bytes": 42323,
+      "sha256": "f1d3f43f7b49ae90a31178159eb2fea689c1a10eb3f9b0e1815c0b89f2c74645",
+      "matchesLocal": true
+    },
+    "/web/offline.html": {
+      "status": 200,
+      "bytes": 212099,
+      "sha256": "213cf439e244d95e328aeb8ce2a862ab958a71a9b99e31b056a22c7163213534",
+      "matchesLocal": true
+    },
+    "/web/recovery.html": {
+      "status": 200,
+      "bytes": 1533,
+      "sha256": "2a74406ba9ee9984870ca90aaf9bfdb8e22cebccd12ad5ca6c11778fd9a23afa",
+      "matchesLocal": true
+    },
+    "/checkin/": {
+      "status": 200,
+      "bytes": 797,
+      "sha256": "973bb4bf273f0b9a277fa362d27e67e14c72843bebc91e901e0db25710ff94ed",
+      "matchesLocal": true
+    },
+    "/web/manifest.webmanifest": {
+      "status": 200,
+      "bytes": 647,
+      "sha256": "126622ec928e4a428904c7948b3af01ad27732308f3233ee98e0e4ce34e45e5a",
+      "matchesLocal": true
+    },
+    "/web/logo.png": {
+      "status": 200,
+      "bytes": 158431,
+      "sha256": "461eef1c8fb3911d61348aa2a071db5aa2074c2a0af5131007cf8731927da862",
+      "matchesLocal": true
+    },
+    "/web/icon-192.png": {
+      "status": 200,
+      "bytes": 22546,
+      "sha256": "575cbb5a6efafd4b834921640a7e0aba88ae07b2996909bb51827e6a79f0913a",
+      "matchesLocal": true
+    },
+    "/web/icon-512.png": {
+      "status": 200,
+      "bytes": 118307,
+      "sha256": "bc301ebbe9f334938b3a61fb79838ce5a50f1bdb54c844129d950fa2a699d067",
+      "matchesLocal": true
+    },
+    "/web/icon-maskable.png": {
+      "status": 200,
+      "bytes": 94127,
+      "sha256": "7d5c0e59845ec6c4e60db5bd6b0a3dc5c4701b6ca63f008d52a2a2e0395115fb",
+      "matchesLocal": true
+    }
+  },
+  "tokens": {
+    "primary": "#0f766e",
+    "hover": "#115e59",
+    "link": "#0b5f58",
+    "tint": "#ccfbf1",
+    "soft": "#f0fdfa",
+    "selected": "#99f6e4",
+    "focus": "#134e4a",
+    "border": "#b6e3de",
+    "ink": "#134e4a",
+    "muted": "#4d6b67",
+    "canvas": "#f4fbfa",
+    "shadow": "#134e4a26"
+  },
+  "retiredRoseAbsent": true,
+  "privateServerStatus": 404,
+  "browserTeal": {
+    "checkedAt": "2026-11-11T08:37:22.209Z",
+    "primary": "rgb(15, 118, 110)",
+    "hover": "rgb(17, 94, 89)",
+    "text": "rgb(255, 255, 255)",
+    "theme": "#0f766e",
+    "method": "GET only; no authentication or business writes"
+  },
+  "browserOfficialLogo": {
+    "base": "https://pms.jovianhome.com",
+    "checkedAt": "2026-11-11T08:37:08.669Z",
+    "headerLoginImages": true,
+    "offlineEmbeddedLogo": true,
+    "favicon": true,
+    "files": {
+      "logo.png": "461eef1c8fb3911d61348aa2a071db5aa2074c2a0af5131007cf8731927da862",
+      "icon-192.png": "575cbb5a6efafd4b834921640a7e0aba88ae07b2996909bb51827e6a79f0913a",
+      "icon-512.png": "bc301ebbe9f334938b3a61fb79838ce5a50f1bdb54c844129d950fa2a699d067",
+      "icon-maskable.png": "7d5c0e59845ec6c4e60db5bd6b0a3dc5c4701b6ca63f008d52a2a2e0395115fb"
+    }
+  },
+  "actionsSteps": {
+    "Verify PMS": "success",
+    "Deploy existing PMS test service": "success"
+  }
+}
