@@ -740,6 +740,12 @@ export function parityReport(state,q){
   columns=[...new Set([...columns,'createdAt','completedAt','createdBy','status'])];
   rows=rows.map(r=>{const o=selected.find(o=>o.id===r.orderId);return {...r,createdAt:o?.createdAt||'',completedAt:o?.completedAt||'',createdBy:o?.createdBy||'',status:o?.status||''};});
  }
+ // Historical missing dates are inspectable without inferring any posting date.
+ if(['shiftAccrual','managerBusiness'].includes(q.kind)&&q.section==='historicalUndated'){
+  columns=['orderId','source','roomTypeId','kind','amount','method','actor','at','reason'];
+  rows=selected.flatMap(o=>[...orderChargeLines(o).unallocated,...(o.transactions||[]).filter(t=>!validDate(t.businessDate)).map(t=>({...t,reason:'posting_date_missing'}))].map(r=>({...r,orderId:o.id,source:o.source,roomTypeId:o.roomTypeId})));
+  if(q.actor)rows=rows.filter(r=>r.actor===q.actor);if(q.method)rows=rows.filter(r=>r.method===q.method);
+ }
  if(q.lineKind&&!(['shiftAccrual','managerBusiness'].includes(q.kind)&&['actorSummary','sourceSummary','receptionSummary','handoverWindows'].includes(q.section)))rows=rows.filter(r=>r.kind===q.lineKind||['revenueSummary','channelSummary','salesSummary','transactionSummary'].includes(q.kind)&&(!!q.dimension||!!q.dimension2||!!q.lineKind||!!q.actor||!!q.method));
  if(q.kind==='failedReservations'&&!allSource)rows=rows.filter(r=>r.source===q.source);
  if(q.status&&!['revenueSummary','transactionSummary','channelSummary','salesSummary','accommodationSummary','ledgerRecords','customerProfiles','transactionDetail','quickEntries','managerBusiness','shiftAccrual'].includes(q.kind))rows=rows.filter(r=>r.status===q.status);

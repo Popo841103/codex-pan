@@ -16,7 +16,7 @@ test('four legacy undated receipts remain four after a new business-date payment
  let state2=seed();send('business_date_init',{date});send('create',{id:'stay',guest:'钱七',resourceId:'TEST-KL-R1',productId:'room',gender:'any',start:date,end:'2026-11-12',nightly:10500});
  state2.orders[0].transactions=Array.from({length:4},(_,i)=>({id:'legacy-'+i,kind:'payment',amount:100,method:'cash'}));
  const old=structuredClone(state2.orders[0].transactions),query=()=>parityReport(state2,{propertyId,kind:'shiftAccrual',from:date,to:date});assert.equal(query().unallocated,4);
- send('payment',{orderId:'stay',kind:'payment',amount:10500,method:'cash'});assert.equal(query().unallocated,4);assert.equal(query().rows.find(r=>r.kind==='payment').amount,10500);assert.deepEqual(state2.orders[0].transactions.slice(0,4),old);
+ send('payment',{orderId:'stay',kind:'payment',amount:10500,method:'cash'});assert.equal(query().unallocated,4);const historical=parityReport(state2,{propertyId,kind:'shiftAccrual',from:date,to:date,section:'historicalUndated'});assert.equal(historical.rows.length,4);assert(historical.rows.every(r=>r.reason==='posting_date_missing'));assert.equal(query().rows.find(r=>r.kind==='payment').amount,10500);assert.deepEqual(state2.orders[0].transactions.slice(0,4),old);
 });
 import {previewIcal} from '../src/financial-reports.js';
 test('documented all-day iCal inventory import preserves SUMMARY label without creating a guest',()=>{
