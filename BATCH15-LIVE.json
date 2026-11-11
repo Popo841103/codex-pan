@@ -1,0 +1,259 @@
+{
+  "time": "2026-11-11T08:48:39.917072+00:00",
+  "commit": "10c96959c9b2f8706e640ceac4a5823ecb5bb124",
+  "run": 42989819984,
+  "method": "GET",
+  "assets": [
+    {
+      "path": "/web/guest-locales.js",
+      "status": 200,
+      "sha256": "7f7396e111b90af8582b6b4ea080f3b55c648ade933053c42fa8143184aa427a"
+    },
+    {
+      "path": "/web/style.css",
+      "status": 200,
+      "sha256": "4762d631f6494d83c2235d5d44794785603f230f2568705a72784b62774beef7"
+    },
+    {
+      "path": "/web/app.js",
+      "status": 200,
+      "sha256": "cdb219440f67bc3b2f835bd2a4caee7008ee6367c215fd221e7d1a161235853d"
+    },
+    {
+      "path": "/web/rate-calendar.js",
+      "status": 200,
+      "sha256": "92103adf408dc2d183b404cb441bf386bac357f0745b29ce579f48f3bab09b37"
+    },
+    {
+      "path": "/web/offline.html",
+      "status": 200,
+      "sha256": "4aace9acd4c55ea25ece7af4d4ddf313d3a4670adb3dd9abf8cd93e760bd4c98"
+    },
+    {
+      "path": "/web/workspace-ui.js",
+      "status": 200,
+      "sha256": "a91e792c6f8b7e6413198e9308e17d7645c692fa801f959f69817db7c3a4179e"
+    },
+    {
+      "path": "/web/sw.js",
+      "status": 200,
+      "sha256": "b9609517b9af9f56cc7517ddaae6266ca1551265eb2341e3e24d056e6c72a009"
+    },
+    {
+      "path": "/web/dashboard-ui.js",
+      "status": 200,
+      "sha256": "9571e9fdc438617df572772d2f7828637796c93919be4043df1ed51d2928e3b2"
+    },
+    {
+      "path": "/web/catalog-ui.js",
+      "status": 200,
+      "sha256": "ad73ddf28111c9ae0eeab6f9d78c5e48ee81012bcbfdf6424ee4235662ff4741"
+    },
+    {
+      "path": "/web/icon-192.png",
+      "status": 200,
+      "sha256": "575cbb5a6efafd4b834921640a7e0aba88ae07b2996909bb51827e6a79f0913a"
+    },
+    {
+      "path": "/web/icon-512.png",
+      "status": 200,
+      "sha256": "bc301ebbe9f334938b3a61fb79838ce5a50f1bdb54c844129d950fa2a699d067"
+    },
+    {
+      "path": "/web/recovery.html",
+      "status": 200,
+      "sha256": "2a74406ba9ee9984870ca90aaf9bfdb8e22cebccd12ad5ca6c11778fd9a23afa"
+    },
+    {
+      "path": "/web/pwa.js",
+      "status": 200,
+      "sha256": "39928ce81294f77b9cc75b4f6d6b9f4aa84f45d7f1b7f1aabd7eb3230cae0b55"
+    },
+    {
+      "path": "/web/icon-maskable.png",
+      "status": 200,
+      "sha256": "7d5c0e59845ec6c4e60db5bd6b0a3dc5c4701b6ca63f008d52a2a2e0395115fb"
+    },
+    {
+      "path": "/web/checkin-admin-ui.js",
+      "status": 200,
+      "sha256": "976e69ffc0891930f337cf42840c786461672e8ac39a0668eee459d7f712bcd6"
+    },
+    {
+      "path": "/web/workspace.css",
+      "status": 200,
+      "sha256": "89c059cb89cb4b53cb2dd3c5b9d5fbe36b219b633bfdc8e0c2b39b8bab42a927"
+    },
+    {
+      "path": "/web/financial-ui.js",
+      "status": 200,
+      "sha256": "2e96eb94da0b983052bc034179fb29cdca59cdcf4b9ab609ef5850f4e67a41d8"
+    },
+    {
+      "path": "/web/logo.png",
+      "status": 200,
+      "sha256": "461eef1c8fb3911d61348aa2a071db5aa2074c2a0af5131007cf8731927da862"
+    },
+    {
+      "path": "/web/index.html",
+      "status": 200,
+      "sha256": "6cc324e9faf610708a50c4dd83b4671d5141d041cee9ad0b73f78271a1fd1e27"
+    },
+    {
+      "path": "/web/calendar-actions.js",
+      "status": 200,
+      "sha256": "c845dee62e4d9a31b0d10eab7eef1c593d73189634d245dff9adeb4397b381c8"
+    },
+    {
+      "path": "/web/manifest.webmanifest",
+      "status": 200,
+      "sha256": "fe1ff0235b3a2b864e1f5823f9b0ef370dd28b153fe0127740280de4c1193d30"
+    },
+    {
+      "path": "/checkin/",
+      "status": 200,
+      "sha256": "973bb4bf273f0b9a277fa362d27e67e14c72843bebc91e901e0db25710ff94ed"
+    },
+    {
+      "path": "/web/self-checkin.js",
+      "status": 200,
+      "sha256": "e17dcfbfd7a6ed546ba7ceece08d516eea9a79032450ceedd6bbcca6166b4dd6"
+    },
+    {
+      "path": "/web/communication-ui.js",
+      "status": 200,
+      "sha256": "c9e76b7f8b797c7ddb7edc0e77c924cfa3f7a1944e679932ac3adb5a2d20dadc"
+    },
+    {
+      "path": "/web/backend.js",
+      "status": 200,
+      "sha256": "260084b2b12de34b5b7bd2022f6d45b9c962ad949535a6f702f8712c4871506e"
+    },
+    {
+      "path": "/web/order-columns.js",
+      "status": 200,
+      "sha256": "f6676c8bf5b6eff5b3b2b5dc479076a7468503573b062e23efecce3951d81544"
+    },
+    {
+      "path": "/web/reservation-ui.js",
+      "status": 200,
+      "sha256": "af6d15d49f2db2130dfc10711d166349ae12494a28069cb21932ba7ce913c3f1"
+    },
+    {
+      "path": "/web/recovery.js",
+      "status": 200,
+      "sha256": "e5d2405df528bbe7dc81fac26a02126131bb9d05d40023b67861619546f7dda6"
+    }
+  ],
+  "health": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "service": "jovian-pms",
+      "data": "test-only"
+    }
+  },
+  "tokens": {
+    "primary": "#3f6a58",
+    "hover": "#335648",
+    "link": "#335c4c",
+    "tint": "#d7e6db",
+    "soft": "#f5f8f4",
+    "selected": "#c4dbd0",
+    "focus": "#2c4a3e",
+    "border": "#c5d6ce",
+    "ink": "#243830",
+    "muted": "#52685f",
+    "canvas": "#eef4ea",
+    "shadow": "#24383026"
+  },
+  "actions": {
+    "conclusion": "success",
+    "jobs": [
+      {
+        "completedAt": "2026-11-11T08:48:05Z",
+        "conclusion": "success",
+        "databaseId": 130419660263,
+        "name": "test-and-deploy",
+        "startedAt": "2026-11-11T08:47:29Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-11T08:47:30Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-11T08:47:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-11T08:47:31Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+            "number": 2,
+            "startedAt": "2026-11-11T08:47:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-11T08:47:32Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "number": 3,
+            "startedAt": "2026-11-11T08:47:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-11T08:47:53Z",
+            "conclusion": "success",
+            "name": "Verify PMS",
+            "number": 4,
+            "startedAt": "2026-11-11T08:47:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-11T08:47:53Z",
+            "conclusion": "success",
+            "name": "Check deployment setup",
+            "number": 5,
+            "startedAt": "2026-11-11T08:47:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-11T08:48:03Z",
+            "conclusion": "success",
+            "name": "Deploy existing PMS test service",
+            "number": 6,
+            "startedAt": "2026-11-11T08:47:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-11T08:48:03Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "number": 11,
+            "startedAt": "2026-11-11T08:48:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-11T08:48:04Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+            "number": 12,
+            "startedAt": "2026-11-11T08:48:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-11T08:48:04Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-11-11T08:48:04Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/Popo841103/codex-pan/actions/runs/42989819984/job/130419660263"
+      }
+    ],
+    "status": "completed"
+  }
+}

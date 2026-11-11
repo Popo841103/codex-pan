@@ -864,3 +864,16 @@ Runtime `7078d0d`, [Actions42981520724](https://github.com/Popo841103/codex-pan/
 公网只读GET证据 `BATCH14-LIVE.json`：`2026-11-11T08:41:58.242340+00:00`，`/healthz` HTTP200精确返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`；`/web/workspace.css` GET200、SHA256 `89c059cb89cb4b53cb2dd3c5b9d5fbe36b219b633bfdc8e0c2b39b8bab42a927` 与本地一致，无旧强制64px字标高度。style.css、index.html、logo.png、icon-512.png也GET200且逐字节一致。真实公网Chromium未登录检查1920/1440/1201宽：字标32px、页头56px、顶部10.5px/底部13.5px留白；1200/760/390宽均隐藏。登录Logo仍240px，官方Logo来源/解码、四份PNG、favicon及离线Logo既有浏览器验收通过。先前本地CSS拦截预验与最终实际线上CSS验证明确区分，证据中的 `localCss:false` 为最终线上结果。
 
 无新运行时文件、业务逻辑、状态机、数据库、账号或部署工作流变更；未登录线上、POST、操作真实订单/资金/生产数据/门锁。跨已夜审日期暂存恢复及AR保护保持；全部Do NOT事项继续不做。本批仅CSS尺寸修改，未重复全套业务DOM；不把公开资源一致当作私有后端执行证明。后续交接/证据提交仅根目录与continuity，不触发部署。
+
+
+## 批次15 — 护眼鼠尾草绿品牌配色（2026-11-11）
+
+运行时提交 `10c96959c9b2f8706e640ceac4a5823ecb5bb124` 已推送 `jovian-pms-test`；[Actions 42989819984](https://github.com/Popo841103/codex-pan/actions/runs/42989819984) **Verify PMS / Deploy existing PMS test service 均成功**，本地及Ubuntu Node24 **605/605**、Python **5/5**。三个CI部署shell语法、diff检查通过，未放宽Ubuntu门禁。
+
+共享 `pms/web/style.css :root` 改为指定的低饱和苔绿/鼠尾草绿12项token：primary `#3f6a58`、hover `#335648`、link `#335c4c`、tint `#d7e6db`、soft `#f5f8f4`、selected `#c4dbd0`、focus `#2c4a3e`、border `#c5d6ce`、ink `#243830`、muted `#52685f`、canvas `#eef4ea`、shadow `#24383026`。按钮为柔和绿色，画布为浅绿纸色；HTML主题、manifest、离线页及既有浏览器验收同步，公开离线页缓存升至v4，缓存范围规则不变。AA按钮白字、链接、选中项和辅助文字对比度断言通过；旧蓝色范围与已退役品牌色断言保留并扩展。产品web/server/src、测试和当前配色浏览器脚本grep无指定旧青/玫红色字面值；历史批次记录保留。
+
+本地真实Chromium仅用内存合成SQLite，验证主按钮/悬停/白字、选中导航、日历悬停文字、官方Logo、主题及桌面/手机截图。此批仅配色与验收更新，未重复全套业务DOM。公网只读GET证据 `BATCH15-LIVE.json`：`2026-11-11T08:48:39.917072+00:00`，`/healthz` HTTP200精确返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`；**28份**公开资源GET200且与本地逐字节一致，包含全部web JS、两份CSS、主题/HTML及四份Logo PNG；style.css含全部12项新token、无旧青色主色。恢复页使用 `/web/recovery.html`、自助入住使用 `/checkin/`；核验脚本初次误用 `/recovery/` 得404，修正公开路径后全数通过，未改动产品路由。
+
+`BATCH15-BROWSER.json` 记录真实公网Chromium未登录核验：按钮 `rgb(63, 106, 88)`、悬停 `rgb(51, 86, 72)`、白字及sage主题；1920/1440/1201宽字标32px，1200/760/390隐藏。`workspace.css`完全未修改，批次14默认40px/width auto、紧凑32px及1200断点隐藏规则保留；官方黑色星球与字标、原图及所有Logo资产均未修改。前端资源一致不作为私有后端直接执行证明。
+
+无新增运行时文件、业务逻辑、双状态机、数据库、账号、部署工作流变更；营业日与马来西亚自然日、跨已夜审日期暂存恢复及AR保护保持。没有线上登录或POST、真实订单/资金/生产数据/门锁操作，全部Do NOT事项继续不做。最终文档与证据提交只改根目录及continuity，不触发新部署。
