@@ -33,7 +33,8 @@ try {
  const today='2027-03-01';
  const send=command=>store.command(operator,{key:randomUUID(),expectedRevision:store.read(operator).revisions['TEST-KL'],command:{propertyId:'TEST-KL',...command}});
  send({type:'business_date_init',date:today});
- const orderId=send({type:'create',guest:'TEST batch08',resourceId:'TEST-KL-R1',productId:'room',gender:'any',start:today,end:'2027-03-02',source:'booking',nightly:10000}).id;
+ const orderId=send({type:'create',guest:'TEST batch08',resourceId:'TEST-KL-R1',productId:'room',gender:'any',start:today,end:'2027-03-02',source:'booking',nightly:10500}).id;
+ send({type:'payment',orderId,kind:'payment',amount:10500,method:'cash'});
  await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
  await import(new URL('../web/app.js?internal-display='+randomUUID(),import.meta.url).href);
  $('[data-property="TEST-KL"]').click();
@@ -45,7 +46,7 @@ try {
  await save('message_draft_save',{draftId:'',orderId,dueDate:'2027-03-05',title:'TEST message draft',text:'TEST manual content',status:'draft',reason:'TEST author'});
  const draftId=store.read(operator).deskHistory.at(-1).draftId;
  await save('message_draft_save',{draftId,orderId,dueDate:'2027-03-05',title:'TEST completed draft',text:'TEST manually handled',status:'done',reason:'TEST manual handling'});
- assert($('[data-message-drafts]').textContent.includes('TEST completed draft'));assert.equal(store.read(operator).orders[0].transactions.length,0);
+ assert($('[data-message-drafts]').textContent.includes('TEST completed draft'));assert.equal(store.read(operator).orders[0].transactions.length,1);
  $('#nav [data-view="teamAccess"]').click();assert($('[data-effective-permissions]').textContent.includes('✓'));assert($('[data-access-constraints]'));
  $('#global-nav [data-view="calendar"]').click();$('[data-cal-view="dailyStays"]').click();assert($('[data-daily-stays]'));
  const before=store.read(operator);let form=$('[data-daily-query]');form.elements.date.value='2027-03-02';form.elements.query.value='TEST batch08';form.querySelector('button').click();assert($('[data-daily-stays]').textContent.includes('TEST batch08'));assert.equal(store.read(operator).businessDates['TEST-KL'],today);
@@ -53,6 +54,9 @@ try {
  $('#global-nav [data-view="resourcesSettings"]').click();$('#nav [data-view="nightAuditSettings"]').click();assert($('[data-manual-audit-policy]'));assert($('[data-audit-read-query]'));$('[data-audit-read-query] button').click();
  $('#nav [data-view="bookingRequests"]').click();assert($('[data-request-query]'));$('[data-request-query] button').click();assert.equal($('[data-request-query] output').textContent,'0');
  $('#global-nav [data-view="business"]').click();$('#nav [data-view="parityWorkspace"]').click();
+ const q11=$('[data-parity-query]');q11.elements.kind.value='shiftAccrual';q11.elements.from.value=today;q11.elements.to.value=today;q11.querySelector('button').click();
+ const visible11=$('[data-parity-results]').textContent;assert(visible11.includes('MYR 105.00'));assert(visible11.includes('TEST batch08'));assert(visible11.includes(store.read(operator).resources.find(r=>r.id==='TEST-KL-R1').label));assert(!visible11.includes(orderId));assert(!visible11.includes('10500'));assert($('[data-parity-note]').textContent.includes('历史'));
+ q11.elements.kind.value='invoice';q11.querySelector('button').click();assert($('[data-parity-results]').textContent.includes('MYR 105.00'));assert(!$('[data-parity-results]').textContent.includes(orderId));
  for(const section of ['actorSummary','sourceSummary','receptionSummary','handoverWindows']){const q=$('[data-parity-query]');q.elements.kind.value='managerBusiness';q.elements.section.value=section;q.elements.from.value=today;q.elements.to.value=today;q.querySelector('button').click();assert.equal(q.querySelector('output').textContent,'');}
  assert.equal(store.read(operator).audit.length,before.audit.length);
  $('#global-nav [data-view="resourcesSettings"]').click();set('#property','TEST-PG');assert(!$('#content').textContent.includes('TEST source label'));assert(!$('#content').textContent.includes('TEST completed draft'));

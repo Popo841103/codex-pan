@@ -47,8 +47,8 @@ try {
  const hourlyId=await save('hourly',{name:'TEST hourly rate',roomTypeId:resource.roomTypeId,minHours:'2',maxHours:'8',baseAmount:'20.00',unitHours:'2',unitAmount:'5.00'});
  async function complete(type,values){const form=$('[data-completion-command="'+type+'"]'),count=store.read(operator).completionHistory?.length||0;form.closest('details').open=true;for(const [key,value] of Object.entries(values))form.elements[key].value=value;form.querySelector('button').click();await until(()=>store.read(operator).completionHistory?.length===count+1&&$('[data-completion-command="'+type+'"]')!==form,'completion '+type);}
  await complete('customer_link',{orderId:created.id,customerId,reason:'TEST explicit verified link'});
- assert($('[data-completion-panel]').textContent.includes(created.id));
- await complete('quick_entry',{orderId:created.id,categoryId,amount:'1200',method:'cash',note:'TEST attributed receipt'});
+ assert($('[data-completion-panel]').textContent.includes('TEST original snapshot'));
+ await complete('quick_entry',{orderId:created.id,categoryId,amount:'12.00',method:'cash',note:'TEST attributed receipt'});
  await complete('item_charge',{orderId:created.id,itemId,quantity:'2',note:'TEST confirm price'});
  await complete('create_hourly',{hourlyId,resourceId:'TEST-KL-R2',guest:'TEST hourly DOM',usageDate:today,startTime:'10:00',hours:'3'});
  const hourly=store.read(operator).orders.find(o=>o.hourly);assert.equal(hourly.nightly,2500);assert.equal(store.read(operator).orders.find(o=>o.id===created.id).guest,'TEST original snapshot');
@@ -62,10 +62,10 @@ try {
  for(const dimension of ['date','source','roomTypeId','resourceId','productId'])assert(query('accommodationSummary',{dimension}).querySelectorAll('tbody tr').length);
  assert(query('quickEntries').textContent.includes('TEST reception receipts'));
  assert(query('quickNoteSummary').textContent.includes('TEST attributed receipt'));
- assert(query('transactionDetail',{method:'cash',actor:username}).textContent.includes('1200'));
- assert(query('ledgerRecords',{createdFrom:today,createdTo:today,section:'staySummary'}).textContent.includes(created.id));
+ assert(query('transactionDetail',{method:'cash',actor:username}).textContent.includes('MYR 12.00'));
+ assert(query('ledgerRecords',{createdFrom:today,createdTo:today,section:'staySummary'}).textContent.includes('TEST original snapshot'));
  assert.equal(query('ledgerRecords',{completedFrom:today,completedTo:today,section:'staySummary'}).querySelectorAll('tbody tr').length,0);
- assert(query('hourlyReservations').textContent.includes('2500'));
+ assert(query('hourlyReservations').textContent.includes('MYR 25.00'));
  const invoice=query('invoice',{search:created.id});assert(invoice.textContent.includes('TEST internal invoice'));assert(invoice.textContent.includes('10700'));
  invoice.querySelector('[data-open-stay]').click();$('[data-internal-invoice]').click();assert($('[data-internal-invoice-view]').textContent.includes('TEST no tax submission'));
  let printed=false;dom.window.print=()=>{printed=document.body.classList.contains('invoice-print');};$('[data-invoice-print]').click();assert(printed);assert(!document.body.classList.contains('invoice-print'));$('#utility-close').click();$('#detail-dialog').close();
