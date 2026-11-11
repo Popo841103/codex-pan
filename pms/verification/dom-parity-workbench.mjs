@@ -43,9 +43,9 @@ try {
  await save('tagGroup',{name:'TEST group'});const groupId=store.read(operator).directoryHistory.at(-1).entryId;
  await save('tag',{name:'TEST tag',groupId});const tagId=store.read(operator).directoryHistory.at(-1).entryId;
  await save('corporate',{name:'TEST company',contact:'TEST contact',phone:'TEST phone'});
- await save('meal',{name:'TEST meal',unitAmount:'1000'});
- await save('item',{name:'TEST item',unitAmount:'300'});
- await save('hourly',{name:'TEST hourly',roomTypeId:resource.roomTypeId,minHours:'2',baseAmount:'2000',unitHours:'1',unitAmount:'500',maxHours:'6'});
+ await save('meal',{name:'TEST meal',unitAmount:'10.00'});
+ await save('item',{name:'TEST item',unitAmount:'3.00'});
+ await save('hourly',{name:'TEST hourly',roomTypeId:resource.roomTypeId,minHours:'2',baseAmount:'20.00',unitHours:'1',unitAmount:'5.00',maxHours:'6'});
  const tagForm=$('[data-customer-tag]');tagForm.elements.orderId.value=created.id;tagForm.elements.tagId.value=tagId;tagForm.querySelector('button').click();
  await until(()=>store.read(operator).customerTagHistory?.length===1&&document.querySelector('[data-customer-tag]')?.elements.orderId.value==='','tag assigned');
  directory('tag').closest('details').open=true;set('[data-directory-save="tag"] [name=entryId]',tagId);assert.equal(directory('tag').elements.name.value,'TEST tag');directory('tag').elements.name.value='TEST renamed';directory('tag').querySelector('button').click();

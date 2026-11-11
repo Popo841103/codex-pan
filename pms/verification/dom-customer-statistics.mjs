@@ -42,9 +42,9 @@ try {
  async function save(kind,values){const form=directory(kind);form.closest('details').open=true;for(const [key,value] of Object.entries(values))form.elements[key].value=value;form.querySelector('button').click();await until(()=>store.read(operator).directoryHistory?.at(-1)?.name===values.name&&directory(kind)!==form,'directory '+kind);return store.read(operator).directoryHistory.at(-1).entryId;}
  const customerId=await save('customer',{name:'TEST independent profile',phone:'TEST phone',email:'test@example.invalid',birthday:'2000-02-29',documentHint:'1234',active:'true'});
  const categoryId=await save('quickCategory',{name:'TEST reception receipts',direction:'payment',active:'true'});
- const itemId=await save('item',{name:'TEST towel',unitAmount:'350'});
+ const itemId=await save('item',{name:'TEST towel',unitAmount:'3.50'});
  await save('invoiceTemplate',{name:'TEST internal template',heading:'TEST internal invoice',footer:'TEST no tax submission',active:'true'});
- const hourlyId=await save('hourly',{name:'TEST hourly rate',roomTypeId:resource.roomTypeId,minHours:'2',maxHours:'8',baseAmount:'2000',unitHours:'2',unitAmount:'500'});
+ const hourlyId=await save('hourly',{name:'TEST hourly rate',roomTypeId:resource.roomTypeId,minHours:'2',maxHours:'8',baseAmount:'20.00',unitHours:'2',unitAmount:'5.00'});
  async function complete(type,values){const form=$('[data-completion-command="'+type+'"]'),count=store.read(operator).completionHistory?.length||0;form.closest('details').open=true;for(const [key,value] of Object.entries(values))form.elements[key].value=value;form.querySelector('button').click();await until(()=>store.read(operator).completionHistory?.length===count+1&&$('[data-completion-command="'+type+'"]')!==form,'completion '+type);}
  await complete('customer_link',{orderId:created.id,customerId,reason:'TEST explicit verified link'});
  assert($('[data-completion-panel]').textContent.includes(created.id));

@@ -40,7 +40,7 @@ try {
  $('[data-property="TEST-KL"]').click();$('#global-nav [data-view="customers"]').click();
  const directory=kind=>$('[data-directory-save="'+kind+'"]');
  async function save(kind,values){const form=directory(kind);form.closest('details').open=true;for(const [key,value] of Object.entries(values))form.elements[key].value=value;form.querySelector('button').click();await until(()=>store.read(operator).directoryHistory?.at(-1)?.name===values.name&&directory(kind).elements.name.value==='','directory '+kind);}
- await save('meal',{name:'TEST breakfast',unitAmount:'800'});const mealId=store.read(operator).directoryHistory.at(-1).entryId;
+ await save('meal',{name:'TEST breakfast',unitAmount:'8.00'});const mealId=store.read(operator).directoryHistory.at(-1).entryId;
  await save('holiday',{name:'TEST internal holiday',date:today,eventType:'holiday',heat:'high',active:'true'});
  await save('inspectionItem',{name:'TEST linen inspection',roomTypeId:resource.roomTypeId,active:'true'});const itemId=store.read(operator).directoryHistory.at(-1).entryId;
  async function operation(type,values,checks=[]){const form=$('[data-operations-command="'+type+'"]'),count=store.read(operator).operationsHistory?.length||0;for(const [key,value] of Object.entries(values))form.elements[key].value=value;for(const id of checks)form.querySelector('[data-inspection-item="'+id+'"]').checked=true;form.querySelector('button').click();await until(()=>store.read(operator).operationsHistory?.length===count+1&&!$('[data-operations-command="'+type+'"] button').disabled,'operation '+type);}

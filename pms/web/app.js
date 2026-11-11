@@ -101,6 +101,10 @@ function nightAuditState(){
     handovers:(state.handovers||[]).filter(h=>h.propertyId===propertyId)};
 }
 async function commit(command) {
+  if(command.type==='checkin'){
+    const o=state.orders.find(o=>o.id===command.orderId);
+    if(o?.hourly&&Date.now()<Date.parse(o.hourly.usageDate+'T'+o.hourly.startTime+':00+08:00')&&!window.confirm('钟点房尚未到预订时段，确认提前入住？ / Before hourly window. Check in early?'))return;
+  }
   if(command.type==='checkout'&&!command.checkoutReviewed){openCheckout(command.orderId);return;}
   if(writing)throw new Error('busy');
   writing=true;let savedResult;
@@ -336,7 +340,7 @@ $('#new').onclick=()=>composer.open();
 $('#close').onclick=()=>$('#order-dialog').close();
 $('#order-form').onsubmit=async e=>{e.preventDefault();try{await commit({type:'create',...Object.fromEntries(new FormData(e.target)),nightly:toMinor(e.target.elements.nightly.value),resourceId:e.target.dataset.resourceId||null});$('#order-dialog').close();}catch(error){$('#form-error').textContent=errorText(error);}};
 $('#content').onclick=async e=>{
-  const b=e.target.closest('[data-action]');if(!b)return;
+  const b=e.target.closest('[data-action]');if(!b||b.disabled||writing)return;
   const {action:type,id}=b.dataset;if(type==='details'){openDetail(id);return;}if(['release-unit','block'].includes(type)){try{calendarInteractions[type==='block'?'block':'release']({resourceId:id,start:businessDate(),end:nextDay(businessDate())});}catch(error){$('#message').textContent=errorText(error);}return;}let command={type};
   if(['assign','checkin','checkout'].includes(type))command.orderId=id;
   if(type==='assign')command.resourceId=document.querySelector(`[data-target="${id}"]`).value;
@@ -395,7 +399,9 @@ function calendar(resources,orders,plan,date) {
       const block=state.blocks.find(b=>b.propertyId===propertyId&&b.start<=d&&b.end>d&&b.atoms.some(a=>r.atoms.includes(a)));
       // A sibling resource can share atoms with this row (whole dorm vs a bed).
       const shared=!order&&plan.some(p=>p.start<=d&&p.end>d&&p.atoms.some(a=>r.atoms.includes(a)));
-      if(order){
+      const hourlyOrders=plan.filter(p=>p.resourceId===r.id&&p.start<=d&&p.end>d).map(p=>orders.find(o=>o.id===p.demandId)).filter(o=>o?.hourly);
+      if(hourlyOrders.length){cells+=`<td class="hour-slot-cell">${hourlyOrders.sort((a,b)=>a.hourly.startTime.localeCompare(b.hourly.startTime)).map(o=>`<button class="hour-slot" style="margin-left:${Number(o.hourly.startTime.slice(0,2))/24*100}%;width:${Math.max(o.hourly.hours/24*100,15)}%" data-action="details" data-id="${escape(o.id)}" title="${escape(o.guest)} ${o.hourly.startTime}–${o.hourly.endTime}">${o.hourly.startTime}–${o.hourly.endTime}<small>${escape(o.guest)}</small></button>`).join('')}</td>`;i++;}
+      else if(order){
         let span=1;while(i+span<days.length&&days[i+span]<reservation.end)span++;
         cells+=`<td colspan="${span}"><button class="calendar-booking ${order.resourceId?'':'provisional'} ${order.status} color-${escape(order.color||'default')}" data-action="details" data-id="${escape(order.id)}" ${can('assign')&&order.resourceId&&!order.locked&&(!auditedThrough||order.start>auditedThrough)?'draggable="true" data-stay-drag':''} title="${escape(order.guest+' · '+order.start+' → '+order.end+' · '+t(order.status))}"><strong>${order.start<date?'◀ ':''}${escape(order.guest)} ${order.locked?'🔒':''}</strong><small>${displaySource?escape(t(order.source||'direct')):''}${order.end>nextDay(days.at(-1))?' ▶':''}</small>${displayBalance&&folio(order).due>0?`<span class="booking-balance" title="${escape(t('due')+': '+currency(folio(order).due))}">●<span class="sr-only">${currency(folio(order).due)}</span></span>`:''}</button></td>`;i+=span;
       }else if(block||shared){cells+=block?`<td class="calendar-block"><button class="calendar-block-button block-${blockType(block)}" data-block-cell="${escape(r.id)}" data-day="${d}" title="${escape(block.reason||t(blockType(block)))}"><span aria-hidden="true">⊖</span>${t(blockType(block))}</button></td>`:`<td class="calendar-block">${t('sharedOccupied')}</td>`;i++;}
@@ -1463,12 +1469,12 @@ $('#content').addEventListener('click',event=>{
 $('#content').addEventListener('change',event=>{
  const form=event.target.closest('[data-directory-save]');if(!form||event.target.name!=='entryId')return;
  const row=directoryEntries(state,propertyId).find(r=>r.entryId===event.target.value);
- for(const input of form.elements)if(input.name&&input.name!=='entryId')input.value=row?.[input.name]??'';
+ for(const input of form.elements)if(input.name&&input.name!=='entryId')input.value=['unitAmount','baseAmount'].includes(input.name)&&row?.[input.name]!=null?(row[input.name]/100).toFixed(2):row?.[input.name]??'';
 });
 $('#content').addEventListener('submit',async event=>{
  const form=event.target;if(!form.matches('[data-directory-save],[data-customer-tag]'))return;
  event.preventDefault();const data=Object.fromEntries(new FormData(form)),button=form.querySelector('button');button.disabled=true;
- try{if(form.matches('[data-directory-save]')){for(const k of ['unitAmount','baseAmount','minHours','unitHours','maxHours'])if(k in data)data[k]=Number(data[k]);if('active' in data)data.active=data.active==='true';await commit({type:'directory_entry_save',kind:form.dataset.directorySave,...data});}
+ try{if(form.matches('[data-directory-save]')){for(const k of ['unitAmount','baseAmount','minHours','unitHours','maxHours'])if(k in data)data[k]=['unitAmount','baseAmount'].includes(k)?toMinor(data[k]):Number(data[k]);if('active' in data)data.active=data.active==='true';await commit({type:'directory_entry_save',kind:form.dataset.directorySave,...data});}
  else await commit({type:'customer_tag_set',...data,active:data.active==='true'});render();}
  catch(error){form.querySelector('output').textContent=errorText(error);button.disabled=false;}
 });
