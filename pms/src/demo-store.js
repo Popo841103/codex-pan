@@ -331,9 +331,16 @@ export function stayLocks(state,order){
  if(!config.connected||!room)return [];
  return config.locks.filter(l=>l.kind==='private'?l.resourceId===room.id:l.roomTypeIds.includes(room.roomTypeId));
 }
+// Stay instants use Malaysia local time, independently of the business date.
+export function stayTimes(order){
+ const h=order.hourly;
+ const instant=(day,time)=>Date.parse(day+'T'+time+(time.length===5?':00':'')+'+08:00');
+ return {start:instant(h?.usageDate||order.start,h?.startTime||order.arrivalTime||'15:00'),end:instant(h?.usageDate||order.end,h?.endTime||order.departureTime||'12:00')};
+}
+export function smartLockName(name){const value=name.replace(/^TEST · (?=TEST)/i,'');return /^TEST/i.test(value)?value:'TEST · '+value;}
 export function smartLockWindow(order,lock,settings){
- const prefix=lock.kind==='private'?'private':'common';
- return {from:Date.parse(order.start+'T'+(order.arrivalTime||'15:00')+':00+08:00')-settings[prefix+'Before']*3600000,until:Date.parse(order.end+'T'+(order.departureTime||'12:00')+':00+08:00')+settings[prefix+'After']*3600000};
+ const prefix=lock.kind==='private'?'private':'common',times=stayTimes(order);
+ return {from:times.start-settings[prefix+'Before']*3600000,until:times.end+settings[prefix+'After']*3600000};
 }
 function applySmartLock(state,c){
  const property=state.properties.find(p=>p.id===c.propertyId),old=smartLockConfig(state,c.propertyId),config=structuredClone(old);
@@ -366,7 +373,7 @@ function applySmartLock(state,c){
     roomTypeIds=[...c.roomTypeIds];
    }
    const id=existing?.id||'SYNTH-'+c.id;
-   const lock={id,name:'TEST · '+name.replace(/^TEST · /,''),brand:ttLockBrand,kind:c.kind,resourceId,roomTypeIds,online:c.online,gateway:c.gateway,mode:'synthetic'};
+   const lock={id,name:smartLockName(name),brand:ttLockBrand,kind:c.kind,resourceId,roomTypeIds,online:c.online,gateway:c.gateway,mode:'synthetic'};
    config.locks=config.locks.filter(l=>l.id!==id);config.locks.push(lock);
   }
  }

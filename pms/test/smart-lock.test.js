@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {Store} from '../server/store.js';
-import {apply,smartLockBrands,smartLockConfig,ttLockBrand,stayLocks} from '../src/demo-store.js';
+import {apply,smartLockBrands,smartLockConfig,ttLockBrand,stayLocks,smartLockWindow,smartLockName} from '../src/demo-store.js';
 import {syntheticTTLock} from '../server/self-checkin.js';
 const pid='TEST-KL',day='2027-01-10';
 function fixture(){
@@ -33,7 +33,7 @@ test('display catalog reserves all 19 brands; only TTLock accepts password-free 
 test('private and common binding share reducer validation and remain property-scoped',()=>{
  const f=fixture();try{
   f.connect();f.bind();f.bind('common');
-  const state=f.store.read(f.admin),rows=stayLocks(state,f.order());assert.equal(rows.length,2);assert(rows.every(r=>r.id.startsWith('SYNTH-')&&r.name.startsWith('TEST · ')));
+  const state=f.store.read(f.admin),rows=stayLocks(state,f.order());assert.equal(rows.length,2);assert(rows.every(r=>r.id.startsWith('SYNTH-')&&r.name.startsWith('TEST synthetic ')));
   assert.throws(()=>f.bind('private',{resourceId:'TEST-PG-R1'}),/scope/);
   assert.throws(()=>f.bind('common',{roomTypeIds:['TEST-PG-legacy-room-any']}),/scope/);
   const c={type:'smart_lock_settings',propertyId:pid,settings:{...smartLockConfig(state,pid).settings,length:9},id:randomUUID(),at:new Date().toISOString()};
@@ -115,5 +115,31 @@ test('settings and binding commands retain idempotency, revision and property-ro
   assert.throws(()=>f.store.command(f.admin,{...request,key:randomUUID()}),/stale_revision/);
   f.store.db.prepare("UPDATE user_properties SET role='operations' WHERE user_id=? AND property_id=?").run(f.admin.id,pid);
   assert.throws(()=>f.store.command(f.admin,request),/forbidden/);
+ }finally{f.store.close();}
+});
+
+test('TEST names preserve staff prefix and repair legacy double prefix without rebinding',()=>{
+ for(const name of ['TEST-101 客房锁','test101','Test · Lobby','TEST Lobby'])assert.equal(smartLockName(name),name);
+ assert.equal(smartLockName('101'),'TEST · 101');
+ assert.equal(smartLockName('TEST · TEST-101 客房锁'),'TEST-101 客房锁');
+ const f=fixture();try{f.connect();f.bind('private',{name:'test-101'});assert.equal(f.read().rows[0].lock.name,'test-101');}finally{f.store.close();}
+});
+test('hourly Malaysia actual instants define both door windows independently of all lead days',()=>{
+ const order={start:'2026-11-11',end:'2026-11-12',arrivalTime:'15:00',departureTime:'12:00',hourly:{usageDate:'2026-11-11',startTime:'14:00',endTime:'17:00'}};
+ for(const kind of ['private','common'])for(let leadDays=0;leadDays<=3;leadDays++)assert.deepEqual(smartLockWindow(order,{kind},{privateBefore:12,privateAfter:12,commonBefore:12,commonAfter:12,leadDays}),{from:Date.parse('2026-11-11T02:00:00+08:00'),until:Date.parse('2026-11-12T05:00:00+08:00')});
+ assert.deepEqual(smartLockWindow({start:'2026-11-11',end:'2026-11-12',arrivalTime:'16:30',departureTime:'10:15'},{kind:'private'},{privateBefore:0,privateAfter:0}),{from:Date.parse('2026-11-11T16:30:00+08:00'),until:Date.parse('2026-11-12T10:15:00+08:00')});
+});
+test('saved hourly stays replace legacy window signatures, clear stale ciphertext and use actual lead threshold',()=>{
+ const f=fixture();try{
+  f.setNow('2027-01-07T06:00:00Z');f.connect();f.bind();f.bind('common');
+  // Model an already saved hourly stay and pre-fix encrypted passcodes, without altering guest/financial data.
+  const body=f.store.checkin.body(pid);body.orders.find(o=>o.id===f.orderId).hourly={usageDate:day,startTime:'14:00',endTime:'17:00'};
+  f.store.db.prepare('UPDATE properties SET body=? WHERE id=?').run(JSON.stringify(body),pid);
+  f.store.db.prepare("UPDATE sl_access SET signature='legacy-hotel-window'").run();
+  const old=f.store.db.prepare('SELECT id FROM sl_access').all();
+  const read=f.read();assert(read.rows.every(r=>!r.pin&&r.from===Date.parse(day+'T02:00:00+08:00')&&r.until===Date.parse(day+'T21:00:00Z')));
+  for(const {id} of old){const row=f.store.db.prepare('SELECT pin,status FROM sl_access WHERE id=?').get(id);assert.equal(row.pin,null);assert.equal(row.status,'test_revoked');}
+  assert(f.action('auto_generate').rows.every(r=>r.pin));
+  f.setNow('2027-01-10T09:00:00Z');assert.throws(()=>f.action('generate'),/smart_lock_stay_unavailable/);
  }finally{f.store.close();}
 });
