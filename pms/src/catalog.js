@@ -37,7 +37,7 @@ export function upgradeCatalog(state) {
   return next;
 }
 export function typeName(type, language, fallback) {
-  return type?.names?.[language] || type?.names?.en || type?.names?.zh || fallback;
+  return type?.names?.[language] || type?.names?.en || type?.names?.zh || type?.names?.ms || fallback;
 }
 // A retired child unit cannot be sold again through a composed suite.
 export function saleResources(state, propertyId) {
@@ -67,7 +67,8 @@ export function configureCatalog(state, command) {
   if (type === 'room_type_save') {
     const old = command.roomTypeId ? localType(command.roomTypeId) : null;
     if (command.roomTypeId && !old) fail('scope');
-    const names = Object.fromEntries(['zh', 'en', 'ms'].map(language => [language, label(command.names?.[language])]));
+    const fallback = ['zh','en','ms'].map(l=>command.names?.[l]).find(v=>typeof v==='string'&&v.trim());
+    const names = Object.fromEntries(['zh', 'en', 'ms'].map(language => [language, label((typeof command.names?.[language]==='string'?command.names[language].trim():command.names?.[language]) || fallback)]));
     if (!['room', 'bed', 'suite'].includes(command.productId) || !['any', 'female', 'male'].includes(command.gender)) fail('catalog_input');
     const maxGuests = integer(command.maxGuests, 100);
     if (!maxGuests || command.productId === 'bed' && maxGuests !== 1) fail('catalog_input');

@@ -52,7 +52,7 @@ export function orderBalanceAt(order,date,inclusive=true){
   for(const line of orderChargeLines(order).lines)if(cut(line.date))balance.charge+=line.amount;
   for(const tr of order.transactions||[]){
     if(!['payment','refund','deposit_in','deposit_out'].includes(tr.kind))continue;
-    const day=localDay(tr.at);if(!day||!cut(day))continue;
+    const day=tr.businessDate||localDay(tr.at);if(!day||!cut(day))continue;
     const value=amount(tr.amount);if(value<0)throw Error('report_amount');
     if(tr.kind==='payment')balance.paid+=value;
     else if(tr.kind==='refund')balance.paid-=value;
@@ -89,11 +89,11 @@ export function dailyOperations(state,q){
   const opening=orders.reduce((a,o)=>addBalance(a,orderBalanceAt(o,previousDay(q.date),true)),emptyBalance());
   const closing=orders.reduce((a,o)=>addBalance(a,orderBalanceAt(o,q.date,true)),emptyBalance());
   const charges={room:0,extras:0,cancellation:0,total:0},unallocated=[],chargeLines=[];
-  for(const order of orders){const {lines,unallocated:missing}=orderChargeLines(order);for(const line of lines){if(line.date!==q.date)continue;chargeLines.push(line);charges.total+=line.amount;if(line.kind==='room')charges.room+=line.amount;else if(line.kind==='cancellation')charges.cancellation+=line.amount;else charges.extras+=line.amount;}unallocated.push(...missing);}
+  for(const order of orders){const {lines,unallocated:missing}=orderChargeLines(order);for(const line of lines){if(line.date!==q.date)continue;chargeLines.push(line);charges.total+=line.amount;if(['room','hourly'].includes(line.kind))charges.room+=line.amount;else if(line.kind==='cancellation')charges.cancellation+=line.amount;else charges.extras+=line.amount;}unallocated.push(...missing);}
   const settlements={payment:0,refund:0,deposit_in:0,deposit_out:0,net:0,depositNet:0,count:0};
   for(const order of orders)for(const tr of order.transactions||[]){
     if(!['payment','refund','deposit_in','deposit_out'].includes(tr.kind))continue;
-    if(localDay(tr.at)!==q.date)continue;
+    if((tr.businessDate||localDay(tr.at))!==q.date)continue;
     const value=amount(tr.amount);if(value<0)throw Error('report_amount');
     settlements[tr.kind]+=value;settlements.count++;
   }
@@ -101,7 +101,7 @@ export function dailyOperations(state,q){
   const folioCreditNet=orders.reduce((sum,order)=>sum+folioTransferCredit(order,date=>date===q.date),0);
   settlements.net=settlements.payment-settlements.refund;
   settlements.depositNet=settlements.deposit_in-settlements.deposit_out;
-  const metrics={arrivals:orders.filter(o=>o.start===q.date).length,departures:orders.filter(o=>o.end===q.date).length,inHouse:orders.filter(o=>o.status==='checked_in').length,expectedArrivals:orders.filter(o=>o.status==='confirmed'&&o.start===q.date).length};
+  const metrics={arrivals:orders.filter(o=>!isBoxed(o)&&o.status!=='cancelled'&&o.start===q.date).length,departures:orders.filter(o=>!isBoxed(o)&&o.status!=='cancelled'&&o.end===q.date).length,inHouse:orders.filter(o=>o.status==='checked_in'&&o.start<=q.date&&o.end>q.date).length,expectedArrivals:orders.filter(o=>o.status==='confirmed'&&o.start===q.date).length};
   // The day's own movements must rebuild the closing balance from the opening one. If
   // they do not, the page says the day is unreconciled instead of showing a total that
   // no longer ties back to the guest ledger.

@@ -198,3 +198,10 @@ test('real HTTP client configures a type and dorm, then reserves its exact bed t
   state=await a.state();assert.equal(state.revisions[pid],3);assert.equal(state.orders.length,1);
   for(const path of ['/src/catalog.js','/web/catalog-ui.js'])assert.equal((await fetch(origin+path)).status,200);
 });
+
+test('front desk creates a room type with one language and rejects an empty name',()=>{
+ const c=command('room_type_save',{productId:'room',gender:'any',maxGuests:2,names:{ms:'Bilik baharu'}});
+ const s=apply(seed(),c),type=s.roomTypes.find(t=>t.id===c.id);
+ assert.deepEqual(type.names,{zh:'Bilik baharu',en:'Bilik baharu',ms:'Bilik baharu'});
+ assert.throws(()=>apply(seed(),{...c,names:{zh:'',en:'',ms:''}}),/catalog_input/);
+});

@@ -47,7 +47,7 @@ export function bindCatalog({ root, getState, getProperty, getLanguage, t, can, 
     let html, title, permission;
     if (action === 'type') {
       title = type ? 'editType' : 'addType'; permission = 'room_type_save';
-      html = ['zh','en','ms'].map(l=>input(`name_${l}`,{zh:'typeNameZh',en:'typeNameEn',ms:'typeNameMs'}[l],typeName(type,l,''),'required maxlength="100"')).join('')+
+      html = ['zh','en','ms'].map(l=>input(`name_${l}`,{zh:'typeNameZh',en:'typeNameEn',ms:'typeNameMs'}[l],typeName(type,l,''),'maxlength="100"')).join('')+
         `<div class="form-row"><label>${t('product')}<select name="productId" ${type?'disabled':''}>${options(['room','bed','suite'],type?.productId||'room')}</select></label><label>${t('gender')}<select name="gender" ${type?'disabled':''}>${options(['any','female','male'],type?.gender||'any')}</select></label></div>`+
         input('maxGuests','maxGuests',type?.maxGuests||1,'required type="number" min="1" max="100"')+input('sortOrder','sortOrder',type?.sortOrder||0,'required type="number" min="0" max="100000"');
     } else if (action === 'room') {

@@ -121,7 +121,7 @@ test('the manager report compares the same day last month and last year without 
 
 test('operating counts stay separate from money and never imply a checked-in guest list', () => {
   const r = dailyOperations(state(), query());
-  assert.equal(r.metrics.arrivals, 2, 'both cancelled stays were due to arrive, one is not a guest in house');
+  assert.equal(r.metrics.arrivals, 0, 'cancelled stays are not due arrivals');
   assert.equal(r.metrics.inHouse, 1);
   assert.equal(r.metrics.departures, 0);
 });
@@ -185,3 +185,10 @@ test('a ledger amount that is not a safe integer stops the report instead of rou
   const negative = { ...stay, id: 'neg', transactions: [{ kind: 'payment', amount: -100, at: '2027-01-11T02:00:00.000Z' }] };
   assert.throws(() => dailyOperations({ orders: [negative] }, query()), /report_amount/);
 });
+
+ test('business-date prepayment and hourly revenue reconcile without mixing the cash day',()=>{
+ const order={...stay,hourly:{hours:2},nightlyRates:[{date:'2027-01-11',amount:6000}],transactions:[{kind:'payment',amount:12000,businessDate:'2027-01-11',at:'2026-11-11T04:00:00Z'}]};
+ const r=dailyOperations({orders:[order]},query());
+ assert.equal(r.charges.room,6000);assert.equal(r.charges.extras,0);assert.equal(r.settlements.net,12000);assert.equal(r.closing.due,-6000);assert.equal(r.balanced,true);
+ assert.equal(dailyOperations({orders:[order]},query({date:'2028-01-11'})).metrics.inHouse,0);
+ });
