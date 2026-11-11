@@ -1,0 +1,58 @@
+{
+  "time": "2026-11-11T10:38:23.350Z",
+  "live": true,
+  "login": false,
+  "writes": false,
+  "colors": {
+    "background": "rgb(63, 106, 88)",
+    "color": "rgb(255, 255, 255)",
+    "theme": "#3f6a58",
+    "canvas": "rgb(238, 244, 234)"
+  },
+  "hover": "rgb(51, 86, 72)",
+  "sizes": [
+    {
+      "width": 1920,
+      "height": "32px",
+      "display": "block",
+      "src": "logo.png",
+      "decoded": true
+    },
+    {
+      "width": 1440,
+      "height": "32px",
+      "display": "block",
+      "src": "logo.png",
+      "decoded": true
+    },
+    {
+      "width": 1201,
+      "height": "32px",
+      "display": "block",
+      "src": "logo.png",
+      "decoded": true
+    },
+    {
+      "width": 1200,
+      "height": "32px",
+      "display": "none",
+      "src": "logo.png",
+      "decoded": true
+    },
+    {
+      "width": 760,
+      "height": "40px",
+      "display": "none",
+      "src": "logo.png",
+      "decoded": true
+    },
+    {
+      "width": 390,
+      "height": "40px",
+      "display": "none",
+      "src": "logo.png",
+      "decoded": true
+    }
+  ],
+  "pageErrors": []
+}

@@ -1,5 +1,7 @@
 # JOVIAN PMS · 项目状态与续写地图
 
+最新批次18（2026-11-11）：运行时 `27a8ec0`；Actions `43003098392` 测试及实际部署成功，Node24 **620/620**、Python **5/5**、DOM/通讯/分账 **36/36**。按每把锁完整有效窗口生成合成码，17:00后至次日05:00缓冲期可生成/重开显示，到期拒绝；线上41资源及sage/字标/Logo核验通过。详见本文末批次18节与 `pms/verification/batch18-passcode-window.md`。
+
 最新批次16（2026-11-11）：功能 `962a04d`、样式 `a2f36bf`、最终测试/发布 `cea399d362cdbfedb5ddb1dd416d739900285296`；Actions `42998081874` 测试及实际部署成功，Node24 **614/614**、Python **5/5**、DOM/通讯/分账 **36/36**。已提供智能锁集成设置、19品牌入口、TTLock合成绑定/加密测试密码与房卡帮助；真实锁云端/硬件/开门均未接入，9.12及9.15仍部分。详情见本文末尾批次16节及 `pms/verification/batch16-smart-lock.md`。
 
 截至2026-11-11，最新功能`96ff297`、最终运行时`5b407329efb13e0036d065dc6231a97e873efb80`。独立客户、统计双维度、账簿创建/完成筛选、归属快记账/物品与内部账单；小时预订采用整日库存保护仍部分。Linux及Ubuntu Node24 **534/534**、Python **5/5**，本地DOM **30/30**；最终Actions `42859317901`已实际部署，健康/四份JS和CSS哈希/26模块GET核验通过。矩阵已有63/部分36/缺失0/禁止或外部15，本批15条提升。入口、边界及后续见本文末尾、continuity/VERIFICATION.md及pms/verification/customer-statistics-audit.md；既有数据和发布工作流均保留。
@@ -528,3 +530,18 @@ Runtime `7078d0d`, [Actions42981520724](https://github.com/Popo841103/codex-pan/
 真实公网Chromium `BATCH17-BROWSER.json`（`2026-11-11T10:00:46.760Z`）未登录、GET-only、无页面错误，按钮 `rgb(63, 106, 88)`、hover `rgb(51, 86, 72)`、白字、sage主题；1920/1440/1201宽字标32px，1200/760/390隐藏，来源logo.png且成功解码；CSS默认40px/width auto及紧凑32px规则保留。公开资源一致只证明浏览器交付，不当作私有后端、线上特定住宿或真实门锁的直接操作验收；未登录或操作线上E2E住宿，小时窗口以本地合成数据验证。
 
 详细复现与边界见 `pms/verification/batch17-smart-lock-fixes.md`。`server/store.js`继续调用同一 `demo-store.apply`，双状态机名称/绑定规则一致；密码服务复用同一时段与窗口。营业日未参与Malaysia时间计算，原self-checkin、night-audit、boxed-stay restore及AR保护通过。9.12/9.15仍「部分」，合成测试不等于云端/硬件接入。远程开锁继续原测试模式409拒绝、不宣称物理门打开；不邮件/外发密码、不调用TTLock/Sciener云端、不操作真实订单/钱款/生产数据/门锁。无新增runtime文件、部署工作流/Logo/配色改动，无夜审自动化、Beds24、生产渠道或其他Do NOT事项。最后中文交接与JSON证据提交只改根目录和continuity，不触发新部署。
+
+
+## 批次18 — 完整有效窗口内生成与显示合成测试密码（2026-11-11）
+
+运行时 `27a8ec0713a90a927a185e8af224398f1a80582d` 已在 `jovian-pms-test`；[Actions 43003098392](https://github.com/Popo841103/codex-pan/actions/runs/43003098392) / job `130463790946` 的 **Verify PMS / Deploy existing PMS test service 均成功**。续跑先核对本地bf86836上的三份未提交代码/测试与远端27a8ec0完全一致，保留stash副本后仅fast-forward，无force push或覆盖线上改动。验证说明已随运行时提交，本次只补根目录/continuity交接与证据，不重复触发部署。
+
+修正批次17剩余边界：生成入口原先用住宿原始结束时间拒绝，现按每把锁 `smartLockWindow(...).until` 筛选。小时住宿14:00–17:00、前后12小时，17:00后仍可手动生成、自动补建及重开查看，至次日05:00；过期锁不生成，全部过期手动400拒绝、自动静默，读取不显示活跃PIN/accessId。不同门的结束时间独立判断；leadDays仍仅限制自动生成最早时机，不移动窗口，也不阻挡已开始住宿的缓冲期。`lockEligible`已分房、confirmed/checked_in、非暂存规则不变；实际checkout后的状态仍不合资格。签名变更撤销旧密文后可为当前签名补建，手工撤销仍不被自动恢复。
+
+本地Node24 **620/620**、Python **5/5**，33份dom、communications及folio两分支 **36/36**；对齐远端后完整Node/Python再次通过，全部runtime JS/三份CI shell语法及diff检查通过。Node受控Malaysia时钟覆盖2026-11-11 18:10生成两把门数字与accessId、窗口02:00→2026-11-12 05:00、重读/重复生成、04:59:59可用和05:00精确边界、不同门独立过期。既有DOM增加17:00后旧签名自动补建、显示数字/窗口/撤销、重开保留、手动再生、05:00隐藏与拒绝；DOM使用2027-01-20合成日期。批次17连接状态、三语标签、typeName、101搜索、无双TEST及leadDays断言保留。self-checkin、night-audit、跨已夜审日期boxed-stay restore及AR原保护通过，Ubuntu门禁未改。
+
+真实本地Chromium品牌验收首次在截图等待字体超时，未修改产品或放宽测试，独立重跑通过；合成SQLite、无线上登录。公网只读GET `BATCH18-LIVE.json`（`2026-11-11T10:38:25.969651+00:00`）：`/healthz` HTTP200精确返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`；**41份公开资源逐字节一致**、app直接/间接 **26个模块** GET200、`/server/store.js`404。全部12项sage token保持，primary `#3f6a58`、canvas `#eef4ea`，workspace.css和官方黑Logo资产与批次15一致。
+
+真实公网Chromium `BATCH18-BROWSER.json`（`2026-11-11T10:38:23.350Z`）未登录、GET-only、无页面错误：按钮sage与hover/白字/主题通过，1920/1440/1201宽字标32px，1200/760/390隐藏，logo.png解码成功。CSS默认40px/width auto、紧凑32px及1200px隐藏规则保留。公开资源一致不当作私有后端或线上特定住宿操作证明；赵六住宿、E2E测试绑定与TTLock本地连接均未清除或改写。缓冲期行为由受控时钟Node/DOM直接验证，未登录线上展示或记录PIN。
+
+密码服务仍复用同一窗口与既有reducer；双状态机、营业日/Malaysia自然日边界不变。远程开锁始终拒绝，不宣称实体门打开；无TTLock/Sciener云端API、无邮件/外发密码，无真实订单/资金/生产数据/门锁操作。9.12/9.15仍部分，真实硬件/云端未接入；无新runtime模块、无数据库重置、无部署工作流/Logo/字标/配色变更，全部Do NOT事项保留。细节见 `pms/verification/batch18-passcode-window.md`。
