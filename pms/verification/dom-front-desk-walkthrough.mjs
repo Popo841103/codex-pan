@@ -64,5 +64,14 @@ try {
  $('#global-nav [data-view="calendar"]').click();$('[data-new-order]').click();set('#reservation-form [data-field="roomTypeId"]',type.id);
  assert.equal($('#reservation-form [data-field="nightly"]').value,'123.45');assert.equal($('#reservation-form [data-field="ratePlanCode"]').value,type.defaultRatePlanCode);assert.match($('#reservation-total').textContent,/123.45/);
  $('#reservation-dialog [data-command="close"]').click();
+ const tomorrow=shiftDay(today,1),hourlyId=store.read(operator).directoryHistory.find(r=>r.kind==='hourly').entryId;
+ const future=send({type:'create_hourly',hourlyId,resourceId:room.id,usageDate:tomorrow,startTime:'14:00',hours:2,guest:'TEST future window'});
+ $('#refresh').click();await new Promise(r=>setTimeout(r,100));set('#date',tomorrow);$(`[data-action="details"][data-id="${future.id}"]`).click();
+ let warnings=0;window.confirm=()=>{warnings++;return false;};$('#detail-body [data-action="checkin"]').click();await new Promise(r=>setTimeout(r,30));assert.equal(warnings,1);assert.equal(store.read(operator).orders.find(o=>o.id===future.id).status,'confirmed');window.confirm=()=>true;$('#detail-close').click();
+ const start=shiftDay(today,2),moveDate=shiftDay(today,3),end=shiftDay(today,4),moving=send({type:'create',guest:'TEST segmented DOM',productId:'room',gender:'any',resourceId:'TEST-KL-R2',start,end,nightly:10000});
+ $('#refresh').click();await new Promise(r=>setTimeout(r,100));set('#date',start);$(`[data-action="details"][data-id="${moving.id}"]`).click();
+ $('#detail-resource').value=room.id;$('#detail-move-from').value=moveDate;$('#detail-move-reason').value='TEST chosen night';$('#detail-assign').click();
+ await until(()=>store.read(operator).orders.find(o=>o.id===moving.id).roomSegments?.length===2&&document.querySelector('[data-room-segments]'),'dated move segments saved and visible');
+ assert.equal(store.read(operator).orders.find(o=>o.id===moving.id).roomSegments[0].resourceId,'TEST-KL-R2');assert.equal(store.read(operator).orders.find(o=>o.id===moving.id).transactions.length,0);$('#detail-close').click();
  console.log('Front desk DOM passed: opening prompt, normal hourly flow/MYR/phone, closes dialog, partial calendar marker, hours detail, clean completion.');
 }finally {global.fetch=realFetch;server.closeAllConnections();await new Promise(done=>server.close(done));store.close();dom.window.close();}

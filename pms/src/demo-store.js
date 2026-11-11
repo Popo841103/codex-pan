@@ -340,8 +340,10 @@ export function apply(state, command) {
   // Keep the previous commission so the local reducer's audit tells the same
   // before/after story as the shared backend's durable audit.
   const commissionBefore = type === 'commission_save' ? (order?.commission || null) : null;
+  const operationDay=command.date||localDay(command.at);
+  const occupiedUnit=o=>o.roomSegments?.find(p=>p.start<=operationDay&&p.end>operationDay)?.resourceId||(o.roomSegments?.at(-1)?.end<=operationDay?o.roomSegments.at(-1).resourceId:o.roomSegments?.[0]?.resourceId)||o.resourceId;
   const inHouse = target => next.orders.some(o => o.propertyId === propertyId && o.status === 'checked_in' &&
-    (!['assign','checkin','undo_checkout'].includes(type) || o.id !== order?.id) && overlapsAtoms(next.resources.find(r => r.id === o.resourceId), target));
+    (!['assign','checkin','undo_checkout'].includes(type) || o.id !== order?.id) && overlapsAtoms(next.resources.find(r => r.id === occupiedUnit(o)), target));
   const staySnapshot = o => o ? { start:o.start, end:o.end, nightly:o.nightly, resourceId:o.resourceId,
     status:o.status, roomSegments:o.roomSegments||null, productId:o.productId, finalCharge:o.finalCharge ?? null, charge:folio(o).charge } : null;
   const stayBefore = reversal || ['edit','assign','checkin','checkout','cancel','lock'].includes(type) ? staySnapshot(order) : null;
@@ -507,6 +509,7 @@ export function apply(state, command) {
     if(!isDate(from)||from<order.start||from>=order.end||order.hourly&&from!==order.start)reject('date');
     if(lastClosed&&from<=lastClosed&&command.auditOverride!==true)reject('audited');
     if(command.fromDate&&(!order.resourceId||!command.reason?.trim()))reject('reason');
+    if(command.fromDate&&order.status==='checked_in'&&from>operationDay)reject('future_room_move');
     if (order.status === 'checked_in' && !isClean(next, resource)) reject('dirty');
     if (order.status === 'checked_in' && inHouse(resource)) reject('occupied');
     if (order.resourceId === resource.id) reject('state');
@@ -518,7 +521,7 @@ export function apply(state, command) {
     }else delete order.roomSegments;
     order.resourceId = resource.id;
     order.history.push({ from: previous, to: resource.id, fromDate:command.fromDate||order.start, reason:command.reason||'', at: command.at });
-    if (previous && order.status === 'checked_in') setCleaning(next, next.resources.find(r => r.id === previous), 'dirty');
+    if (previous && order.status === 'checked_in'&&from<=operationDay) setCleaning(next, next.resources.find(r => r.id === previous), 'dirty');
   } else if (type === 'edit') {
     if (['checked_out','cancelled'].includes(order.status)) reject('state');
     if (order.status === 'checked_in' && command.start !== order.start) reject('state');
@@ -717,6 +720,7 @@ export function apply(state, command) {
     const balance = folio(order);
     if (balance.due !== 0 || balance.deposit !== 0 || order.splitBills?.some(b=>b.charge!==b.paid+(b.arAmount||0))) reject('balance');
     order.status = 'checked_out';order.completedAt=command.at;
+    if(order.roomSegments)order.resourceId=order.roomSegments.at(-1).resourceId;
     setCleaning(next, next.resources.find(r => r.id === order.resourceId), 'dirty');
   } else if (['bulk_clean','bulk_block','bulk_unblock'].includes(type)) {
     if (!Array.isArray(command.resourceIds) || !command.resourceIds.length || command.resourceIds.length>100 || new Set(command.resourceIds).size!==command.resourceIds.length) reject('input');
@@ -732,7 +736,7 @@ export function apply(state, command) {
       if(type==='bulk_block'){
         const detail=operationalBlock(command);
         // Never displace an in-house guest, including when their planned departure is overdue.
-        if(next.orders.some(o=>o.status==='checked_in'&&next.resources.find(r=>r.id===o.resourceId)?.atoms.some(a=>atoms.includes(a))))reject('occupied');
+        if(next.orders.some(o=>o.status==='checked_in'&&next.resources.find(r=>r.id===occupiedUnit(o))?.atoms.some(a=>atoms.includes(a))))reject('occupied');
         next.blocks.push({id:command.id,propertyId,atoms,start:command.start,end:command.end,...detail});
       }else{
         // Release only selected atoms during the requested range. Preserve other dates/atoms.
@@ -759,7 +763,7 @@ export function apply(state, command) {
   } else if (type === 'block') {
     if (!resource) reject('scope');
     validRange(command.start,command.end);
-    if(next.orders.some(o=>o.status==='checked_in'&&next.resources.find(r=>r.id===o.resourceId)?.atoms.some(a=>resource.atoms.includes(a))))reject('occupied');
+    if(next.orders.some(o=>o.status==='checked_in'&&next.resources.find(r=>r.id===occupiedUnit(o))?.atoms.some(a=>resource.atoms.includes(a))))reject('occupied');
     next.blocks.push({ id: command.id, propertyId, atoms: resource.atoms, start: command.start, end: command.end, ...operationalBlock(command) });
   } else if (type === 'unblock') {
     const block = next.blocks.find(b => b.id === command.blockId && b.propertyId === propertyId);

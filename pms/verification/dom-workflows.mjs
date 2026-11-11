@@ -59,7 +59,8 @@ try {
   await until(()=>store.read(operator).reservations.length===1&&!$('#reservation-dialog').open,'multi-stay submit');
   let state=store.read(operator);assert.equal(state.orders.length,2);assert(state.orders.every(o=>o.resourceId));
   assert.equal(state.orders.reduce((n,o)=>n+o.nightlyRates.reduce((n,r)=>n+r.amount,0),0),25000);
-  assert($('#utility-dialog').open);assert.equal(document.querySelectorAll('#utility-body [data-open-stay]').length,2);
+  assert(!$('#utility-dialog').open,'successful reservation closes without opening another dialog');
+  $('[data-home-queue="created"]').click();assert($('#utility-dialog').open);assert.equal(document.querySelectorAll('#utility-body [data-open-stay]').length,2);
   $('#utility-body [data-open-stay]').click();assert($('#detail-dialog').open);assert($('#back-reservation'));
 
   // Editing must offer the same stable-code directories as creating a stay.

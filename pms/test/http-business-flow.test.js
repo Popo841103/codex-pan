@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {Store} from '../server/store.js';
 import {makeServer} from '../server/http.js';
-import {folio,hourlyInventory} from '../src/demo-store.js';
-import {accommodationReport,cashflowReport} from '../src/financial-reports.js';
+import {folio,hourlyInventory,preview} from '../src/demo-store.js';
+import {accommodationReport,cashflowReport,dailyOperations,parityReport} from '../src/financial-reports.js';
 import {occupiesInventory} from '../src/inventory-actions.js';
 
 test('HTTP signup through overnight/hourly checkout reconciles folios, revenue, shift and released rooms',async t=>{
@@ -24,38 +24,44 @@ test('HTTP signup through overnight/hourly checkout reconciles folios, revenue, 
  const state=()=>api('/api/state');
  const command=async(type,extra={})=>api('/api/commands',{key:randomUUID(),expectedRevision:(await state()).revisions[propertyId],command:{propertyId,type,...extra}});
  // Deliberately use a business date different from today's Malaysia cash date.
- const date='2027-04-01',end='2027-04-02',from=new Date(Date.now()-60000).toISOString();
+ const date='2027-04-01',moveDate='2027-04-02',end='2027-04-03',plannedEnd='2027-04-04',from=new Date(Date.now()-60000).toISOString();
+ assert.equal((await state()).businessDates[propertyId],null,'fresh store requires the visible one-click opening prompt');
  await command('business_date_init',{date});
- const roomTypeId=(await command('room_type_save',{productId:'room',gender:'any',maxGuests:2,names:{zh:'测试',en:'Synthetic',ms:'Ujian'}})).id;
+ const roomTypeId=(await command('room_type_save',{productId:'room',gender:'any',maxGuests:2,names:{en:'Synthetic'},defaultRate:10000})).id;
  const rooms=[];
  for(const label of ['Synthetic A','Synthetic B','Synthetic hourly']){
   const r=await command('physical_room_save',{kind:'room',roomTypeId,label,floor:'1'});rooms.push(`${r.id}-unit-1`);
  }
  await command('bulk_clean',{resourceIds:rooms,cleaning:'clean'});
- const parent=(await command('create_reservation',{date,guest:'Synthetic payer',source:'direct',bookingKind:'individual',autoAssign:false,mode:'reserve',stays:[{productId:'room',roomTypeId,gender:'any',resourceId:rooms[0],start:date,end,nightly:10000,adults:1,children:0,infants:0,occupants:[{name:'Synthetic guest',gender:'any'}]}]})).id;
+ const parent=(await command('create_reservation',{date,guest:'Synthetic payer',source:'direct',bookingKind:'individual',autoAssign:false,mode:'reserve',stays:[{productId:'room',roomTypeId,gender:'any',resourceId:rooms[0],start:date,end:plannedEnd,nightly:10000,adults:1,children:0,infants:0,occupants:[{name:'Synthetic guest',gender:'any'}]}]})).id;
  let s=await state();const orderId=s.orders.find(o=>o.reservationId===parent).id;
  await command('checkin',{orderId,date});
- await command('payment',{orderId,kind:'payment',amount:10000,method:'cash'});
+ await command('payment',{orderId,kind:'payment',amount:30000,method:'cash'});
+ await command('payment',{orderId,kind:'deposit_in',amount:5000,method:'cash'});
+ await command('payment',{orderId,kind:'deposit_out',amount:5000,method:'cash'});
  const itemId=(await command('directory_entry_save',{kind:'item',name:'Synthetic extra',unitAmount:2500})).id;
  await command('item_charge',{orderId,itemId,quantity:2,note:'Synthetic only'});
- await command('assign',{orderId,resourceId:rooms[1],reason:'Synthetic room move'});
+ await command('assign',{orderId,date:moveDate,resourceId:rooms[1],fromDate:moveDate,reason:'Synthetic chosen-night room move'});
  await command('payment',{orderId,kind:'payment',amount:5000,method:'cash'});
- await command('checkout',{orderId,date:end});
+ s=await state();
+ assert.deepEqual(preview(s,propertyId).filter(p=>p.demandId===orderId).map(p=>[p.resourceId,p.start,p.end]),[[rooms[0],date,moveDate],[rooms[1],moveDate,plannedEnd]]);
+ assert.equal(folio(s.orders.find(o=>o.id===orderId)).charge,35000);
+ await command('checkout',{orderId,date:end,confirmed:true,earlyChoice:'keep'});
  const hourlyId=(await command('directory_entry_save',{kind:'hourly',name:'Synthetic hourly',roomTypeId,minHours:1,maxHours:8,unitHours:1,baseAmount:1000,unitAmount:500})).id;
- const hour=(await command('create_hourly',{hourlyId,resourceId:rooms[2],usageDate:date,startTime:'10:00',hours:2,guest:'Synthetic hour'})).id;
+ const hour=(await command('create_hourly',{hourlyId,resourceId:rooms[2],usageDate:date,startTime:'10:00',hours:2,guest:'Synthetic hour',phone:'000-synthetic'})).id;
  await command('checkin',{orderId:hour,date});await command('payment',{orderId:hour,kind:'payment',amount:1500,method:'cash'});await command('checkout',{orderId:hour,date});
  await command('shift_save',{name:'Synthetic shift',start:'00:00',end:'23:59'});
  const shiftTypeId=(await state()).shiftTypes[0].id;
  const to=new Date(Date.now()+1000).toISOString();
- await command('shift_handover',{shiftTypeId,from,to,countedCash:16500,note:'Synthetic reconciliation'});
+ await command('shift_handover',{shiftTypeId,from,to,countedCash:36500,note:'Synthetic reconciliation'});
  s=await state();
  assert.equal(s.orders.length,2);assert.equal(s.reservations.length,1);
- const totals=s.orders.map(folio);assert.deepEqual(totals.map(f=>f.charge).sort((a,b)=>a-b),[1500,15000]);
+ const totals=s.orders.map(folio);assert.deepEqual(totals.map(f=>f.charge).sort((a,b)=>a-b),[1500,35000]);
  assert.ok(totals.every(f=>f.due===0&&f.deposit===0));assert.ok(s.orders.every(o=>o.status==='checked_out'&&!occupiesInventory(o)));
  assert.ok(s.resources.filter(r=>rooms.includes(r.id)).every(r=>r.cleaning==='dirty'));
  assert.ok(hourlyInventory(s,propertyId,date,rooms[2]).every(r=>r.status==='available'));
  const revenue=accommodationReport(s,{propertyId,from:date,to:end,source:'all'});
- assert.equal(revenue.total,16500);assert.equal(revenue.unallocatedCharges.length,0);
+ assert.equal(revenue.total,36500);assert.equal(revenue.unallocatedCharges.length,0);
  const cashDay=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  assert.notEqual(cashDay,date);
  const cash=cashflowReport(s,{propertyId,from:cashDay,to:cashDay,source:'all'});
@@ -63,5 +69,13 @@ test('HTTP signup through overnight/hourly checkout reconciles folios, revenue, 
  assert.equal(cashflowReport(s,{propertyId,from:date,to:date,source:'all'}).totals.netAccommodation,0);
  const handover=s.handovers.at(-1);assert.equal(handover.businessDate,date);assert.equal(handover.summary.net,revenue.total);assert.equal(handover.summary.depositNet,0);assert.equal(handover.cashCount.status,'balanced');
  assert.equal(s.orders.find(o=>o.id===orderId).resourceId,rooms[1]);
+ assert.equal(s.orders.find(o=>o.id===orderId).end,end);
+ assert.equal(s.orders.find(o=>o.id===hour).phone,'000-synthetic');
+ const manager=dailyOperations(s,{propertyId,date});assert.equal(manager.charges.room,11500);assert.equal(manager.charges.extras,5000);assert.equal(manager.settlements.net,36500);assert.equal(manager.closing.due,-20000);assert.equal(manager.balanced,true);assert.equal(manager.metrics.arrivals,0);assert.equal(manager.metrics.inHouse,0);
+ const following=dailyOperations(s,{propertyId,date:moveDate});assert.equal(following.charges.room,20000);assert.equal(following.closing.due,0);assert.equal(following.balanced,true);
+ const shift=parityReport(s,{propertyId,kind:'shiftAccrual',from:date,to:date});assert.equal(shift.unallocated,0);assert.equal(shift.rows.filter(r=>r.kind==='payment').reduce((n,r)=>n+r.amount,0),36500);
+ assert.ok(s.orders.flatMap(o=>o.transactions).every(t=>t.businessDate===date));
+ assert.equal(store.db.prepare('SELECT count(*) AS n FROM claims WHERE property_id=?').get(propertyId).n,0);
+
  assert.ok(s.audit.some(a=>a.type==='assign'&&a.orderId===orderId));
 });

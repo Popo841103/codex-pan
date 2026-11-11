@@ -28,3 +28,8 @@ test('room move from a chosen night preserves first allocation, one folio and au
  assert.deepEqual(folio(o),before);assert.equal(s.orders.length,1);assert.equal(s.audit[0].stayChange.after.roomSegments.length,2);
  assert.throws(()=>send(s,'assign',{orderId:'walk-stay',resourceId:'TEST-KL-R1',fromDate:'2027-04-03',reason:'invalid'}),/date/);
 });
+
+test('in-house future move is refused until the chosen operating day, preserving cleaning',()=>{
+ const s=checkedIn();assert.throws(()=>send(s,'assign',{date:'2027-04-01',orderId:'walk-stay',resourceId:'TEST-KL-R2',fromDate:'2027-04-02',reason:'Synthetic tomorrow move'}),/future_room_move/);
+ assert.equal(s.resources.find(r=>r.id==='TEST-KL-R1').cleaning,'clean');assert.equal(s.orders[0].resourceId,'TEST-KL-R1');
+});
