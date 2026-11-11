@@ -375,3 +375,18 @@ AR 与佣金已关闭月份支持以当前营业期追加更正，原快照可�
 | /web/style.css | `b9de8acd4d6a65ac084ea1f578ebda16beaf755612ebaf5aefe56a52ab3ad9b9` | body.desk-print, body.stay-print |
 
 全部web JS及app直接导入模块合并去重GET **26/26** 为200；/server/store.js=404，后端不公开。公网只做GET，未登录线上或写业务；后端依据源码、合成SQLite回归和成功部署重启，不将前端哈希当作后端运行直接证明。结构化证据见pms/verification/desk-live-verification.json。
+
+
+## 内部显示、来源、权限与交班报表续跑（批次08，2026-11-11）
+
+运行时提交`609de426a32928e708d6039558888e9141c64135`已推送并实际部署。Actions [42942563248](https://github.com/Popo841103/codex-pan/actions/runs/42942563248) Verify/Deploy成功；`gh run watch 42942563248 --exit-status --interval 5`退出0。Linux Node24 **574/574**（新增14），Python **5/5**；30个dom-*.mjs、communications-dom及folio两分支 **33/33**，37份runtime JS/6份shell语法和diff检查通过。最后账项筛选修正后重跑全Node及internal-display/operations-completion DOM通过。已修复新表单选择器与旧工具处理器重合，未削弱业务busy guard或Ubuntu门禁。
+
+矩阵114条现为**已有91、部分8、缺失0、禁止或外部15**。本块12条提升：**1.4、2.1、2.5、3.1、4.12、6.8、6.9、7.14、7.19、7.21、7.24、9.2**。入口：顶栏双日期与本店角色；日历→单日住宿显示；渠道/设置→内部来源和人工定日消息草稿；设置→团队权限→有效动作矩阵；统计→工作台→经理/交班新增四分页；首页/设置→人工夜审只读摘要及历史筛选；网站预订请求→文字/状态过滤。详细范围、复现和保护见`pms/verification/internal-display-audit.md`及矩阵逐行。
+
+只读单日包含离店日，显示当前订单/清洁快照及小时窗，不声称历史状态或额外可售；来源只使用既有ID，管理员原因追加版本，停用禁止新使用，旧单原来源保留。消息仅内部人工草稿/已处理，不发送或后台执行。经理/交班净收与押金独列，营业日选账、马来西亚交易日另列；已完成窗口含起不含止，房晚不凭空分班，旧缺时间/营业日不补猜，房卡未接通。新前台动作在双状态及共享审计保存deskChange；查询不写revision/audit。网站请求历史按当前门店请求归属筛选。
+
+新逻辑并入5份既有运行文件，无新runtime文件/依赖/表，无发布流程变更、数据重置或真实业务操作。v10小时库存、夜审、暂存恢复、AR、押金及账单保护保留。全部Do NOT继续不做，合成DOM不等于真实浏览器或外部验收。
+
+公网只读GET时间`2026-11-11T01:58:21.699721+00:00`：精确`/healthz` 200返回`{"ok":true,"service":"jovian-pms","data":"test-only"}`；全部**26/26**公开web/app直接导入模块200且与本地逐字节一致。新标识`data-source-command`、`staff-context`、`dailyStays`、`internalSourcePanel`、`data-audit-read`、`data-effective-permissions`、`channel_source_save`、`message_draft_save`、`actorSummary`、`handoverWindows`全部命中；`/server/store.js`404，不公开后端。结构证据`pms/verification/internal-display-live.json`；后端依据成功部署及合成SQLite验证，不把前端哈希当直接后端运行证明。公网未登录或写业务。
+
+下一块继续3.4内部Booking Engine状态/准备视图、4.5住宿More保护说明、9.23安全准备入口；3.2倍率、3.3未核验汇率、3.7公开订阅、9.12门锁、9.15外部自助入住仍部分，不冒充接通。
