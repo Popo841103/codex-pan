@@ -1450,7 +1450,7 @@ function runParityQuery(){
    data.kind==='salesSummary'?rateLabel('按已记录的预订类型和公司分组；没有业务员归属时不推断。','Groups recorded booking types and companies; salesperson attribution is not inferred.','Kumpulan jenis tempahan dan syarikat direkod; jurujual tidak disimpulkan.'):
    data.kind==='customerDetails'?rateLabel('每住宿项独立显示，不按同名合并客户；账页余额为当前完整快照。','One row per stay; matching names do not merge customers. Balances are current complete folios.','Satu baris setiap penginapan; nama sama tidak menggabungkan pelanggan. Baki ialah folio penuh semasa.'):
    data.kind==='quickNoteSummary'?rateLabel('仅本版本起保存的备注历史；旧备忘录无营业日，不倒填。','History begins with this version; legacy notes without a business date are not backdated.','Sejarah bermula versi ini; nota lama tanpa hari perniagaan tidak ditarikh semula.') : '';
-  $('[data-parity-note]').textContent=note+' '+rateLabel('未分配日期账项数：','Items with unallocated dates: ','Item tanpa tarikh diperuntuk: ')+report.unallocated;
+  $('[data-parity-note]').textContent=note+' '+rateLabel('历史未注明日期账项数（当前门店及住宿筛选，非所选日期新增；旧记录不推测补日）：','Historical items without recorded dates (current store/stay filters, not additions in this date range; dates are never inferred): ','Item sejarah tanpa tarikh (penapis premis/penginapan, bukan tambahan julat ini; tarikh tidak diteka): ')+report.unallocated;
   output.textContent='';csv.disabled=false;return report;
  }catch{output.textContent=rateLabel('查询无效：请检查日期及范围。','Invalid query: check dates and range.','Pertanyaan tidak sah: semak tarikh dan julat.');$('[data-parity-results]').textContent='';$('[data-parity-note]').textContent='';csv.disabled=true;return null;}
 }
