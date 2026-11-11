@@ -1,3 +1,4 @@
+import {staffReportValue} from './workspace-ui.js';
 import {commissionPeriod} from '../src/demo-store.js';
 import {receivableReports} from '../src/financial-reports.js';
 import {accommodationReport,accommodationBreakdown,cashflowReport,financialComparison,managerDailyReport,guestLedger,roomChargeDetail,roomBusinessSummary,roomMovementLog,extraChargeDetail,cancellationPenaltyDetail,roomOccupantDetail,registrationRecord,commissionDetail} from '../src/financial-reports.js';
@@ -473,7 +474,7 @@ export function arLedgerPage(state,{propertyId,selected,t,currency,can}) {
   const rows=items.map(i=>{
     const key=id+hidden('itemId',i.id);
     const actions=i.open!==i.amount||i.origin==='adjustment'?'':form('ar_undo_post',key+note())+(others.length?form('ar_transfer',key+select('targetId','arTarget',others)+note()):'');
-    return '<tr><td>'+(i.orderId?'<button data-open-stay="'+esc(i.orderId)+'">'+esc(i.orderId)+'</button>':label('ar_adjust')+' · '+esc(i.id))+'</td><td>'+esc(i.dueDate)+'</td><td>'+money(i.amount)+'</td><td>'+money(i.open)+'</td><td>'+actions+'</td></tr>';
+    return '<tr><td>'+(i.orderId?'<button data-open-stay="'+esc(i.orderId)+'">'+esc(staffReportValue('orderId',i.orderId,state))+'</button>':label('ar_adjust')+' · '+esc(i.id))+'</td><td>'+esc(i.dueDate)+'</td><td>'+money(i.amount)+'</td><td>'+money(i.open)+'</td><td>'+actions+'</td></tr>';
   });
   const history=[...events].reverse().map(e=>{
     const reversible=!events.some(x=>x.reverses===e.id);

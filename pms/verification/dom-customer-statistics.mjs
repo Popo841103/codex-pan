@@ -66,7 +66,7 @@ try {
  assert(query('ledgerRecords',{createdFrom:today,createdTo:today,section:'staySummary'}).textContent.includes('TEST original snapshot'));
  assert.equal(query('ledgerRecords',{completedFrom:today,completedTo:today,section:'staySummary'}).querySelectorAll('tbody tr').length,0);
  assert(query('hourlyReservations').textContent.includes('MYR 25.00'));
- const invoice=query('invoice',{search:created.id});assert(invoice.textContent.includes('TEST internal invoice'));assert(invoice.textContent.includes('10700'));
+ const invoice=query('invoice',{search:created.id});assert(invoice.textContent.includes('TEST internal invoice'));assert(invoice.textContent.includes('MYR 107.00'));
  invoice.querySelector('[data-open-stay]').click();$('[data-internal-invoice]').click();assert($('[data-internal-invoice-view]').textContent.includes('TEST no tax submission'));
  let printed=false;dom.window.print=()=>{printed=document.body.classList.contains('invoice-print');};$('[data-invoice-print]').click();assert(printed);assert(!document.body.classList.contains('invoice-print'));$('#utility-close').click();$('#detail-dialog').close();
  const before=store.read(operator);for(const language of ['en','ms','zh']){set('#language',language);assert($('[data-completion-panel]'));assert(!$('#content').textContent.includes('undefined'));assert(query('customerProfiles').textContent.includes('TEST independent profile'));}
