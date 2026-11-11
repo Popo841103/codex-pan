@@ -102,7 +102,7 @@ export function dailyOperations(state,q){
   const folioCreditNet=orders.reduce((sum,order)=>sum+folioTransferCredit(order,date=>date===q.date),0);
   settlements.net=settlements.payment-settlements.refund;
   settlements.depositNet=settlements.deposit_in-settlements.deposit_out;
-  const metrics={arrivals:orders.filter(o=>!isBoxed(o)&&o.status!=='cancelled'&&o.start===q.date).length,departures:orders.filter(o=>!isBoxed(o)&&o.status!=='cancelled'&&o.end===q.date).length,inHouse:orders.filter(o=>o.status==='checked_in'&&o.start<=q.date&&o.end>q.date).length,expectedArrivals:orders.filter(o=>o.status==='confirmed'&&o.start===q.date).length};
+  const metrics={arrivals:orders.filter(o=>!isBoxed(o)&&o.status==='confirmed'&&o.start===q.date).length,departures:orders.filter(o=>!isBoxed(o)&&o.status==='checked_in'&&(o.hourly?o.start:o.end)===q.date).length,inHouse:orders.filter(o=>o.status==='checked_in'&&o.start<=q.date&&o.end>q.date).length,expectedArrivals:orders.filter(o=>o.status==='confirmed'&&o.start===q.date).length};
   // The day's own movements must rebuild the closing balance from the opening one. If
   // they do not, the page says the day is unreconciled instead of showing a total that
   // no longer ties back to the guest ledger.

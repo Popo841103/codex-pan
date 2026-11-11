@@ -192,3 +192,8 @@ test('a ledger amount that is not a safe integer stops the report instead of rou
  assert.equal(r.charges.room,6000);assert.equal(r.charges.extras,0);assert.equal(r.settlements.net,12000);assert.equal(r.closing.due,-6000);assert.equal(r.balanced,true);
  assert.equal(dailyOperations({orders:[order]},query({date:'2028-01-11'})).metrics.inHouse,0);
  });
+
+ test('manager pending counts exclude completed arrivals and departures and respect selected date',()=>{
+ const r=dailyOperations({orders:[{...stay,start:'2027-01-11',status:'checked_out'},{...stay,id:'pending',start:'2027-01-11',status:'confirmed'},{...stay,id:'leaving',end:'2027-01-11',status:'checked_in'}]},query());
+ assert.equal(r.metrics.arrivals,1);assert.equal(r.metrics.departures,1);assert.equal(r.metrics.inHouse,0);
+ });
