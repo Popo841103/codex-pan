@@ -10,7 +10,8 @@ import {Store} from '../server/store.js';
 import {makeServer} from '../server/http.js';
 if(!process.argv[2])throw Error('Supply the jsdom module path for this optional verification.');
 const {JSDOM,VirtualConsole}=await import(pathToFileURL(resolve(process.argv[2])).href);
-const store=new Store(':memory:',{selfCheckin:{key:randomBytes(32),clock:()=>Date.parse('2027-01-20T07:05:00Z')}});store.seedTestProperties();
+let now=Date.parse('2027-01-20T07:05:00Z');
+const store=new Store(':memory:',{selfCheckin:{key:randomBytes(32),clock:()=>now}});store.seedTestProperties();
 const username='test-dom-'+randomUUID().slice(0,8),password=randomUUID();
 const operator=store.createUser({username,password,role:'admin',propertyIds:['TEST-KL']});
 const server=makeServer(store);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -65,5 +66,18 @@ try {
  $('[data-remote-unlock]').click();await until(()=>$('#utility-error').textContent.includes('拒绝'),'remote unlock refusal');assert.deepEqual(store.read(operator).orders,orderSnapshot);
  const access=store.checkin.lockRead(operator,'TEST-KL',stay.id).rows[0];$('[data-revoke-lock="'+access.accessId+'"]').click();await until(()=>store.db.prepare('SELECT pin FROM sl_access WHERE id=?').get(access.accessId).pin===null,'test revoke');
  await until(()=>document.querySelectorAll('[data-revoke-lock]').length===1,'revoke refresh');$('[data-generate-lock]').click();await until(()=>document.querySelectorAll('[data-revoke-lock]').length===2,'test regenerate');
+ // Reopen after the raw 17:00 end, with invalidated legacy signatures.
+ $('#utility-close').click();now=Date.parse('2027-01-20T18:10:00+08:00');
+ store.db.prepare("UPDATE sl_access SET signature='legacy-hotel-window' WHERE status='test_active'").run();
+ const openPanel=()=>{$('[data-stay-smart-lock]').click();};
+ openPanel();await until(()=>document.querySelectorAll('[data-revoke-lock]').length===2,'buffer auto-generation on panel open');
+ const bufferPins=[...document.querySelectorAll('[data-stay-lock] output')].map(o=>o.textContent);assert(bufferPins.every(p=>/^\d{4}$/.test(p)));
+ assert([...document.querySelectorAll('[data-stay-lock] tbody tr')].every(r=>r.children[2].textContent===expectedWindow));
+ $('#utility-close').click();openPanel();await until(()=>document.querySelectorAll('[data-revoke-lock]').length===2,'buffer reopen');assert.deepEqual([...document.querySelectorAll('[data-stay-lock] output')].map(o=>o.textContent),bufferPins);
+ for(const row of store.checkin.lockRead(operator,'TEST-KL',stay.id).rows)store.checkin.lockCommand(operator,{propertyId:'TEST-KL',orderId:stay.id,action:'revoke',accessId:row.accessId});
+ $('#utility-close').click();openPanel();await until(()=>document.querySelectorAll('[data-stay-lock] output').length===2&&!document.querySelector('[data-revoke-lock]'),'manual revocations stay revoked');
+ $('[data-generate-lock]').click();await until(()=>document.querySelectorAll('[data-revoke-lock]').length===2,'buffer manual generation');assert([...document.querySelectorAll('[data-stay-lock] output')].every(o=>/^\d{4}$/.test(o.textContent)));
+ $('#utility-close').click();now=Date.parse('2027-01-21T05:00:00+08:00');openPanel();await until(()=>document.querySelectorAll('[data-stay-lock] output').length===2&&!document.querySelector('[data-revoke-lock]'),'expired window hides PINs');assert([...document.querySelectorAll('[data-stay-lock] output')].every(o=>o.textContent==='—'));
+ $('[data-generate-lock]').click();await until(()=>$('#utility-error').textContent.includes('住宿不可生成'),'expired generation refusal');
  $('#utility-close').click();console.log('Smart lock DOM passed: reserved brands, password-free TTLock, private/common binding, search, settings save/cancel, card help only, three languages, stay test PINs, revoke/regenerate, remote refusal; in-memory synthetic SQLite only');
 } finally {global.fetch=realFetch;server.closeAllConnections();await new Promise(resolve=>server.close(resolve));store.close();dom.window.close();}

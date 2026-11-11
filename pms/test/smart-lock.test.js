@@ -140,6 +140,32 @@ test('saved hourly stays replace legacy window signatures, clear stale ciphertex
   const read=f.read();assert(read.rows.every(r=>!r.pin&&r.from===Date.parse(day+'T02:00:00+08:00')&&r.until===Date.parse(day+'T21:00:00Z')));
   for(const {id} of old){const row=f.store.db.prepare('SELECT pin,status FROM sl_access WHERE id=?').get(id);assert.equal(row.pin,null);assert.equal(row.status,'test_revoked');}
   assert(f.action('auto_generate').rows.every(r=>r.pin));
-  f.setNow('2027-01-10T09:00:00Z');assert.throws(()=>f.action('generate'),/smart_lock_stay_unavailable/);
+  f.setNow('2027-01-10T21:00:00Z');assert.throws(()=>f.action('generate'),/smart_lock_stay_unavailable/);
+ }finally{f.store.close();}
+});
+
+for(const automatic of [false,true])test(`hourly after-buffer ${automatic?'automatic':'manual'} generation replaces invalid signatures until each door expires`,()=>{
+ const f=fixture();try{
+  f.setting({autoGenerate:false,privateBefore:12,privateAfter:12,commonBefore:12,commonAfter:12,leadDays:0});f.connect();f.bind();f.bind('common');
+  const body=f.store.checkin.body(pid);body.orders.find(o=>o.id===f.orderId).hourly={usageDate:'2026-11-11',startTime:'14:00',endTime:'17:00'};
+  f.store.db.prepare('UPDATE properties SET body=? WHERE id=?').run(JSON.stringify(body),pid);
+  f.setNow('2026-11-11T15:00:00+08:00');f.action('generate');
+  f.store.db.prepare("UPDATE sl_access SET signature='legacy-hotel-window'").run();
+  f.setNow('2026-11-11T18:10:00+08:00');assert(f.read().rows.every(r=>!r.pin));
+  if(automatic)f.setting({autoGenerate:true});
+  const rows=f.action(automatic?'auto_generate':'generate').rows;
+  assert.equal(rows.length,2);assert(rows.every(r=>/^\d{6}$/.test(r.pin)&&r.accessId&&r.status==='test_active'&&r.from===Date.parse('2026-11-11T02:00:00+08:00')&&r.until===Date.parse('2026-11-12T05:00:00+08:00')));
+  assert.deepEqual(f.read().rows,rows);assert.deepEqual(f.action('generate').rows,rows);
+  assert.throws(()=>f.action('remote_unlock'),/smart_lock_test_no_unlock/);
+  f.setNow('2026-11-12T04:59:59+08:00');assert(f.read().rows.every(r=>r.pin));
+  f.setNow('2026-11-12T05:00:00+08:00');assert.throws(()=>f.action('generate'),/smart_lock_stay_unavailable/);
+  assert(f.action('auto_generate').rows.every(r=>!r.pin&&!r.accessId));
+ }finally{f.store.close();}
+});
+test('after-buffer generation respects different door expiry times',()=>{
+ const f=fixture();try{
+  f.setting({autoGenerate:false,privateAfter:0,commonAfter:12});f.connect();f.bind();f.bind('common');
+  f.setNow('2027-01-12T13:00:00+08:00');const rows=f.action('generate').rows;
+  assert.equal(rows.find(r=>r.lock.kind==='private').pin,undefined);assert.match(rows.find(r=>r.lock.kind==='common').pin,/^\d{6}$/);
  }finally{f.store.close();}
 });

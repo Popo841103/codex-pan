@@ -82,9 +82,11 @@ export class SelfCheckin {
     if(!locks.length){if(automatic)return;fail(503,'checkin_lock_offline');}
     const arrival=this.times(order).start;
     if(automatic&&(!config.settings.autoGenerate||this.now()<arrival-config.settings.leadDays*86400000))return;
-    if(this.now()>=this.times(order).end){if(automatic)return;fail(400,'smart_lock_stay_unavailable');}
+    // Each door's after-checkout buffer is part of its passcode validity.
+    const openLocks=locks.filter(lock=>this.now()<smartLockWindow(order,lock,config.settings).until);
+    if(!openLocks.length){if(automatic)return;fail(400,'smart_lock_stay_unavailable');}
     if(!this.key){if(automatic)return;fail(503,'checkin_key_missing');}
-    for(const lock of locks){
+    for(const lock of openLocks){
       if(!lock.online)continue;
       const sig=this.lockSignature(order,lock,config.settings);
       const previous=this.db.prepare('SELECT id,status FROM sl_access WHERE property_id=? AND order_id=? AND lock_id=? AND signature=?').get(pid,orderId,lock.id,sig);
