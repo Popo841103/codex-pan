@@ -7,7 +7,11 @@ const tokens=Object.fromEntries([...css.matchAll(/--brand-([a-z]+):(#[a-f0-9]{6}
 const rgb=hex=>{const v=hex.slice(1);return [0,2,4].map(i=>parseInt(v.slice(i,i+2),16)/255);};
 const luminance=hex=>rgb(hex).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4).reduce((a,n,i)=>a+n*[.2126,.7152,.0722][i],0);
 const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
-test('JOVIAN pink palette supports AA text on buttons, links, tabs, selections and muted labels',()=>{
+test('shared brand tokens match the approved deep teal palette',()=>{
+ const expected={primary:'#0f766e',hover:'#115e59',link:'#0b5f58',tint:'#ccfbf1',soft:'#f0fdfa',selected:'#99f6e4',focus:'#134e4a',border:'#b6e3de',ink:'#134e4a',muted:'#4d6b67',canvas:'#f4fbfa',shadow:'#134e4a26'};
+ for(const [name,value] of Object.entries(expected))assert.ok(css.includes(`--brand-${name}:${value}`),name);
+});
+test('JOVIAN teal palette supports AA text on buttons, links, tabs, selections and muted labels',()=>{
  for(const [fg,bg] of [['#ffffff',tokens.primary],['#ffffff',tokens.hover],[tokens.link,'#ffffff'],[tokens.link,tokens.tint],[tokens.ink,tokens.selected],[tokens.muted,tokens.canvas],[tokens.focus,'#ffffff']])assert.ok(contrast(fg,bg)>=4.5,`${fg} on ${bg}: ${contrast(fg,bg)}`);
  const manifest=JSON.parse(readFileSync(new URL('manifest.webmanifest',web),'utf8'));assert.equal(manifest.theme_color,tokens.primary);assert.ok(readFileSync(new URL('index.html',web),'utf8').includes(`name="theme-color" content="${tokens.primary}"`));
 });
@@ -17,6 +21,14 @@ test('deployed styles and inline markup contain no old blue accent family',()=>{
  for(const [name,text] of sources)for(const m of text.matchAll(/#([a-f0-9]{6})(?![a-f0-9])/gi)){
   const [r,g,b]=rgb(m[0]),hi=Math.max(r,g,b),lo=Math.min(r,g,b),d=hi-lo,l=(hi+lo)/2;if(!d)continue;
   const sat=d/(1-Math.abs(2*l-1));let h=(hi===r?(g-b)/d+(g<b?6:0):hi===g?(b-r)/d+2:(r-g)/d+4)/6;
-  assert.ok(!(h>.48&&h<.77&&sat>.16),`${name}: old blue ${m[0]}`);
+  assert.ok(!(h>.52&&h<.77&&sat>.16),`${name}: old blue ${m[0]}`);
+ }
+});
+
+test('product styles and theme metadata contain no retired rose palette',()=>{
+ const retired=['d6336c','b02a5b','a92154','fce4ec','fff5f8','f7c3d6','92234e','e7c9d4','fff8fa','4a163026'];
+ for(const name of readdirSync(web).filter(n=>/\.(css|html|svg|js|webmanifest)$/.test(n))){
+  const text=readFileSync(new URL(name,web),'utf8').toLowerCase();
+  for(const hex of retired)assert.ok(!text.includes('#'+hex),name+': retired '+hex);
  }
 });

@@ -24,9 +24,11 @@ try{
  await page.locator('#login-form [name=username]').fill('synthetic-brand');await page.locator('#login-form [name=password]').fill(password);await page.locator('#login-form button').click();await page.locator('[data-property="TEST-KL"]').click();
  await page.locator('#global-nav [data-view=calendar]').click();await page.locator('[data-new-order]').waitFor();
  const styles=await page.evaluate(()=>{const style=s=>getComputedStyle(document.querySelector(s));return {primary:style('#new').backgroundColor,ink:style('#new').color,selected:style('#global-nav button.active').color,mark:style('.brand-mark').borderRadius,transform:style('.brand-mark').transform,theme:document.querySelector('[name=theme-color]').content};});
- assert.equal(styles.primary,'rgb(214, 51, 108)');assert.equal(styles.ink,'rgb(255, 255, 255)');assert.equal(styles.selected,'rgb(169, 33, 84)');assert.equal(styles.mark,'0px');assert.equal(styles.transform,'none');assert.equal(styles.theme,'#d6336c');
- await page.screenshot({path:'/tmp/jovian-pink-desktop.png',fullPage:true});
- await page.locator('#new').hover();assert.equal(await page.locator('#new').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(176, 42, 91)');
- await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/tmp/jovian-pink-mobile.png',fullPage:true});
- assert.deepEqual(errors,[]);console.log('Chromium JOVIAN pink passed: primary/hover/white text, selected navigation, official logo images, theme and responsive screenshots; synthetic SQLite only.');
+ assert.equal(styles.primary,'rgb(15, 118, 110)');assert.equal(styles.ink,'rgb(255, 255, 255)');assert.equal(styles.selected,'rgb(11, 95, 88)');assert.equal(styles.mark,'0px');assert.equal(styles.transform,'none');assert.equal(styles.theme,'#0f766e');
+ await page.locator('.calendar-empty').first().hover();
+ assert.equal(await page.locator('.calendar-empty').first().evaluate(n=>getComputedStyle(n).color),'rgb(19, 78, 74)');
+ await page.screenshot({path:'/tmp/jovian-teal-desktop.png',fullPage:true});
+ await page.locator('#new').hover();assert.equal(await page.locator('#new').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(17, 94, 89)');
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/tmp/jovian-teal-mobile.png',fullPage:true});
+ assert.deepEqual(errors,[]);console.log('Chromium JOVIAN teal passed: primary/hover/white text, selected navigation, official logo images, theme and responsive screenshots; synthetic SQLite only.');
 }finally{if(browser)await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));store.close();}

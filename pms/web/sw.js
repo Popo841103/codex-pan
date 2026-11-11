@@ -1,5 +1,5 @@
 // Only the public offline page is cached. Never cache a session, API response or guest data.
-const CACHE = 'jovian-offline-v2';
+const CACHE = 'jovian-offline-v3';
 const OFFLINE = '/web/offline.html';
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.add(OFFLINE)));

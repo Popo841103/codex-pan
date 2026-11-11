@@ -151,7 +151,7 @@ a{color:var(--brand-link)}
 .primary,.floating-new{color:white;background:var(--brand-primary);border-color:var(--brand-primary)}
 .primary:hover,.floating-new:hover{color:white;background:var(--brand-hover);border-color:var(--brand-hover)}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--brand-focus);outline-offset:2px}
-.calendar-empty.range-selected{color:var(--brand-ink);background:var(--brand-selected);outline:2px solid var(--brand-focus)}
+.calendar-empty:hover,.calendar-empty.range-selected{color:var(--brand-ink);background:var(--brand-selected);outline:2px solid var(--brand-focus)}
 .hour-slot{color:var(--brand-ink);background:var(--brand-tint);border-left-color:var(--brand-primary)}
 /* Context stays below the navigation, never inside its flex hit targets. */
 #staff-context{position:fixed;top:var(--header);left:var(--rail);right:0;z-index:29;margin:0;padding:3px 24px;min-height:22px;background:var(--brand-soft);color:var(--brand-ink);font-size:11px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
