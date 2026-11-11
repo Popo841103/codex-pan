@@ -36,7 +36,7 @@ try {
  const settings=()=>{$('#global-nav [data-view="resourcesSettings"]').click();$('#nav [data-view="integration"]').click();};
  settings();assert.equal($('#lock-brand').options.length,19);$('#lock-connect').click();assert($('#lock-settings-error').textContent.includes('API'));assert.equal(store.read(operator).properties[0].smartLock,undefined);
  set('#lock-brand','TTLock (Sciener / Tongtong / 科技侠)');$('#lock-connect').click();await until(()=>store.read(operator).properties.find(p=>p.id==='TEST-KL').smartLock?.connected&&!document.querySelector('#lock-brand')?.disabled,'synthetic connection');
- await until(()=>$('#lock-account-help').textContent.includes('合成'),'connection refresh');
+ await until(()=>$('#content').textContent.includes('仅本地测试连接')&&$('#message').textContent.includes('已保存'),'connection refresh complete');
  $('[data-integration-tab="locks"]').click();$('#lock-add').click();set('#lock-binding-form [name=name]','TEST DOM private');$('#lock-binding-form button[type=submit]').click();await until(()=>!$('#utility-dialog').open&&document.querySelectorAll('[data-lock-row]').length===1,'private bind');
  $('#lock-add').click();set('#lock-binding-form [name=name]','TEST DOM common');set('#lock-binding-form [name=kind]','common');const checkbox=$('#lock-binding-form [name=roomTypeIds]');checkbox.checked=true;$('#lock-binding-form button[type=submit]').click();await until(()=>!$('#utility-dialog').open&&document.querySelectorAll('[data-lock-row]').length===2,'common bind');
  set('#lock-filter','no such TEST lock');assert.equal(document.querySelectorAll('[data-lock-row]').length,0);set('#lock-filter','R01');assert.equal(document.querySelectorAll('[data-lock-row]').length,2);
