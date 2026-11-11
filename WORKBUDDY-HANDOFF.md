@@ -1,5 +1,7 @@
 # JOVIAN WorkBuddy continuation — 2026-11-11
 
+最新本轮完成：运行时`609de42` / `39e3a70`，Actions42942563248 / 42948038133成功；Node586/586、Python5/5、DOM34/34，矩阵已有94/部分5/缺失0/禁止或外部15。完整范围和剩余条件见本文末批次08/09中文节。
+
 Repository Popo841103/codex-pan; release branch jovian-pms-test. Pushes touching pms/** automatically run Ubuntu checks then deploy the existing test service. Preserve production accounts, database, guest and financial records. Never reset or replace data. Do not edit the deployment workflow or expose credentials.
 
 最新本批发布（2026-11-11）：`71e1ec3`，Actions `42926522741`成功；Node560/560、Python5/5、DOM31/31。小时库存、持久粘贴iCal和前台内部能力16行提升，矩阵已有79/部分20/缺失0/禁止或外部15；6份公开资产逐字节一致、26模块GET200。claims小时槽及v10写入保护有恢复约束，见本文末尾新中文节。
@@ -775,3 +777,30 @@ SmartOrder 权限目录是历史实见；具体分录结构及自动差异规则
 公网只读GET时间`2026-11-11T01:58:21.699721+00:00`：精确`/healthz` 200返回`{"ok":true,"service":"jovian-pms","data":"test-only"}`；全部**26/26**公开web/app直接导入模块200且与本地逐字节一致。新标识`data-source-command`、`staff-context`、`dailyStays`、`internalSourcePanel`、`data-audit-read`、`data-effective-permissions`、`channel_source_save`、`message_draft_save`、`actorSummary`、`handoverWindows`全部命中；`/server/store.js`404，不公开后端。结构证据`pms/verification/internal-display-live.json`；后端依据成功部署及合成SQLite验证，不把前端哈希当直接后端运行证明。公网未登录或写业务。
 
 下一块继续3.4内部Booking Engine状态/准备视图、4.5住宿More保护说明、9.23安全准备入口；3.2倍率、3.3未核验汇率、3.7公开订阅、9.12门锁、9.15外部自助入住仍部分，不冒充接通。
+
+
+## 内部Booking Engine准备与住宿More最终续跑（批次09，2026-11-11）
+
+已在同一轮继续处理剩余8条中的安全内部范围，完成**3.4、4.5、9.23**。运行时提交`39e3a70266fa27b2a8efb1c1cfd29a43b554fa59`已推送jovian-pms-test；Actions [42948038133](https://github.com/Popo841103/codex-pan/actions/runs/42948038133) **Verify/Deploy成功**，`gh run watch 42948038133 --exit-status --interval 5`退出0。前块`609de42`及文档`368f8a2`分别Actions42942563248、42942775579也成功，没有回退已上线内容。
+
+矩阵114条最终**已有94、部分5、缺失0、禁止或外部15**。相对42e9a1e累计15条由部分提升：**1.4、2.1、2.5、3.1、3.4、4.5、4.12、6.8、6.9、7.14、7.19、7.21、7.24、9.2、9.23**。前12条入口及证据见批次08；本块入口：
+
+| 行 | 入口与完成范围 |
+|---|---|
+| 3.4 | 渠道→内部网站预订准备检查：实际保存网站记录/草稿发布状态、9格三语标题描述联系文字有无、当前房型/计划/草稿数量、四类人工请求状态；本店选定房型/计划31日以内已保存价格覆盖，零价/关价/缺价区分。不是供应商接通、连续入住报价或实时可售。 |
+| 4.5 | 住宿详情→More操作前核对：资源/分房锁（非门锁）、暂存、账单关闭、拆账/AR/转账记录数、最近夜审；待收/待退/押金分列，跳转原住宿修改/账项/日志/来源标签。快照不保证动作可执行，服务端及既有夜审/余额/共享库存/原因保护保留。 |
+| 9.23 | 设置→Booking Engine安全页→内部准备四步：资源→房价→内部网站草稿→人工请求；只导航和检查，不自动保存/发布/接受请求，不进入供应商Configure，不编辑税费/倍率/跟踪代码或提交身份。 |
+
+本地及Ubuntu Node24 **586/586**（本块新增12；本轮累计新增26），Python **5/5**；31个dom-*.mjs、communications-dom及folio两分支共 **34/34**。完整DOM首轮33通过，旧booking-engine“页面没有表单”断言需适配新增只读查询：改为只允许该一张表单，实际提交后确认revision仍0，重跑通过；未修改运行时来规避测试，未弱化Ubuntu门禁。37个runtime JS、6个shell语法及diff检查通过。新DOM通过本地HTTP/内存SQLite检查保存草稿、9格语言、价格覆盖/坏范围、四步导航、渠道入口、More标签跳转及隔店，最终revision/audit/orders不变；不是实际浏览器、供应商或线上业务写入验收。
+
+运行逻辑只并入3份既有文件，无新runtime模块/依赖/表、无部署流程变更。本块只读，不增加状态机写规则；本地/共享读结构一致。整轮均未重置数据库、修改真实账号/客账/订单/资金/门锁，v10小时库存及跨已夜审日期暂存恢复/AR/账单关闭/押金保护不变。全部Do NOT继续不做。详细复现见`pms/verification/booking-preparation-audit.md`。
+
+### 最终运行时公网只读GET
+
+时间`2026-11-11T02:52:24.781801+00:00`：精确GET `/healthz` 200，返回`{"ok":true,"service":"jovian-pms","data":"test-only"}`。全部**26/26**公开web模块及app直接导入模块200、与本地逐字节一致；`/server/store.js`404，不公开源码。新标识`data-preparation-query`、`stayMorePanel`、`bookingPreparationPanel`、`data-preparation-coverage`、`data-stay-more-review`、`data-preparation-steps`、`bookingPreparation`、`pricedDays`、`missingDays`、`textChecks`全部命中；前块来源/草稿标识保留。结构化状态及SHA256见`pms/verification/booking-preparation-live.json`。公网只GET，未登录或写业务；前端哈希不是后端运行直接证据，后端依据成功部署和合成SQLite验证。
+
+### 剩余5项及下一优先
+
+**3.2**划线倍率禁止编辑；**3.3**没有已核验汇率源，不虚构MYR换算；**3.7**匿名ICS文件已能导出，但公开订阅URL/外部服务及可见性撤销策略未实现；**9.12**无已验门锁供应商/硬件，不购买/开锁/生成发送密码；**9.15**不生成发送代码或提交身份，内部指引不能冒充外部自助入住。均保留部分，不为凑总数转为已有或从矩阵删除。
+
+当前授权边界内不继续实施上述外部/禁止能力。下一优先是内部显示与报表真实使用反馈、小时claims规模性能验收、持续回归既有夜审/AR/暂存保护；外部依赖在另行明确授权和核验条件后再评估。

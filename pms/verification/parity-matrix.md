@@ -2,7 +2,7 @@
 
 仅参考本机只读目录的入口和流程；没有复制个人资料、金额、订单号或截图。状态为本批完成后的保守评估，已有表示JOVIAN已提供对应内部能力，并不代表字段/商业服务完全相同。部分表示基础能力已存在但明确列出差距。禁止项即使有只读预览也不宣称接通。
 
-最新批次08：运行时609de42，Actions42942563248成功；当前已有91/部分8/缺失0/禁止或外部15，详见末节。
+最新批次09：运行时39e3a70；当前已有94/部分5/缺失0/禁止或外部15，部署证据见末节及continuity/VERIFICATION.md。
 
 前批基线：运行时96ff297 / 5b40732，文档0a7c5a9；本批运行时71e1ec3。A7第9节此次已逐项对照。通用边界：不改账号/数据库，不自动夜审、不跨午夜截账、不改历史夜审保护、不接真实资金/OTA/锁。
 
@@ -28,7 +28,7 @@
 | 3.1 | Channel > Channel > List | 已有 | 渠道 → 内部渠道与人工来源 | internal-display Node/DOM；列出既有全部来源编号、内部名称、说明、启停和本店住宿数；管理员追加版本，OTA连接状态仍独立且不冒充接通。 |
 | 3.2 | Channel > Channel > Rate Multiplier | 部分 | 渠道 | pms/web/app.js、pms/web/workspace-ui.js；booking-request.test.js、communications.test.js、dom-booking-engine.mjs。不编辑划线倍率；现有渠道配置不代表OTA合同倍率 |
 | 3.3 | Channel > Channel > Currency Conversion | 部分 | 渠道 | pms/web/app.js、pms/web/workspace-ui.js；booking-request.test.js、communications.test.js、dom-booking-engine.mjs。没有已核验汇率源，不虚构换算 |
-| 3.4 | Channel > Booking Engine > Home | 部分 | 渠道 | pms/web/app.js、pms/web/workspace-ui.js；booking-request.test.js、communications.test.js、dom-booking-engine.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
+| 3.4 | Channel > Booking Engine > Home | 已有 | 渠道 → 内部网站预订准备检查 | booking-preparation Node/DOM；实际保存网站草稿/发布状态、三语标题/描述/联系文字有无、房型/计划/房源草稿数、人工请求状态；31日价格覆盖仅已保存单元格，不冒充实时可售或供应商接通。原未接通状态保留。 |
 | 3.5 | Channel > Booking Engine > Payments | 禁止或需外部接入 | 渠道 | 用户明确禁止或需要供应商/订阅；不执行。 |
 | 3.6 | Channel > iCal > Import | 已有 | 统计 → 运营查询工作台 → 前台内部工作台 → 保存粘贴iCal | desk-completion Node/DOM、front-desk-tools及完整回归；严格全天ICS预览后，管理员选择资源、填确认原因保存关房；导入记录不保存原始ICS/摘要/UID，撤销整次导入保留历史。重复、跨门店、冲突、已夜审日期拒绝；禁止普通/批量开房绕过撤销。没有网络抓取或订阅同步。 |
 | 3.7 | Channel > iCal > Export | 部分 | 统计 → 运营查询工作台 → iCal | financial-reports.js occupancyIcal / previewIcal；parity-workbench Node/DOM。本批下载匿名占用ICS；尚无公开订阅URL |
@@ -36,7 +36,7 @@
 | 4.2 | Reservations > Accommodation > reservation detail (Details) | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
 | 4.3 | Reservations > Accommodation > reservation detail > Bill Info | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
 | 4.4 | Reservations > Accommodation > reservation detail > Logs | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
-| 4.5 | Reservations > Accommodation > reservation detail > More menu | 部分 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。对应能力见现有入口；未覆盖参考全部扩展字段/配置 |
+| 4.5 | Reservations > Accommodation > reservation detail > More menu | 已有 | 住宿详情 → More：操作前核对 | booking-preparation Node/DOM；当前状态/资源、分房锁（非门锁）、暂存、关闭账单、拆账/AR/转账记录、最近夜审及待收/待退/押金分列；跳转原住宿/账项/日志/来源标签。快照不保证动作可执行，原服务端保护不变；不做历史批量结算。 |
 | 4.6 | Reservations > Accommodation > reservation detail > More > Charge Adjustment | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
 | 4.7 | Reservations > Accommodation > reservation detail > Modify | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
 | 4.8 | Reservations > Accommodation > reservation detail > Payment | 已有 | 预订 → 住宿 / 流水 | pms/web/app.js、pms/web/workspace-ui.js；reservations.test.js、folio.test.js、order-filters.test.js、dom-workflows.mjs。 |
@@ -120,16 +120,16 @@
 | 9.20 | Settings > Room > Frontdesk > Advance Key Card Issuance Modify | 已有 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。 |
 | 9.21 | Settings > General > Holiday > List tab | 已有 | 统计 → 运营查询工作台 → 节假日历 | operations-completion Node/DOM + 既有回归；同7.25人工节假日/活动日历与列表、热度/显示/搜索/CSV；无自动国家假日源。 |
 | 9.22 | Channel > Booking Engine > Home > Verify Now | 禁止或需外部接入 | 日历工具 / 住宿详情底部 | 用户明确禁止或需要供应商/订阅；不执行。 |
-| 9.23 | Channel > Booking Engine > Home > Setup Now | 部分 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。已有安全草稿/预览；禁止Configure内部 |
+| 9.23 | Channel > Booking Engine > Home > Setup Now | 已有 | 设置 → Booking Engine安全页 → 内部准备四步 | booking-preparation Node/DOM及原booking-engine回归；房型资源、房价日期、内部网站草稿、人工请求四步导航及只读保存状态/价格覆盖，三语/隔店/查询不写。无自动保存、发布、接受、供应商Configure、税费、倍率或身份提交。 |
 | 9.24 | Items still not opened (safe stop) | 禁止或需外部接入 | 日历工具 / 住宿详情底部 | 用户明确禁止或需要供应商/订阅；不执行。 |
 
 ## 数量与下一优先级
 
-共114条：已有 91、部分 8、缺失 0、禁止或需外部接入 15。
+共114条：已有 94、部分 5、缺失 0、禁止或需外部接入 15。
 
-本批16条由部分提升为已有：1.1、1.2、3.6、5.5、7.3、7.9、7.16–7.18、7.20、7.22–7.23、7.27、9.11、9.17、9.19。已有只指各行明确限定的内部能力；人工到期待办不是自动调度，内部入住指引不是身份验证或门锁，iCal持久导入不是网络同步。
+前批16条由部分提升为已有（历史）：1.1、1.2、3.6、5.5、7.3、7.9、7.16–7.18、7.20、7.22–7.23、7.27、9.11、9.17、9.19。已有只指各行明确限定的内部能力；人工到期待办不是自动调度，内部入住指引不是身份验证或门锁，iCal持久导入不是网络同步。
 
-下一优先：日历/单日视图剩余安全显示能力、内部渠道清单和人工来源管理、角色矩阵差距、经理/交班报表尚缺维度。3.7公开订阅、3.3已核验汇率、房卡/外部消息仍不冒充接通；7.24/9.2仅保留人工逐日夜审，禁止批量历史/自动处理。全部Do NOT边界不变。
+最新下一优先：内部显示与报表使用反馈、小时claims规模/性能验收及夜审/AR/暂存保护回归；剩余5项处置见末节。全部Do NOT边界不变。
 
 ## 补充入口（目录非编号部分）
 
@@ -173,3 +173,23 @@
 Linux Node574/574、Python5/5；30个dom-*.mjs加communications-dom及folio两分支，共33/33。37个runtime JS及6个shell语法、diff检查通过；最后账项筛选修正后重跑全Node及internal-display/operations-completion DOM通过。逻辑并入5份既有runtime文件，未改发布工作流或数据结构，不重置数据。复现及保护见internal-display-audit.md；Actions及公网证据见continuity/VERIFICATION.md最新节。
 
 继续优先：3.4内部Booking Engine状态/准备视图，4.5住宿More安全操作说明，9.23安全准备入口。其余3.2倍率、3.3未核验汇率、3.7公开订阅、9.12门锁、9.15外部自助入住仍部分，不能用内部预览替代真实接通。
+
+## 内部Booking Engine准备与住宿More续跑（批次09，2026-11-11）
+
+运行时39e3a70；新增3.4、4.5、9.23由部分提升已有。相对42e9a1e累计完成15条：1.4、2.1、2.5、3.1、3.4、4.5、4.12、6.8、6.9、7.14、7.19、7.21、7.24、9.2、9.23。最终**已有94、部分5、缺失0、禁止或需外部接入15**，合计114；已有只指逐行明确的内部范围，不声称供应商产品完全同构。
+
+本批只读逻辑并入3个既有runtime文件；本地Node586/586、Python5/5、31个dom-*.mjs加communications-dom和folio两分支共34/34，37个JS及6个shell语法与diff检查通过。旧booking-engine“无表单”断言更新为仅允许一个只读覆盖查询，并实际提交确认revision仍0；完整回归其余33分支通过、该脚本重跑通过。复现及边界见booking-preparation-audit.md；部署和GET证据见continuity/VERIFICATION.md。
+
+### 剩余5项逐项处置与下一优先
+
+| 行 | 保留部分的实际原因 | 后续条件 |
+|---|---|---|
+| 3.2 | 用户明确禁止编辑划线倍率，现有来源启停/佣金不是该能力。 | 不实施；维持只读与禁止边界。 |
+| 3.3 | 未取得已核验汇率来源；现有账项仍MYR，不编造换算。 | 有可核验来源且获得相应范围后再评估；本次不接外部服务。 |
+| 3.7 | 已有匿名ICS文件导出；公开订阅URL/服务尚无，内部下载不等于订阅。 | 外部订阅服务及可见性、撤销/访问策略另行明确；本次不建立外部接入。 |
+| 9.12 | 只有未开通状态列表，无已验供应商/硬件。 | 不购买、远程开门或生成/发送密码。 |
+| 9.15 | 内部入住指引/只读预览已有；真正外部自助入住未验。 | 不生成/发送代码、不提交身份；保留人工入住。 |
+
+没有把剩余禁止/外部依赖改名为已有，也没有删除部分行以改变总数。下一优先为内部显示与报表真实使用反馈、小时claims规模/性能验收及既有保护回归；上述5项在当前授权边界内继续不实施。
+
+批次09部署：Actions42948038133 Verify/Deploy成功；公网GET /healthz精确正常，26/26公开模块200且与本地逐字节一致，新准备检查/More标识全部命中，/server/store.js=404。见booking-preparation-live.json；公网未登录或写业务。

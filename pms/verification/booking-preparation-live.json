@@ -1,0 +1,194 @@
+{
+  "checkedAt": "2026-11-11T02:52:24.781801+00:00",
+  "commit": "39e3a70",
+  "actions": 42948038133,
+  "health": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "service": "jovian-pms",
+      "data": "test-only"
+    }
+  },
+  "serverSourceStatus": 404,
+  "assets": [
+    {
+      "path": "/src/cancellation-policy.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "ce3dd6cda55a304d7738902eb14a218b37a0860bbfaa7aca94483bcaa53ab89f"
+    },
+    {
+      "path": "/src/catalog.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "f0c12e24788ef7fd7fe5a1b1369e392bbc9ebc694e8bbb00f841aea038ab8df1"
+    },
+    {
+      "path": "/src/dashboard.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "9e039d3494d8fc96daf0112899e143c43e45a9427ad1991e8eac6c9850f1ce5a"
+    },
+    {
+      "path": "/src/demo-store.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "23fe847179940468e402d532e49be6a56dd7d7966edf6d3e52aca56c31f8fa1e",
+      "markers": {
+        "channel_source_save": true,
+        "message_draft_save": true,
+        "source_disabled": true
+      }
+    },
+    {
+      "path": "/src/financial-reports.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "41f5cda7f4c2c4bffa2d8fe140b440db0872660bc2669fdd7c3dc8849a7ad92a",
+      "markers": {
+        "bookingPreparation": true,
+        "pricedDays": true,
+        "missingDays": true,
+        "textChecks": true
+      }
+    },
+    {
+      "path": "/src/inventory-actions.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "8d10514cfc4032723c48d85b383e000d6b9e83e39911b5a1917fabbf84cd7670"
+    },
+    {
+      "path": "/src/order-filters.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "dfeb1fb20f46969e51e3e64e3edfdff44dfeae9af766cdbc014abbe86d1dd570"
+    },
+    {
+      "path": "/src/rate-availability.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "4e1e2f056ab1cf3de766f9ab9e7d7bd44b8888b80d80b578acd56b8ed9e2910d"
+    },
+    {
+      "path": "/src/reservations.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "a3ec7abcdff725b732b7e6567c7540fbca883640d83b79026776514348f71f63"
+    },
+    {
+      "path": "/web/app.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "d9c48535914ccbbe9a29dc2e14e578d3cc86dc33b792e0cf44b2f9a760ae3581",
+      "markers": {
+        "data-source-command": true,
+        "data-preparation-query": true,
+        "stayMorePanel": true
+      }
+    },
+    {
+      "path": "/web/backend.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "260084b2b12de34b5b7bd2022f6d45b9c962ad949535a6f702f8712c4871506e"
+    },
+    {
+      "path": "/web/calendar-actions.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "4670f45f9c01d622af541b7c35135158bd7e4ec2fb88d2db3bb813c7f393bd50"
+    },
+    {
+      "path": "/web/catalog-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "c943a86419e8336804f9cb21268444ebed810f79b20bb5f01c60eba87d14f12e"
+    },
+    {
+      "path": "/web/checkin-admin-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "976e69ffc0891930f337cf42840c786461672e8ac39a0668eee459d7f712bcd6"
+    },
+    {
+      "path": "/web/communication-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "c9e76b7f8b797c7ddb7edc0e77c924cfa3f7a1944e679932ac3adb5a2d20dadc"
+    },
+    {
+      "path": "/web/dashboard-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "9571e9fdc438617df572772d2f7828637796c93919be4043df1ed51d2928e3b2"
+    },
+    {
+      "path": "/web/financial-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "8af8a9f42e8bf22d9e8895f019f5e2691e7166889e64e6821f3a0080e1087850"
+    },
+    {
+      "path": "/web/guest-locales.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "7f7396e111b90af8582b6b4ea080f3b55c648ade933053c42fa8143184aa427a"
+    },
+    {
+      "path": "/web/order-columns.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "f6676c8bf5b6eff5b3b2b5dc479076a7468503573b062e23efecce3951d81544"
+    },
+    {
+      "path": "/web/pwa.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "39928ce81294f77b9cc75b4f6d6b9f4aa84f45d7f1b7f1aabd7eb3230cae0b55"
+    },
+    {
+      "path": "/web/rate-calendar.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "92103adf408dc2d183b404cb441bf386bac357f0745b29ce579f48f3bab09b37"
+    },
+    {
+      "path": "/web/recovery.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "e5d2405df528bbe7dc81fac26a02126131bb9d05d40023b67861619546f7dda6"
+    },
+    {
+      "path": "/web/reservation-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "82c7b17d341944bf565fab093ce279111fb64acc5216b78d90c3f0c521092422"
+    },
+    {
+      "path": "/web/self-checkin.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "e17dcfbfd7a6ed546ba7ceece08d516eea9a79032450ceedd6bbcca6166b4dd6"
+    },
+    {
+      "path": "/web/sw.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "68cd9bb91dcc5c72e0911a6e8b6f2fd782f8f5f922d5fdadd8419994bad428f7"
+    },
+    {
+      "path": "/web/workspace-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "a4cf1b3a9e106a2d5387b71f4aaf900df7c6c9cc1456aa2ef1957a40d87a8668",
+      "markers": {
+        "bookingPreparationPanel": true,
+        "data-preparation-coverage": true,
+        "data-stay-more-review": true,
+        "data-preparation-steps": true
+      }
+    }
+  ]
+}
