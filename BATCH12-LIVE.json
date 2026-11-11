@@ -1,0 +1,53 @@
+{
+  "base": "https://pms.jovianhome.com",
+  "checkedAt": "2026-11-11T07:44:04.893Z",
+  "headerLoginImages": true,
+  "offlineEmbeddedLogo": true,
+  "favicon": true,
+  "files": {
+    "logo.png": "461eef1c8fb3911d61348aa2a071db5aa2074c2a0af5131007cf8731927da862",
+    "icon-192.png": "575cbb5a6efafd4b834921640a7e0aba88ae07b2996909bb51827e6a79f0913a",
+    "icon-512.png": "bc301ebbe9f334938b3a61fb79838ce5a50f1bdb54c844129d950fa2a699d067",
+    "icon-maskable.png": "7d5c0e59845ec6c4e60db5bd6b0a3dc5c4701b6ca63f008d52a2a2e0395115fb"
+  },
+  "commit": "7078d0d73f88547fac9951cc6f91f66e8aab795e",
+  "actions": "https://github.com/Popo841103/codex-pan/actions/runs/42981520724",
+  "actionsVerifyAndDeploy": "success",
+  "publicFiles": {
+    "/web/": {
+      "status": 200,
+      "sha256": "67a407f1e28552ac336233eb52cef1c6c78425a70811ad8546d6b4cb503ce1a4"
+    },
+    "/web/workspace.css": {
+      "status": 200,
+      "sha256": "4985b06d6b0ea5dbd7cee8799a276fb8bfee8b7cd9e79fcc2e65430a1737878b"
+    },
+    "/web/recovery.html": {
+      "status": 200,
+      "sha256": "2a74406ba9ee9984870ca90aaf9bfdb8e22cebccd12ad5ca6c11778fd9a23afa"
+    },
+    "/checkin/": {
+      "status": 200,
+      "sha256": "973bb4bf273f0b9a277fa362d27e67e14c72843bebc91e901e0db25710ff94ed"
+    },
+    "/web/offline.html": {
+      "status": 200,
+      "sha256": "ddb0a518500f89277caf6b67627ad371ecd2c0c314a3723251e5727577bc36cc"
+    },
+    "/web/sw.js": {
+      "status": 200,
+      "sha256": "238a90d50369d3dd9b1da989b428c75c7126b46f015cf85d2fc4c4f15bf6f2eb"
+    },
+    "/web/manifest.webmanifest": {
+      "status": 200,
+      "sha256": "c9033b63f20bec8fc0d3758c4e60b39da6031e136dc70a021ad4aa3b2788bbb3"
+    }
+  },
+  "health": {
+    "ok": true,
+    "service": "jovian-pms",
+    "data": "test-only"
+  },
+  "privateServerStatus": 404,
+  "signupOfficialLogo": true
+}
