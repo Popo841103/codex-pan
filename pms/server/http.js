@@ -290,7 +290,9 @@ export function makeServer(store, { publicOrigin, recovery = null, listingReader
     return Object.fromEntries(new URLSearchParams(text));
   };
   const server=createServer(async(req,res)=>{
-    res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');
+    // no-referrer makes Chromium form POSTs send Origin: null. Keep same-origin
+    // navigation origins available; opaque/missing/cross-site origins stay refused.
+    res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try{
       const port=server.address().port;

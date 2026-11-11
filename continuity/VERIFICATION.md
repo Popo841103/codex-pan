@@ -523,3 +523,8 @@ Windows Node 427/429，余两项为已知私有文件权限用例。Python 5/5�
 **3.2**划线倍率禁止编辑；**3.3**没有已核验汇率源，不虚构MYR换算；**3.7**匿名ICS文件已能导出，但公开订阅URL/外部服务及可见性撤销策略未实现；**9.12**无已验门锁供应商/硬件，不购买/开锁/生成发送密码；**9.15**不生成发送代码或提交身份，内部指引不能冒充外部自助入住。均保留部分，不为凑总数转为已有或从矩阵删除。
 
 当前授权边界内不继续实施上述外部/禁止能力。下一优先是内部显示与报表真实使用反馈、小时claims规模性能验收、持续回归既有夜审/AR/暂存保护；外部依赖在另行明确授权和核验条件后再评估。
+
+
+## Batch 09 real-browser Origin fix — 2026-11-11
+
+Corrected shared Referrer-Policy to same-origin and overriding recovery/self-checkin meta policies; strict Origin, cross-site and staff CSRF checks remain. Earlier verification missed native Chromium Origin:null because Node/curl supplied synthetic Origin headers. Real local Chromium156 reproduced the old 403 and passed native signup/request/lookup/withdraw plus JSON POST from three document contexts on isolated memory SQLite. Node24 587/587, Python5/5; full endpoint/form audit and commands: `pms/verification/browser-origin-audit.md`. No runtime files added, no business state-machine changes, workflow/data/accounts untouched; live deployment confirmation pending. Parity stays94/5/0/15.

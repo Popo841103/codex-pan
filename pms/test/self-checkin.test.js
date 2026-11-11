@@ -117,7 +117,7 @@ test('public check-in API separates bearer scope from staff cookies, rejects cro
  assert.equal((await fetch(origin+'/api/self-checkin/session')).status,401);
  const response=await fetch(origin+'/api/self-checkin/session',{headers:{Authorization:'Bearer '+f.invite.token}});assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');assert.equal((await response.json()).pin,undefined);
  const post=await fetch(origin+'/api/self-checkin/register',{method:'POST',headers:{Origin:'https://evil.invalid','Content-Type':'application/json',Authorization:'Bearer '+f.invite.token},body:JSON.stringify({})});assert.equal(post.status,403);
- const page=await fetch(origin+'/checkin/');assert.equal(page.status,200);assert.equal(page.headers.get('referrer-policy'),'no-referrer');assert.equal((await fetch(origin+'/server/self-checkin.js')).status,404);
+ const page=await fetch(origin+'/checkin/');assert.equal(page.status,200);assert.equal(page.headers.get('referrer-policy'),'same-origin');assert.equal((await fetch(origin+'/server/self-checkin.js')).status,404);
 });
 test('legacy single-stay orders without a stored type can complete check-in through their actual assigned resource',async()=>{
  const f=fixture({connected:true});try{
