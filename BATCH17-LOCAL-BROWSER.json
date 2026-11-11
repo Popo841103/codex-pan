@@ -1,0 +1,20 @@
+{
+  "time": "2026-11-11T10:00:16.020Z",
+  "scope": "isolated in-memory synthetic SQLite; localhost only",
+  "catalogCount": 19,
+  "connection": "TTLock synthetic without password",
+  "privateBinding": true,
+  "connectedControl": true,
+  "flashClearedOnNavigation": true,
+  "addDialogLabels": true,
+  "noDoubleTestPrefix": true,
+  "settingsLength": 4,
+  "keyCardOperations": 0,
+  "languages": [
+    "zh",
+    "en",
+    "ms"
+  ],
+  "pageErrors": [],
+  "productionWrites": false
+}

@@ -1,5 +1,7 @@
 # JOVIAN WorkBuddy continuation — 2026-11-11
 
+最新批次17（2026-11-11）：运行时 `e9e4c57`；Actions `42999835806` 测试/实际部署成功，Node24 **617/617**、Python **5/5**、DOM/通讯/分账 **36/36**。六项智能锁UI及小时密码窗口修复完成；线上41资源一致、sage/字标/官方黑Logo保留；远程拒绝、无云端/外发密码，9.12仍部分。详见本文末批次17节与 `pms/verification/batch17-smart-lock-fixes.md`。
+
 最新批次16（2026-11-11）：功能 `962a04d`、样式 `a2f36bf`、最终测试/发布 `cea399d362cdbfedb5ddb1dd416d739900285296`；Actions `42998081874` 测试及实际部署成功，Node24 **614/614**、Python **5/5**、DOM/通讯/分账 **36/36**。已提供智能锁集成设置、19品牌入口、TTLock合成绑定/加密测试密码与房卡帮助；真实锁云端/硬件/开门均未接入，9.12及9.15仍部分。详情见本文末尾批次16节及 `pms/verification/batch16-smart-lock.md`。
 
 最新本轮完成：运行时`609de42` / `39e3a70`，Actions42942563248 / 42948038133成功；Node586/586、Python5/5、DOM34/34，矩阵已有94/部分5/缺失0/禁止或外部15。完整范围和剩余条件见本文末批次08/09中文节。
@@ -898,3 +900,20 @@ Runtime `7078d0d`, [Actions42981520724](https://github.com/Popo841103/codex-pan/
 最终公网只读GET `BATCH16-LIVE.json`：`2026-11-11T09:48:10.673574+00:00`，`/healthz` 200精确返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`；**41份公开资源逐字节匹配**，包含app所有直接/间接引用的 **26个浏览器模块**、主题/HTML、CSS及Logo资产。全部12项sage token保持，primary `#3f6a58`、canvas `#eef4ea`；workspace.css和官方黑色Logo均与批次15一致。`/server/store.js`404，未把公开哈希当作私有后端执行证明。
 
 `BATCH16-BROWSER.json`：`2026-11-11T09:48:02.539Z`，真实公网Chromium未登录、GET-only、无页面错误，按钮 `rgb(63, 106, 88)`、悬停 `rgb(51, 86, 72)`、白字与sage主题；1920/1440/1201宽字标32px，1200/760/390隐藏，来源logo.png且解码成功。CSS默认40px/width auto、紧凑32px、1200断点隐藏规则全部保留。线上不登录、不POST、不操作真实订单/钱款/身份或门锁；硬件验证仍未进行。SmartOrder研究仅作流程参考，没有复制研究文件、截图、锁ID、邮箱、token或密码入库。所有新增逻辑并入既有server/src/web文件，没有新增runtime模块，也未改部署工作流及任何Do NOT事项。最终交接与证据提交只改根目录及continuity，不触发新部署。
+
+
+## 批次17 — 智能锁UI与小时住宿密码窗口（2026-11-11）
+
+运行时 `e9e4c57a95555fda5ae080f69ae06f419fa53a48` 已推送 `jovian-pms-test`；[Actions 42999835806](https://github.com/Popo841103/codex-pan/actions/runs/42999835806) / job `130452958853` 的 **Verify PMS / Deploy existing PMS test service 均成功**，Ubuntu Node24 **617/617**、Python **5/5**。本地同为617/617、5/5，33份dom、communications及folio两分支共 **36/36**；最终智能锁DOM独立重跑也通过。JS、3份CI shell语法及diff检查通过，Ubuntu门禁未改。
+
+六项修复：① TTLock成功连接后主控件显示「仅本地测试连接」并禁用重复连接；成功提示4秒清除，导航/集成标签/住宿详情/工具弹窗清除。② 添加/编辑合成锁与门锁类型使用正确三语标签。③ 公共门复选框及关联列复用 `typeName` / `names`，既有房型ID无需重绑即可显示标准大床等名称，不再空白/UUID；公共门忽略遗留房号关联。④ 搜索客房锁才匹配该房号；公共门只匹配绑定房型名、锁名、ID（及原品牌），不展开房型下的所有房号。⑤ TEST任意大小写开头不重复加前缀，旧 `TEST · TEST-101` 在显示时修正，无需重绑。⑥ `stayTimes` 统一真实Malaysia UTC+8时段，小时住宿优先使用已存usageDate/startTime/endTime，leadDays仅控制可生成时机。
+
+2026-11-11 **14:00–17:00** 小时住宿，客房/公共门前后各12小时，正确窗口均为 **2026-11-11 02:00 → 2026-11-12 05:00（马来西亚）**，不再采用15:00/次日12:00的默认酒店时刻。0–3提前天数不移动窗口，生成资格及住宿结束判断也使用真实时段。窗口进入测试码签名，读取/生成/同步撤销不匹配旧签名并清空密文；自动模式打开住宿面板可生成新窗口合成码，自动关闭则正确显示窗口/未生成，显式生成更新，不继续显示旧03:00–00:00。没有批量重置或改写既有E2E绑定、客人、订单、财务记录。
+
+扩展Node/现有DOM覆盖：names无name的已存绑定、三语添加编辑与门类型、连接状态、提示超时及跨页清除、101不返回公共门、公共门关联列无UUID/房号、TEST前缀、私门/公共门小时窗口、所有leadDays、旧签名密文撤销与再生、远程拒绝。新增DOM第二次设置保存曾仅等DB未等刷新触发既有writing保护；测试改为同时等待新form、持久值及完成提示后独立重跑通过，没有放宽产品保护。本地真实Chromium `BATCH17-LOCAL-BROWSER.json` 验证连接主控件、导航提示清除、弹窗、TEST名称、设置和三语房卡；既有browser-brand也通过，均为隔离合成内存SQLite。
+
+线上只读GET `BATCH17-LIVE.json`（`2026-11-11T10:00:54.793376+00:00`）：`/healthz` HTTP200精确返回 `{"ok":true,"service":"jovian-pms","data":"test-only"}`；**41份公开资源逐字节匹配**，app全部直接/间接 **26个模块** GET200。全部12项sage token保持，primary `#3f6a58`、canvas `#eef4ea`；workspace.css、官方黑色Logo及图标与批次15完全一致；`/server/store.js`404。
+
+真实公网Chromium `BATCH17-BROWSER.json`（`2026-11-11T10:00:46.760Z`）未登录、GET-only、无页面错误，按钮 `rgb(63, 106, 88)`、hover `rgb(51, 86, 72)`、白字、sage主题；1920/1440/1201宽字标32px，1200/760/390隐藏，来源logo.png且成功解码；CSS默认40px/width auto及紧凑32px规则保留。公开资源一致只证明浏览器交付，不当作私有后端、线上特定住宿或真实门锁的直接操作验收；未登录或操作线上E2E住宿，小时窗口以本地合成数据验证。
+
+详细复现与边界见 `pms/verification/batch17-smart-lock-fixes.md`。`server/store.js`继续调用同一 `demo-store.apply`，双状态机名称/绑定规则一致；密码服务复用同一时段与窗口。营业日未参与Malaysia时间计算，原self-checkin、night-audit、boxed-stay restore及AR保护通过。9.12/9.15仍「部分」，合成测试不等于云端/硬件接入。远程开锁继续原测试模式409拒绝、不宣称物理门打开；不邮件/外发密码、不调用TTLock/Sciener云端、不操作真实订单/钱款/生产数据/门锁。无新增runtime文件、部署工作流/Logo/配色改动，无夜审自动化、Beds24、生产渠道或其他Do NOT事项。最后中文交接与JSON证据提交只改根目录和continuity，不触发新部署。
