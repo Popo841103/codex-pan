@@ -18,3 +18,10 @@ test('four legacy undated receipts remain four after a new business-date payment
  const old=structuredClone(state2.orders[0].transactions),query=()=>parityReport(state2,{propertyId,kind:'shiftAccrual',from:date,to:date});assert.equal(query().unallocated,4);
  send('payment',{orderId:'stay',kind:'payment',amount:10500,method:'cash'});assert.equal(query().unallocated,4);assert.equal(query().rows.find(r=>r.kind==='payment').amount,10500);assert.deepEqual(state2.orders[0].transactions.slice(0,4),old);
 });
+import {previewIcal} from '../src/financial-reports.js';
+test('documented all-day iCal inventory import preserves SUMMARY label without creating a guest',()=>{
+ const ics='BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:b11-synthetic\nDTSTART;VALUE=DATE:20271111\nDTEND;VALUE=DATE:20271112\nSUMMARY:E2E iCal Guest\nEND:VEVENT\nEND:VCALENDAR';
+ assert.equal(previewIcal(ics)[0].summary,'E2E iCal Guest');
+ const s=apply(seed(),{id:'ical-b11',propertyId:'TEST-KL',type:'ical_import',resourceId:'TEST-KL-R1',ics,reason:'TEST only',at:'2026-11-11T02:00:00Z',actor:'TEST'});
+ assert.equal(s.orders.length,0);assert.equal(s.blocks[0].blockType,'hold');assert.equal(s.blocks[0].summary,'E2E iCal Guest');
+});

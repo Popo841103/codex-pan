@@ -783,10 +783,11 @@ export function previewIcal(text){
   if(line==='END:VCALENDAR'&&calendar&&!event){calendar=false;ended=true;continue;}
   if(!calendar||ended)throw Error('ical_input');
   if(line==='BEGIN:VEVENT'&&!event){event={};continue;}
-  if(line==='END:VEVENT'&&event){if(!validDate(event.start)||!validDate(event.end)||event.end<=event.start||rows.length>=200)throw Error('ical_input');rows.push({start:event.start,end:event.end});event=null;continue;}
+  if(line==='END:VEVENT'&&event){if(!validDate(event.start)||!validDate(event.end)||event.end<=event.start||rows.length>=200)throw Error('ical_input');rows.push({start:event.start,end:event.end,...(event.summary?{summary:event.summary}:{})});event=null;continue;}
   const match=/^(DTSTART|DTEND);VALUE=DATE:(\d{4})(\d{2})(\d{2})$/.exec(line);
   if(match&&event){const key=match[1]==='DTSTART'?'start':'end';if(event[key])throw Error('ical_input');event[key]=`${match[2]}-${match[3]}-${match[4]}`;continue;}
-  if(event&&/^(UID|DTSTAMP|SUMMARY|DESCRIPTION):/.test(line))continue;
+  if(event&&line.startsWith('SUMMARY:')){event.summary=line.slice(8).replace(/\\n/gi,' ').replace(/\\([,;\\])/g,'$1').slice(0,200);continue;}
+  if(event&&/^(UID|DTSTAMP|DESCRIPTION):/.test(line))continue;
   if(!event&&/^(VERSION:2\.0|PRODID:.*|CALSCALE:GREGORIAN)$/.test(line))continue;
   throw Error('ical_input');
  }
