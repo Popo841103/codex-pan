@@ -1,0 +1,204 @@
+{
+  "checkedAt": "2026-11-11T07:36:03.276325+00:00",
+  "health": {
+    "ok": true,
+    "service": "jovian-pms",
+    "data": "test-only"
+  },
+  "modules": [
+    {
+      "path": "/src/cancellation-policy.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "ce3dd6cda55a304d7738902eb14a218b37a0860bbfaa7aca94483bcaa53ab89f"
+    },
+    {
+      "path": "/src/catalog.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "ac49e6eceb4e85ea654e64112b301f81844fbd8a6dc728a24d5c781598babd4f"
+    },
+    {
+      "path": "/src/dashboard.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "9e039d3494d8fc96daf0112899e143c43e45a9427ad1991e8eac6c9850f1ce5a"
+    },
+    {
+      "path": "/src/demo-store.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "a636a0ef5844f768218c0cb17aa0396b214798a31280f5124fecc7752ce4b3fd"
+    },
+    {
+      "path": "/src/financial-reports.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "6873d5e64ac241c55d96d0b39e8fa6de38be7d4400e9ec10780151614729c91e"
+    },
+    {
+      "path": "/src/inventory-actions.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "8d10514cfc4032723c48d85b383e000d6b9e83e39911b5a1917fabbf84cd7670"
+    },
+    {
+      "path": "/src/inventory.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "c04c9e5f722575ff07eac4b7ef3f28e10efc3ea5204eee4670668861b623b216"
+    },
+    {
+      "path": "/src/order-filters.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "dfeb1fb20f46969e51e3e64e3edfdff44dfeae9af766cdbc014abbe86d1dd570"
+    },
+    {
+      "path": "/src/rate-availability.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "4e1e2f056ab1cf3de766f9ab9e7d7bd44b8888b80d80b578acd56b8ed9e2910d"
+    },
+    {
+      "path": "/src/rate-dates.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "a1e911e515a024ae0c49dae374fe4f6aaed3a6e3e9bda6653f829227c46dab26"
+    },
+    {
+      "path": "/src/rates.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "a65df5034ce4bf4838ac946dd20453ea0fe268c74fab048a2050bdbaefba34e5"
+    },
+    {
+      "path": "/src/reservations.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "a3ec7abcdff725b732b7e6567c7540fbca883640d83b79026776514348f71f63"
+    },
+    {
+      "path": "/web/app.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "cdb219440f67bc3b2f835bd2a4caee7008ee6367c215fd221e7d1a161235853d"
+    },
+    {
+      "path": "/web/backend.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "260084b2b12de34b5b7bd2022f6d45b9c962ad949535a6f702f8712c4871506e"
+    },
+    {
+      "path": "/web/calendar-actions.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "c845dee62e4d9a31b0d10eab7eef1c593d73189634d245dff9adeb4397b381c8"
+    },
+    {
+      "path": "/web/catalog-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "ad73ddf28111c9ae0eeab6f9d78c5e48ee81012bcbfdf6424ee4235662ff4741"
+    },
+    {
+      "path": "/web/checkin-admin-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "976e69ffc0891930f337cf42840c786461672e8ac39a0668eee459d7f712bcd6"
+    },
+    {
+      "path": "/web/communication-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "c9e76b7f8b797c7ddb7edc0e77c924cfa3f7a1944e679932ac3adb5a2d20dadc"
+    },
+    {
+      "path": "/web/dashboard-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "9571e9fdc438617df572772d2f7828637796c93919be4043df1ed51d2928e3b2"
+    },
+    {
+      "path": "/web/financial-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "2e96eb94da0b983052bc034179fb29cdca59cdcf4b9ab609ef5850f4e67a41d8"
+    },
+    {
+      "path": "/web/guest-locales.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "7f7396e111b90af8582b6b4ea080f3b55c648ade933053c42fa8143184aa427a"
+    },
+    {
+      "path": "/web/order-columns.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "f6676c8bf5b6eff5b3b2b5dc479076a7468503573b062e23efecce3951d81544"
+    },
+    {
+      "path": "/web/pwa.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "39928ce81294f77b9cc75b4f6d6b9f4aa84f45d7f1b7f1aabd7eb3230cae0b55"
+    },
+    {
+      "path": "/web/rate-calendar.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "92103adf408dc2d183b404cb441bf386bac357f0745b29ce579f48f3bab09b37"
+    },
+    {
+      "path": "/web/recovery.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "e5d2405df528bbe7dc81fac26a02126131bb9d05d40023b67861619546f7dda6"
+    },
+    {
+      "path": "/web/reservation-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "af6d15d49f2db2130dfc10711d166349ae12494a28069cb21932ba7ce913c3f1"
+    },
+    {
+      "path": "/web/self-checkin.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "e17dcfbfd7a6ed546ba7ceece08d516eea9a79032450ceedd6bbcca6166b4dd6"
+    },
+    {
+      "path": "/web/sw.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "68cd9bb91dcc5c72e0911a6e8b6f2fd782f8f5f922d5fdadd8419994bad428f7"
+    },
+    {
+      "path": "/web/vendor/qrcode.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "b870e9c9b05057ccc324dba71c8f532673c025a4a9995b8680c7f696a5f35282"
+    },
+    {
+      "path": "/web/workspace-ui.js",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "a91e792c6f8b7e6413198e9308e17d7645c692fa801f959f69817db7c3a4179e"
+    },
+    {
+      "path": "/web/style.css",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "22fce66878b69318776c2e6bc2cb582f90637c4d3cf866e2e425f7aff4230b7e"
+    },
+    {
+      "path": "/web/index.html",
+      "status": 200,
+      "matchesLocal": true,
+      "sha256": "5d2eef43939502236013a882f009996d8dba960706fcd2596340e4e39f120d6f"
+    }
+  ],
+  "serverSourceStatus": 404,
+  "scope": "Public GET only; no login or business writes. Public hashes do not directly attest private server execution."
+}
