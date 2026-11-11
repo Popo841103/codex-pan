@@ -137,8 +137,10 @@ tr.sev-urgent td:first-child{box-shadow:inset 3px 0 0 #d0342c}
 .perm-item span{word-break:break-word}
 .perm-matrix+.primary,.role-editor button.primary{justify-self:start;margin-top:4px}
 
-/* A round monogram, rose surfaces and softened cards distinguish JOVIAN. */
-.brand-mark{font-family:Georgia,serif;border-radius:50%;transform:none;border:2px solid white;box-shadow:0 0 0 2px var(--brand-primary);background:var(--brand-primary)}
+/* Official artwork keeps its original colors on a white-safe surface. */
+.brand-mark{object-fit:contain;border-radius:0;transform:none;border:0;box-shadow:none;background:white}
+.header-wordmark{width:92px!important;height:64px!important;object-fit:contain;padding:0!important;background:white}
+.login-logo{display:block;width:240px;max-width:100%;height:auto;margin:0 auto 18px;background:white}
 main>header.workspace-header{border-bottom:3px solid var(--brand-tint)}
 .panel{border-radius:12px;border:1px solid var(--brand-border)}
 #workspace-sidebar{background:var(--brand-soft)}
