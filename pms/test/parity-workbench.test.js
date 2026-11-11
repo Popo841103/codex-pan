@@ -59,7 +59,7 @@ test('CSV preserves exactly filtered columns and neutralizes formulas including 
 test('occupancy ICS contains no guest/contact/order IDs; pasted preview round trips without state writes',()=>{
  const s=fixture(),before=structuredClone(s),ics=occupancyIcal(s,{propertyId,resourceId:'TEST-KL-R1',from,to});
  for(const privateText of ['TEST-STAY','TEST guest','TEST phone'])assert(!ics.includes(privateText));
- assert.deepEqual(previewIcal(ics),[{start:from,end:'2027-02-03'}]);assert.deepEqual(s,before);
+ assert.deepEqual(previewIcal(ics),[{start:from,end:'2027-02-03',summary:'Unavailable'}]);assert.deepEqual(s,before);
  assert.throws(()=>occupancyIcal(s,{propertyId:'TEST-PG',resourceId:'TEST-KL-R1',from,to}),/scope/);
 });
 test('ICS rejects recurrence, network URLs, alarms, malformed calendars, invalid dates and reversed ranges',()=>{
@@ -101,7 +101,7 @@ test('ICS covers shared atoms and blocks without identifiers, and refuses unreso
  s.blocks.push({id:'TEST-PRIVATE-BLOCK',propertyId,atoms:[...r.atoms],start:'2027-02-02',end:'2027-02-04'});
  s.blocks.push({id:'TEST-OTHER',propertyId:'TEST-PG',atoms:[...r.atoms],start:'2027-02-01',end:'2027-02-05'});
  const ics=occupancyIcal(s,{propertyId,resourceId:r.id,from,to});
- assert.deepEqual(previewIcal(ics),[{start:from,end:'2027-02-03'},{start:'2027-02-02',end:'2027-02-04'}]);
+ assert.deepEqual(previewIcal(ics),[{start:from,end:'2027-02-03',summary:'Unavailable'},{start:'2027-02-02',end:'2027-02-04',summary:'Unavailable'}]);
  assert(!ics.includes('TEST-PRIVATE-BLOCK'));assert(!ics.includes('TEST-SUITE'));
  s.orders[0].resourceId=null;assert.throws(()=>occupancyIcal(s,{propertyId,resourceId:r.id,from,to}),/unresolved/);
  s.orders[0].resourceId=r.id;s.orders[0].status='checked_in';s.orders[0].end=from;
