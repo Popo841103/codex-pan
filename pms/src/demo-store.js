@@ -321,6 +321,58 @@ export function preview(state, propertyId) {
 }
 // Mutations are copy-on-write: a failed operation leaves the original state intact.
 // Shared mode wraps this pure reducer in Store's authorized database transaction.
+// Vendor names are a display catalog, never an assertion of an available API.
+export const smartLockBrands=Object.freeze(['2N','33 Lock','Akiles','August','Baycom','ChatLock','igloohome','Kwikset','Lockly','Nuki','YGS','RemoteLock','Salto KS','Schlage','SmartThings','Tedee','TTLock (Sciener / Tongtong / 科技侠)','Wyze','Yale']);
+export const ttLockBrand=smartLockBrands[16];
+export const smartLockActions=['smart_lock_connect','smart_lock_bind','smart_lock_remove','smart_lock_settings'];
+export function smartLockConfig(state,pid){return state.properties.find(p=>p.id===pid)?.smartLock||{connected:false,locks:[],settings:{autoGenerate:true,privateBefore:12,privateAfter:12,commonBefore:12,commonAfter:12,leadDays:3,length:'auto'}};}
+export function stayLocks(state,order){
+ const config=smartLockConfig(state,order.propertyId),room=state.resources.find(r=>r.propertyId===order.propertyId&&r.id===order.resourceId&&!r.archived);
+ if(!config.connected||!room)return [];
+ return config.locks.filter(l=>l.kind==='private'?l.resourceId===room.id:l.roomTypeIds.includes(room.roomTypeId));
+}
+export function smartLockWindow(order,lock,settings){
+ const prefix=lock.kind==='private'?'private':'common';
+ return {from:Date.parse(order.start+'T'+(order.arrivalTime||'15:00')+':00+08:00')-settings[prefix+'Before']*3600000,until:Date.parse(order.end+'T'+(order.departureTime||'12:00')+':00+08:00')+settings[prefix+'After']*3600000};
+}
+function applySmartLock(state,c){
+ const property=state.properties.find(p=>p.id===c.propertyId),old=smartLockConfig(state,c.propertyId),config=structuredClone(old);
+ // Passwords, tokens, arbitrary vendor IDs and host names have no place in this synthetic model.
+ const fields={smart_lock_connect:['brand'],smart_lock_bind:['lockId','name','kind','resourceId','roomTypeIds','online','gateway'],smart_lock_remove:['lockId'],smart_lock_settings:['settings']}[c.type];
+ if(Object.keys(c).some(k=>!['type','propertyId','id','at','actor','date',...fields].includes(k)))reject('input');
+ if(c.type==='smart_lock_connect'){
+  if(c.brand!==ttLockBrand)reject('smart_lock_vendor_pending');
+  config.connected=true;config.mode='synthetic';config.brand=ttLockBrand;
+ }else if(c.type==='smart_lock_settings'){
+  const v=c.settings,keys=['autoGenerate','privateBefore','privateAfter','commonBefore','commonAfter','leadDays','length'];
+  if(!v||Object.keys(v).length!==keys.length||Object.keys(v).some(k=>!keys.includes(k))||typeof v.autoGenerate!=='boolean'||!['privateBefore','privateAfter','commonBefore','commonAfter'].every(k=>Number.isInteger(v[k])&&v[k]>=0&&v[k]<=72)||!Number.isInteger(v.leadDays)||v.leadDays<0||v.leadDays>3||!(v.length==='auto'||Number.isInteger(v.length)&&v.length>=4&&v.length<=9))reject('input');
+  config.settings={...v};
+ }else{
+  if(!config.connected)reject('checkin_lock_offline');
+  const existing=config.locks.find(l=>l.id===c.lockId);
+  if(c.type==='smart_lock_remove'){
+   if(!existing)reject('scope');config.locks=config.locks.filter(l=>l.id!==c.lockId);
+  }else{
+   if(c.lockId&&!existing)reject('scope');
+   const name=text(c.name,80).trim();
+   if(!name||!['private','common'].includes(c.kind)||typeof c.online!=='boolean'||typeof c.gateway!=='boolean')reject('input');
+   let resourceId=null,roomTypeIds=[];
+   if(c.kind==='private'){
+    const room=state.resources.find(r=>r.id===c.resourceId&&r.propertyId===c.propertyId&&!r.archived&&r.productId==='room');
+    if(!room)reject('scope');resourceId=room.id;
+    if(config.locks.some(l=>l.id!==existing?.id&&l.kind==='private'&&l.resourceId===resourceId))reject('duplicate');
+   }else{
+    if(!Array.isArray(c.roomTypeIds)||!c.roomTypeIds.length||new Set(c.roomTypeIds).size!==c.roomTypeIds.length||c.roomTypeIds.some(id=>!state.roomTypes.some(t=>t.id===id&&t.propertyId===c.propertyId&&!t.archived)))reject('scope');
+    roomTypeIds=[...c.roomTypeIds];
+   }
+   const id=existing?.id||'SYNTH-'+c.id;
+   const lock={id,name:'TEST · '+name.replace(/^TEST · /,''),brand:ttLockBrand,kind:c.kind,resourceId,roomTypeIds,online:c.online,gateway:c.gateway,mode:'synthetic'};
+   config.locks=config.locks.filter(l=>l.id!==id);config.locks.push(lock);
+  }
+ }
+ property.smartLock=config;
+}
+
 export function apply(state, command) {
   let next = upgradeBusinessDay(upgradeCatalog(state));
   for (const o of next.orders) { o.nightly ??= 0; o.transactions ??= []; o.notes ??= ''; o.source ??= 'direct'; o.locked ??= false; }
@@ -380,6 +432,7 @@ export function apply(state, command) {
     state.notifications = (state.notifications||[]).map(n => n.propertyId === scope
       ? {...n, severity: escalateSeverity(n.kind, severityOf(n.kind, levels), n.magnitude, rules)} : n);
   };
+  if(smartLockActions.includes(type)) applySmartLock(next,command);
   if (type === 'notice_severity_save') {
     const levels = cleanNoticeLevels(command.levels);
     if (!levels) reject('input');
@@ -771,7 +824,7 @@ export function apply(state, command) {
     if (!block) reject('scope');
     if(block.icalImportId)reject('input'); // Imported holds require reasoned whole-import revocation.
     next.blocks = next.blocks.filter(b => b !== block);
-  } else if (!['purge_test_orders','notice_severity_save','notice_rule_save'].includes(type)) reject('input');
+  } else if (![...smartLockActions,'purge_test_orders','notice_severity_save','notice_rule_save'].includes(type)) reject('input');
   preview(next, propertyId);
   const statusRows=roomStatusRows(state,next,command);
   const movedTo = next.orders.find(o => o.id === (order?.id || command.id)) || null;

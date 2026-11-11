@@ -124,9 +124,9 @@ try {
     assert($('[data-cal-tool="room-logs"]').textContent.toLowerCase().includes(title.toLowerCase()));
     openTool('smart-lock');
     const noData={en:'No Data',ms:'Tiada Data',zh:'暂无数据'}[lang];
-    assert.equal($('[data-smart-lock] [role="status"]').textContent,noData);
+    assert.equal($('[data-smart-lock] tbody').textContent,noData);
     $('[data-lock-tab="common"]').click();
-    assert.equal($('[data-smart-lock] [role="status"]').textContent,noData);close();
+    assert.equal($('[data-smart-lock] tbody').textContent,noData);close();
   }
 
   $('#global-nav [data-view="resourcesSettings"]').click();

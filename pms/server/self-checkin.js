@@ -3,7 +3,7 @@ import {resolve as backupResolve,join as backupJoin,dirname as backupDirname} fr
 import {fileURLToPath as backupFilePath} from 'node:url';
 import {randomBytes,randomUUID,randomInt,createHash,createHmac,createCipheriv,createDecipheriv} from 'node:crypto';
 import {readFileSync,writeFileSync,lstatSync} from 'node:fs';
-import {folio} from '../src/demo-store.js';
+import {folio,smartLockConfig,stayLocks,smartLockWindow} from '../src/demo-store.js';
 import {isBoxed} from '../src/inventory-actions.js';
 import {isClean,overlapsAtoms} from '../src/catalog.js';
 export class CheckinError extends Error {constructor(status,code){super(code);this.status=status;}}
@@ -25,12 +25,20 @@ export function loadOrCreateGuestKey(path,{allowCreate=true}={}){
   const key=readFileSync(path);if(key.length!==32)throw new Error('Guest data key has an invalid length.');return key;
 }
 const disconnected={status:()=>({provider:'tthotel',connected:false,tested:false}),provision:async()=>fail(503,'checkin_lock_offline')};
+// In-process only: there is deliberately no network client, credential or vendor host.
+export const syntheticTTLock=Object.freeze({
+ status:()=>({provider:'ttlock-synthetic',mode:'synthetic',physicalDoorOpened:false}),
+ provision:({requestId})=>({externalId:'SYNTH-'+requestId,testConfirmed:true,deviceConfirmed:false,physicalDoorOpened:false}),
+ revoke:()=>({testRevoked:true,physicalDoorOpened:false}),
+ remoteUnlock:()=>fail(409,'smart_lock_test_no_unlock')
+});
 const defaults=()=>({enabled:false,requirePayment:true,requiredDeposit:0,registrationMode:'all',instructions:'',retentionDays:defaultRetentionDays,revision:0});
 export class SelfCheckin {
   constructor(store,{key=null,clock=()=>Date.now(),accessProvider=disconnected}={}){
     if(key!==null&&(!Buffer.isBuffer(key)||key.length!==32))throw Error('Invalid guest data key');
     this.store=store;this.db=store.db;this.key=key;this.clock=clock;this.access=accessProvider;
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS sl_access(id TEXT PRIMARY KEY,property_id TEXT NOT NULL REFERENCES properties(id),order_id TEXT NOT NULL,lock_id TEXT NOT NULL,signature TEXT NOT NULL,pin TEXT,status TEXT NOT NULL,valid_from INTEGER NOT NULL,valid_until INTEGER NOT NULL,created_at TEXT NOT NULL,UNIQUE(property_id,order_id,lock_id,signature));
       CREATE TABLE IF NOT EXISTS sc_policies(property_id TEXT PRIMARY KEY REFERENCES properties(id),revision INTEGER NOT NULL,body TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS sc_grants(id TEXT PRIMARY KEY,property_id TEXT NOT NULL REFERENCES properties(id),order_id TEXT NOT NULL,creator_id TEXT NOT NULL REFERENCES users(id),token_hash TEXT UNIQUE NOT NULL,code_hash TEXT NOT NULL,
         expires_at INTEGER NOT NULL,status TEXT NOT NULL,revision INTEGER NOT NULL,submission TEXT,document_hashes TEXT,review TEXT NOT NULL,reviewer_id TEXT,approved_sig TEXT,created_at TEXT NOT NULL,rejection_reason TEXT);
@@ -51,6 +59,65 @@ export class SelfCheckin {
     // there are no documents rather than implying the guest never registered.
     if(!this.db.prepare('PRAGMA table_info(sc_grants)').all().some(c=>c.name==='purged_at'))
       this.db.exec('ALTER TABLE sc_grants ADD COLUMN purged_at TEXT');
+  }
+  lockActor(user,pid){return this.actor(user,pid,'smart_lock_passcodes');}
+  lockSignature(order,lock,settings){return sha(JSON.stringify([signature(order),lock,settings]));}
+  lockEligible(order){return ['confirmed','checked_in'].includes(order.status)&&!isBoxed(order)&&!!order.resourceId;}
+  testLockRows(pid,orderId){
+    const state=this.body(pid),order=state.orders.find(o=>o.id===orderId&&o.propertyId===pid);
+    if(!order)fail(404,'scope');
+    const config=smartLockConfig(state,pid);
+    return stayLocks(state,order).map(lock=>{
+      const sig=this.lockSignature(order,lock,config.settings),row=this.db.prepare("SELECT * FROM sl_access WHERE property_id=? AND order_id=? AND lock_id=? AND signature=? AND status='test_active'").get(pid,order.id,lock.id,sig);
+      const usable=row&&this.lockEligible(order)&&this.now()<row.valid_until;
+      return {lock,mode:'synthetic',physicalDoorOpened:false,...smartLockWindow(order,lock,config.settings),...(usable?{accessId:row.id,pin:this.decrypt(row.pin,row.id+':pin'),status:'test_active'}:{status:'not_generated'})};
+    });
+  }
+  generateTestLocks(pid,orderId,{automatic=false,actor=null,body=null}={}){
+    const state=body||this.body(pid),order=state.orders.find(o=>o.id===orderId&&o.propertyId===pid),config=smartLockConfig(state,pid);
+    if(!order||!this.lockEligible(order)){if(automatic)return;fail(400,'smart_lock_stay_unavailable');}
+    const locks=stayLocks(state,order);
+    if(!locks.length){if(automatic)return;fail(503,'checkin_lock_offline');}
+    const arrival=this.times(order).start;
+    if(automatic&&(!config.settings.autoGenerate||this.now()<arrival-config.settings.leadDays*86400000))return;
+    if(this.now()>=this.times(order).end){if(automatic)return;fail(400,'smart_lock_stay_unavailable');}
+    if(!this.key){if(automatic)return;fail(503,'checkin_key_missing');}
+    for(const lock of locks){
+      if(!lock.online)continue;
+      const sig=this.lockSignature(order,lock,config.settings);
+      const previous=this.db.prepare('SELECT id,status FROM sl_access WHERE property_id=? AND order_id=? AND lock_id=? AND signature=?').get(pid,orderId,lock.id,sig);
+      if(previous&&(previous.status==='test_active'||automatic))continue;
+      const id=previous?.id||randomUUID(),length=config.settings.length==='auto'?6:config.settings.length,pin=Array.from({length},()=>randomInt(0,10)).join(''),window=smartLockWindow(order,lock,config.settings);
+      const result=syntheticTTLock.provision({requestId:id});
+      if(result.testConfirmed!==true||result.deviceConfirmed!==false)fail(503,'checkin_lock_offline');
+      this.db.prepare("INSERT INTO sl_access VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET pin=excluded.pin,status=excluded.status,created_at=excluded.created_at").run(id,pid,orderId,lock.id,sig,this.crypt(pin,id+':pin'),'test_active',window.from,window.until,new Date(this.now()).toISOString());
+      this.audit(pid,null,actor,'smart_lock_test_generated',{accessId:id,lockId:lock.id,mode:'synthetic',automatic,physicalDoorOpened:false});
+    }
+  }
+  syncSmartLocks(pid){
+    const state=this.body(pid),config=smartLockConfig(state,pid);
+    for(const row of this.db.prepare("SELECT * FROM sl_access WHERE property_id=? AND status='test_active'").all(pid)){
+      const order=state.orders.find(o=>o.id===row.order_id&&o.propertyId===pid),lock=order&&stayLocks(state,order).find(l=>l.id===row.lock_id);
+      if(!order||!this.lockEligible(order)||!lock||this.lockSignature(order,lock,config.settings)!==row.signature||this.now()>=row.valid_until){
+        syntheticTTLock.revoke();this.db.prepare("UPDATE sl_access SET status='test_revoked',pin=NULL WHERE id=?").run(row.id);
+        this.audit(pid,null,null,'smart_lock_test_revoked',{accessId:row.id,mode:'synthetic'});
+      }
+    }
+    if(config.connected&&config.locks.length&&config.settings.autoGenerate)for(const order of state.orders.filter(o=>o.propertyId===pid))this.generateTestLocks(pid,order.id,{automatic:true,body:state});
+  }
+  lockRead(user,pid,orderId){this.lockActor(user,pid);return {mode:'synthetic',physicalDoorOpened:false,rows:this.testLockRows(pid,orderId)};}
+  lockCommand(user,input){
+    const {propertyId:pid,orderId,action}=input||{},actor=this.lockActor(user,pid);
+    if(Object.keys(input).some(k=>!['propertyId','orderId','action','accessId'].includes(k)))fail(400,'input');
+    const order=this.body(pid).orders.find(o=>o.id===orderId&&o.propertyId===pid);if(!order)fail(404,'scope');
+    if(action==='remote_unlock')return syntheticTTLock.remoteUnlock();
+    if(['generate','auto_generate'].includes(action))this.store.transaction(()=>this.generateTestLocks(pid,orderId,{actor,automatic:action==='auto_generate'}));
+    else if(action==='revoke')this.store.transaction(()=>{
+      const row=this.db.prepare('SELECT * FROM sl_access WHERE id=? AND property_id=? AND order_id=?').get(input.accessId,pid,orderId);if(!row)fail(404,'scope');
+      syntheticTTLock.revoke();this.db.prepare("UPDATE sl_access SET status='test_revoked',pin=NULL WHERE id=?").run(row.id);this.audit(pid,null,actor,'smart_lock_test_revoked',{accessId:row.id,mode:'synthetic'});
+    });
+    else fail(400,'input');
+    return this.lockRead(user,pid,orderId);
   }
   now(){return this.clock();}
   actor(user,pid,action){const actor=this.db.prepare('SELECT id,role,username FROM users WHERE id=? AND active=1').get(user.id);if(!actor)fail(401,'login_required');this.store.authorize(actor,pid);if(!this.store.permissionsFor(actor,pid).includes(action))fail(403,'forbidden');return actor;}
@@ -104,7 +171,7 @@ export class SelfCheckin {
       checkinReady:grant.review==='approved'&&!reasons.length&&order.status==='confirmed',
       checkedIn:order.status==='checked_in',
       people:people.map(person=>({name:person.name,documentType:person.documentType,documentLast4:person.documentNumber.slice(-4)})),reasons,access:this.db.prepare('SELECT id,status,reason FROM sc_access WHERE grant_id=? ORDER BY rowid DESC').all(grant.id)};
-  });return {propertyId:pid,policy:this.policy(pid),retention:{days,cutoff,eligible},lock:this.access.status(pid),encryptionReady:!!this.key,grants};}
+  });return {propertyId:pid,policy:this.policy(pid),retention:{days,cutoff,eligible},lock:smartLockConfig(this.body(pid),pid).connected&&smartLockConfig(this.body(pid),pid).locks.length?{...syntheticTTLock.status(),connected:true,tested:true}:this.access.status(pid),encryptionReady:!!this.key,grants};}
   command(user,{key,expectedRevision,command}){
     if(typeof key!=='string'||!/^[a-zA-Z0-9_-]{8,100}$/.test(key)||!Number.isSafeInteger(expectedRevision)||expectedRevision<0||!command||typeof command.propertyId!=='string')fail(400,'checkin_input');
     const {propertyId:pid,type}=command,actor=this.actor(user,pid,type),fingerprint=sha(JSON.stringify(command));
@@ -217,13 +284,13 @@ export class SelfCheckin {
     }catch{fail(400,'checkin_lookup');}
     const token=randomBytes(32).toString('base64url');this.db.prepare('INSERT INTO sc_sessions VALUES(?,?,?)').run(sha(token),grant.id,Math.min(grant.expires_at,this.now()+3600000));return {token};
   }
-  session(token){const grant=this.auth(token),{order,resource,reasons,policy,times}=this.conditions(grant),lock=this.access.status(grant.property_id),job=this.db.prepare('SELECT * FROM sc_access WHERE grant_id=? AND order_sig=?').get(grant.id,signature(order));
-    const active=job?.status==='active'&&!reasons.length;return {grantId:grant.id,revision:grant.revision,propertyName:this.body(grant.property_id).properties.find(p=>p.id===grant.property_id)?.name,guest:order.guest,start:order.start,end:order.end,review:grant.review,registrationMode:policy.registrationMode,requiredPeople:policy.registrationMode==='all'?count(order):1,
+  session(token){const grant=this.auth(token),{order,resource,reasons,policy,times}=this.conditions(grant),lock=this.access.status(grant.property_id),synthetic=stayLocks(this.body(grant.property_id),order).length>0,testRows=synthetic&&!reasons.length?this.testLockRows(grant.property_id,order.id):[],testCode=testRows.find(r=>r.pin),job=this.db.prepare('SELECT * FROM sc_access WHERE grant_id=? AND order_sig=?').get(grant.id,signature(order));
+    const active=!synthetic&&job?.status==='active'&&!reasons.length;return {grantId:grant.id,revision:grant.revision,propertyName:this.body(grant.property_id).properties.find(p=>p.id===grant.property_id)?.name,guest:order.guest,start:order.start,end:order.end,review:grant.review,registrationMode:policy.registrationMode,requiredPeople:policy.registrationMode==='all'?count(order):1,
       registeredPeople:grant.submission?this.decrypt(grant.submission,grant.id+':people').length:0,reasons,
       // A refusal the guest can read: why they were sent back, not just that they were.
       rejectionReason:grant.review==='rejected'?grant.rejection_reason||null:null,
       room:!reasons.length?resource?.label:null,instructions:!reasons.length?policy.instructions:'',lock:{connected:lock.connected,tested:lock.tested},accessStatus:job?.status||(!lock.connected?'not_connected':'not_requested'),canRequestAccess:!reasons.length&&lock.connected&&lock.tested,
-      ...(active?{pin:this.decrypt(job.pin,job.id+':pin'),validFrom:times.start,validUntil:times.end}:{})};}
+      ...(active?{pin:this.decrypt(job.pin,job.id+':pin'),validFrom:times.start,validUntil:times.end}:{}),...(synthetic?{lock:{connected:true,tested:true,mode:'synthetic'},synthetic:true,physicalDoorOpened:false,canRequestAccess:!reasons.length,accessStatus:testCode?'test_active':'not_requested',...(testCode?{pin:testCode.pin,validFrom:testCode.from,validUntil:testCode.until,testPasscodes:testRows.filter(r=>r.pin).map(r=>({lockName:r.lock.name,pin:r.pin,validFrom:r.from,validUntil:r.until}))}:{})}:{})};}
   register(token,{revision,people,consent}){
     const grant=this.auth(token);if(!this.key)fail(503,'checkin_key_missing');if(consent!==true||!Number.isSafeInteger(revision)||!Array.isArray(people)||!people.length||people.length>20)fail(400,'checkin_input');
     const order=this.order(grant),required=this.policy(grant.property_id).registrationMode==='all'?count(order):1;
@@ -249,6 +316,7 @@ export class SelfCheckin {
   }
   async requestAccess(token){
     let grant=this.auth(token),checks=this.conditions(grant);if(checks.reasons.length)fail(400,checks.reasons[0]);const provider=this.access.status(grant.property_id);
+    if(stayLocks(this.body(grant.property_id),checks.order).length){this.store.transaction(()=>this.generateTestLocks(grant.property_id,checks.order.id));return this.session(token);}
     if(!provider.connected||!provider.tested)fail(503,'checkin_lock_offline');
     let job=this.db.prepare('SELECT * FROM sc_access WHERE grant_id=? AND order_sig=?').get(grant.id,signature(checks.order));if(job)return this.session(token);
     const id=randomUUID(),pin=String(randomInt(100000,1000000)),at=new Date(this.now()).toISOString(),sig=signature(checks.order);

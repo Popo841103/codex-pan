@@ -1,3 +1,4 @@
+import {smartLockActions} from '../src/demo-store.js';
 import {SelfCheckin,checkinPermissions} from './self-checkin.js';
 import {GuestMessages,guestPermissions} from './guest-messages.js';
 import {SupportDesk,supportPermissions} from './support.js';
@@ -28,8 +29,8 @@ const changedBlocks = (before,after) => {
   return {before:before.filter(row=>b.get(row.id)!==a.get(row.id)),after:after.filter(row=>a.get(row.id)!==b.get(row.id))};
 };
 const roleTypes = {
-  admin: ['display_preferences_save','commission_close_month','ar_adjust','ar_undo_adjust','ar_close_month','ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','transfer_folio_credit','undo_reservation_payment','payment_reservation','settle_reservation','settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','night_audit_handle_all','shift_save','shift_delete','shift_handover','shift_mode_save','cash_variance_approve','member_save','role_save','role_delete','member_permission_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
-  operations: ['settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','night_audit_handle_all','shift_handover','booking_request_decision'],
+  admin: [...smartLockActions,'smart_lock_passcodes','display_preferences_save','commission_close_month','ar_adjust','ar_undo_adjust','ar_close_month','ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','transfer_folio_credit','undo_reservation_payment','payment_reservation','settle_reservation','settle','reopen_folio','rate_plan_save','rate_plan_archive','rates_bulk_update','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','business_date_init','night_audit','night_audit_handle_all','shift_save','shift_delete','shift_handover','shift_mode_save','cash_variance_approve','member_save','role_save','role_delete','member_permission_save','site_save','notice_severity_save','notice_rule_save','purge_test_orders','booking_request_decision','commission_save'],
+  operations: ['smart_lock_passcodes','settle','box_stays','restore_stays','create_reservation','memo_save','create','assign','edit','lock','payment','cancel','checkin','checkout','clean','block','unblock','bulk_clean','bulk_block','bulk_unblock','night_audit','night_audit_handle_all','shift_handover','booking_request_decision'],
   finance: ['ar_adjust','ar_undo_adjust','ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','transfer_folio_credit','undo_reservation_payment','payment_reservation','settle_reservation','settle','payment','commission_save'], viewer: []
 };
 // A role is a set of actions, exactly like the reference product's Account Role page:
@@ -38,10 +39,10 @@ const roleTypes = {
 // they are a view of the flat action list, never a second source of truth.
 export const actionModules = {
   reservations: ['create_reservation','create','edit','assign','lock','memo_save','cancel','box_stays','restore_stays','booking_request_decision'],
-  frontDesk: ['checkin','checkout'],
+  frontDesk: ['smart_lock_passcodes','checkin','checkout'],
   housekeeping: ['clean','block','unblock','bulk_clean','bulk_block','bulk_unblock'],
   money: ['commission_close_month','ar_adjust','ar_undo_adjust','ar_close_month','ar_report_view','ar_account_save','ar_post','ar_write_off','ar_undo_write_off','ar_transfer','ar_undo_post','settle_split','settle_bill','settle_undo','settle_unsplit','transfer_folio_credit','undo_reservation_payment','payment_reservation','settle_reservation','settle','reopen_folio','payment','cash_variance_approve','commission_save'],
-  catalog: ['display_preferences_save','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
+  catalog: ['smart_lock_connect','smart_lock_bind','smart_lock_remove','smart_lock_settings','display_preferences_save','room_type_save','physical_room_save','suite_save','resource_update','resource_archive','rate_plan_save','rate_plan_archive','rates_bulk_update'],
   operationsDay: ['business_date_init','night_audit','night_audit_handle_all','shift_save','shift_delete','shift_handover','shift_mode_save'],
   access: ['member_save','role_save','role_delete','member_permission_save'],
   site: ['site_save'],
@@ -1220,6 +1221,7 @@ export class Store {
       // A property override decides what this account may do here, not its account role.
       // The override may name a built-in role or one this property defined itself.
       const allowed=this.permissionsFor(rowUser,propertyId);
+      if(smartLockActions.includes(command.type)&&this.propertyRole(rowUser,propertyId)!=='admin')error(403,'forbidden');
       const batchAdmin=['channel_source_save','message_draft_save','desk_setting_save','ical_import','ical_revoke','corporate_link','customer_link','meal_grant','meal_reverse','directory_entry_save','customer_tag_set','commission_close_month','notice_scope_save','commission_rate_save','listing_draft_save','booking_content_save'];
       if(batchAdmin.includes(command.type)&&rowUser.role!=='admin')error(403,'forbidden');
       if(command.type==='housekeeping_task'&&command.assignee&&!this.db.prepare('SELECT 1 FROM users u JOIN user_properties p ON p.user_id=u.id WHERE u.username=? AND p.property_id=? AND u.active=1').get(command.assignee,propertyId))error(400,'scope');
@@ -1263,6 +1265,7 @@ export class Store {
       const localAudit=next.audit[0];
       next.audit=[]; // Durable audit is stored separately, never trusted from the browser.
       this.db.prepare('UPDATE properties SET revision=?,body=? WHERE id=?').run(revision,JSON.stringify(next),propertyId);
+      this.checkin.syncSmartLocks(propertyId);
       const catalogEntity = body => cmd.type==='room_type_save' ? body.roomTypes.find(t=>t.id===(cmd.roomTypeId||cmd.id)) :
         cmd.type==='physical_room_save' ? body.physicalRooms.find(r=>r.id===(cmd.physicalRoomId||`${cmd.id}-space`)) :
         body.resources.find(r=>r.id===(cmd.resourceId||cmd.id));

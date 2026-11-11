@@ -109,7 +109,7 @@
 | 9.9 | Calendar tools > Logs | 已有 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。 |
 | 9.10 | Calendar tools > Inventory | 已有 | 房态 / 统计 → 运营查询工作台 → 每日 / 未来库存 | operations-completion Node/DOM + 既有回归；同2.8/2.9分项与日期矩阵；只读查询，原日历工具保留。 |
 | 9.11 | Calendar tools > Batch Print | 已有 | 日历工具 → 批量打印 | desk-completion Node/DOM、front-desk-tools及完整回归；到店日/资源/状态过滤生成实际内部登记卡预览，并可window.print；结果数量与卡片一致，纯读、不批量结账、无身份提交；专用打印样式。 |
-| 9.12 | Calendar tools > Smart Lock | 部分 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。已有未开通只读列表；无门锁操作 |
+| 9.12 | Calendar tools > Smart Lock | 部分 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。已有集成设置、19品牌账户入口、TTLock合成连接、客房/公共门绑定与加密测试密码；真实TTLock云端、硬件及开门仍待接入（批次16） |
 | 9.13 | Account Role lock permissions vs live UI | 禁止或需外部接入 | 日历工具 / 住宿详情底部 | 用户明确禁止或需要供应商/订阅；不执行。 |
 | 9.14 | Reservations > reservation detail > Lock Room | 已有 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。 |
 | 9.15 | Reservations > reservation detail > Self-Check-in | 部分 | 日历工具 / 住宿详情底部 | pms/web/app.js、pms/web/workspace-ui.js；inventory-actions.test.js、room-status-audit.test.js、dom-front-desk-tools.mjs。已有只读预览；无生成/发送代码 |
@@ -187,7 +187,7 @@ Linux Node574/574、Python5/5；30个dom-*.mjs加communications-dom及folio两�
 | 3.2 | 用户明确禁止编辑划线倍率，现有来源启停/佣金不是该能力。 | 不实施；维持只读与禁止边界。 |
 | 3.3 | 未取得已核验汇率来源；现有账项仍MYR，不编造换算。 | 有可核验来源且获得相应范围后再评估；本次不接外部服务。 |
 | 3.7 | 已有匿名ICS文件导出；公开订阅URL/服务尚无，内部下载不等于订阅。 | 外部订阅服务及可见性、撤销/访问策略另行明确；本次不建立外部接入。 |
-| 9.12 | 只有未开通状态列表，无已验供应商/硬件。 | 不购买、远程开门或生成/发送密码。 |
+| 9.12 | 内部设置、品牌账户入口、TTLock合成绑定及测试密码已有；未验证真实云端/硬件。 | 仅进程内合成提供者；无真实开门、厂商API或邮件发送；不购买。 |
 | 9.15 | 内部入住指引/只读预览已有；真正外部自助入住未验。 | 不生成/发送代码、不提交身份；保留人工入住。 |
 
 没有把剩余禁止/外部依赖改名为已有，也没有删除部分行以改变总数。下一优先为内部显示与报表真实使用反馈、小时claims规模/性能验收及既有保护回归；上述5项在当前授权边界内继续不实施。

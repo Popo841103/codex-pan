@@ -489,6 +489,8 @@ export function makeServer(store, { publicOrigin, recovery = null, listingReader
         if(path==='/api/session'&&req.method==='GET')return json(res,200,session);
         if(path==='/api/guest-messages'&&req.method==='GET')return json(res,200,store.guest.read(session.user,url.searchParams.get('propertyId'),{threadId:url.searchParams.get('threadId')||undefined,search:url.searchParams.get('search')||'',channel:url.searchParams.get('channel')||'all'}));
         if(path==='/api/guest-messages/commands'&&req.method==='POST')return json(res,200,await store.guest.command(session.user,await body(req)));
+        if(path==='/api/smart-lock'&&req.method==='GET')return json(res,200,store.checkin.lockRead(session.user,url.searchParams.get('propertyId'),url.searchParams.get('orderId')));
+        if(path==='/api/smart-lock/commands'&&req.method==='POST')return json(res,200,store.checkin.lockCommand(session.user,await body(req)));
         if(path==='/api/checkin-admin'&&req.method==='GET')return json(res,200,store.checkin.read(session.user,url.searchParams.get('propertyId')));
         if(path==='/api/checkin-admin/commands'&&req.method==='POST')return json(res,200,store.checkin.command(session.user,await body(req)));
         if(path==='/api/support'&&req.method==='GET')return json(res,200,store.support.read(session.user,url.searchParams.get('propertyId'),{ticketId:url.searchParams.get('ticketId')||undefined,search:url.searchParams.get('search')||'',status:url.searchParams.get('status')||'all',offset:Number(url.searchParams.get('offset')||0)}));
