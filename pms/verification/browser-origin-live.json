@@ -1,0 +1,50 @@
+{
+  "checkedAt": "2026-11-11T03:03:27.055431+00:00",
+  "run": 42949881584,
+  "commit": "6a94889105225e6519248d36e8c962ecfb3e1060",
+  "readOnly": true,
+  "responses": [
+    {
+      "path": "/healthz",
+      "status": 200,
+      "referrerPolicy": "same-origin",
+      "body": {
+        "ok": true,
+        "service": "jovian-pms",
+        "data": "test-only"
+      }
+    },
+    {
+      "path": "/signup",
+      "status": 200,
+      "referrerPolicy": "same-origin"
+    },
+    {
+      "path": "/sites/nonexistent-batch09",
+      "status": 404,
+      "referrerPolicy": "same-origin"
+    },
+    {
+      "path": "/web/",
+      "status": 200,
+      "referrerPolicy": "same-origin"
+    },
+    {
+      "path": "/web/recovery.html",
+      "status": 200,
+      "referrerPolicy": "same-origin",
+      "sha256": "c63883566005a816358cabcce58c406ce158d6eabb714f47bc97952ddda6d910"
+    },
+    {
+      "path": "/checkin/",
+      "status": 200,
+      "referrerPolicy": "same-origin",
+      "sha256": "56345961665fc6fa5805cf13df29a75925fe2f24e62b6a5adb49e3ccddbea61f"
+    },
+    {
+      "path": "/server/store.js",
+      "status": 404,
+      "referrerPolicy": "same-origin"
+    }
+  ]
+}

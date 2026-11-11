@@ -16,8 +16,8 @@ test('browser form and JSON origins remain strict with same-origin policy', asyn
   const state=store.read(admin),roomType=state.roomTypes.find(x=>x.propertyId==='TEST-KL').id;
   const fields={username:'browser-owner',password:randomUUID(),store:'ORIGIN-TRIAL',storeName:'Synthetic',company:''}; fields.confirm=fields.password;
   const routes=[['/signup',fields,303],['/sites/origin-site/request',{roomType,from:'2027-09-01',to:'2027-09-02',guests:'1',name:'Synthetic',contact:'synthetic@example.invalid'},303],['/sites/origin-site/manage',{action:'lookup',reference:'00000000',contact:'synthetic@example.invalid'},200],['/api/login',{username:'absent',password:'invalid'},401]];
-  for(const path of ['/signup','/sites/origin-site','/web/','/web/recovery.html','/web/self-checkin.html']){
-    const res=await fetch(base+path);assert.equal(res.headers.get('referrer-policy'),'same-origin');
+  for(const path of ['/signup','/sites/origin-site','/web/','/web/recovery.html','/checkin/']){
+    const res=await fetch(base+path);assert.equal(res.status,200,path);assert.equal(res.headers.get('referrer-policy'),'same-origin');
     assert.doesNotMatch(await res.text(),/<meta[^>]+name="referrer"[^>]+content="no-referrer"/);
   }
   for(const [path,input,status] of routes){

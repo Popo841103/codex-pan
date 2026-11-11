@@ -41,7 +41,7 @@ try{
  }
  // Recovery and self-checkin contain document-level policies too; ensure their
  // JSON requests carry an actual origin even with those meta policies applied.
- for(const path of ['/web/','/web/recovery.html','/web/self-checkin.html']){
+ for(const path of ['/web/','/web/recovery.html','/checkin/']){
   await page.goto(base+path);
   assert.equal(await page.evaluate(async()=>{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'chromium-owner',password:'synthetic-password-123'})});return r.status;}),200);
  }
