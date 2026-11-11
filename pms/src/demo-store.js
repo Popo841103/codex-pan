@@ -314,9 +314,10 @@ export function seed() {
 }
 export function preview(state, propertyId) {
   state = upgradeCatalog(state);
-  const demands = state.orders.filter(o => o.propertyId === propertyId && occupiesInventory(o)).map(o => ({ id: o.id, propertyId, productId: o.productId, roomTypeId: o.roomTypeId, gender: o.gender, start: o.start, end: o.end, fixedResourceId: o.resourceId || undefined, hourly:o.hourly, sameRoomGroup: o.group || undefined }));
+  const owners=new Map();
+  const demands = state.orders.filter(o => o.propertyId === propertyId && occupiesInventory(o)).flatMap(o => (o.roomSegments||[{start:o.start,end:o.end,resourceId:o.resourceId}]).map((part,i)=>{const id=o.roomSegments?o.id+'#segment-'+i:o.id;owners.set(id,o.id);return {id,propertyId,productId:o.productId,roomTypeId:o.roomTypeId,gender:o.gender,start:part.start,end:part.end,fixedResourceId:part.resourceId||undefined,hourly:o.hourly,sameRoomGroup:o.group||undefined};}));
   const available = new Set(saleResources(state, propertyId).map(r => r.id));
-  return planInventory({ propertyId, resources: state.resources.filter(r => r.propertyId === propertyId).map(r => ({ ...r, archived: !available.has(r.id) })), demands, blocks: state.blocks.filter(b => b.propertyId === propertyId) });
+  return planInventory({ propertyId, resources: state.resources.filter(r => r.propertyId === propertyId).map(r => ({ ...r, archived: !available.has(r.id) })), demands, blocks: state.blocks.filter(b => b.propertyId === propertyId) }).map(p=>({...p,demandId:owners.get(p.demandId)}));
 }
 // Mutations are copy-on-write: a failed operation leaves the original state intact.
 // Shared mode wraps this pure reducer in Store's authorized database transaction.
@@ -342,7 +343,7 @@ export function apply(state, command) {
   const inHouse = target => next.orders.some(o => o.propertyId === propertyId && o.status === 'checked_in' &&
     (!['assign','checkin','undo_checkout'].includes(type) || o.id !== order?.id) && overlapsAtoms(next.resources.find(r => r.id === o.resourceId), target));
   const staySnapshot = o => o ? { start:o.start, end:o.end, nightly:o.nightly, resourceId:o.resourceId,
-    status:o.status, productId:o.productId, finalCharge:o.finalCharge ?? null, charge:folio(o).charge } : null;
+    status:o.status, roomSegments:o.roomSegments||null, productId:o.productId, finalCharge:o.finalCharge ?? null, charge:folio(o).charge } : null;
   const stayBefore = reversal || ['edit','assign','checkin','checkout','cancel','lock'].includes(type) ? staySnapshot(order) : null;
   const catalogActions = ['room_type_save','physical_room_save','suite_save','resource_update','resource_archive'];
   const needsOrder = ['ar_post','settle_split','settle_bill','settle_undo','settle_unsplit','settle','reopen_folio','assign','checkin','checkout','edit','payment','cancel','lock','commission_save'].includes(type);
@@ -502,16 +503,26 @@ export function apply(state, command) {
       // Drag is a room change; rescheduling uses the existing edit and pricing flow.
       if(!order.resourceId||command.dragDate!==order.start)reject('date');
     }
+    const from=command.fromDate||order.start;
+    if(!isDate(from)||from<order.start||from>=order.end||order.hourly&&from!==order.start)reject('date');
+    if(lastClosed&&from<=lastClosed&&command.auditOverride!==true)reject('audited');
+    if(command.fromDate&&(!order.resourceId||!command.reason?.trim()))reject('reason');
     if (order.status === 'checked_in' && !isClean(next, resource)) reject('dirty');
     if (order.status === 'checked_in' && inHouse(resource)) reject('occupied');
     if (order.resourceId === resource.id) reject('state');
+    if(from>order.start&&order.group)reject('segmented_stay');
     const previous = order.resourceId;
+    if(from>order.start){
+      const segments=order.roomSegments||[{start:order.start,end:order.end,resourceId:previous}];
+      order.roomSegments=[...segments.filter(p=>p.start<from).map(p=>({...p,end:p.end>from?from:p.end})),{start:from,end:order.end,resourceId:resource.id}];
+    }else delete order.roomSegments;
     order.resourceId = resource.id;
-    order.history.push({ from: previous, to: resource.id, at: command.at });
+    order.history.push({ from: previous, to: resource.id, fromDate:command.fromDate||order.start, reason:command.reason||'', at: command.at });
     if (previous && order.status === 'checked_in') setCleaning(next, next.resources.find(r => r.id === previous), 'dirty');
   } else if (type === 'edit') {
     if (['checked_out','cancelled'].includes(order.status)) reject('state');
     if (order.status === 'checked_in' && command.start !== order.start) reject('state');
+    if(order.roomSegments&&(command.start!==order.start||command.end!==order.end))reject('segmented_stay');
     if (typeof command.guest !== 'string' || !command.guest.trim()) reject('guest');
     order.guest = text(command.guest.trim(),100);
     if(lastClosed&&command.auditOverride!==true&&(
@@ -701,6 +712,7 @@ export function apply(state, command) {
       if(command.earlyChoice==='keep')retained[retained.length-1].amount+=removed;
       order.earlyDeparture={originalEnd:order.end,date:command.date,choice:command.earlyChoice,retainedAmount:command.earlyChoice==='keep'?removed:0,at:command.at};
       order.end=command.date;order.nightlyRates=retained;
+      if(order.roomSegments)order.roomSegments=order.roomSegments.filter(p=>p.start<command.date).map(p=>({...p,end:p.end>command.date?command.date:p.end}));
     }
     const balance = folio(order);
     if (balance.due !== 0 || balance.deposit !== 0 || order.splitBills?.some(b=>b.charge!==b.paid+(b.arAmount||0))) reject('balance');

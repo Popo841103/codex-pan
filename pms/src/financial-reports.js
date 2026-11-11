@@ -5,6 +5,7 @@ import {localDay,comparisonDay} from './dashboard.js';
 import {stayDays} from './reservations.js';
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d+'T00:00:00Z'))&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
 function scope(state,q){if(!q||typeof q.propertyId!=='string'||!q.propertyId.trim()||!validDate(q.from)||!validDate(q.to)||q.from>q.to)throw Error('report_input');return state.orders.filter(o=>o.propertyId===q.propertyId&&(!q.source||q.source==='all'||o.source===q.source));}
+const roomAt=(o,date)=>o.roomSegments?.find(p=>p.start<=date&&p.end>date)?.resourceId||o.resourceId;
 const amount=v=>{if(!Number.isSafeInteger(v))throw Error('report_amount');return v;};
 const inRange=(d,q)=>d>=q.from&&d<=q.to;
 export function accommodationReport(state,q){const orders=scope(state,q),rows=[],unallocatedCharges=[];for(const o of orders){const {lines,unallocated}=orderChargeLines(o);for(const line of lines)if(inRange(line.date,q))rows.push(line);unallocatedCharges.push(...unallocated);}rows.sort((a,b)=>a.date.localeCompare(b.date)||a.orderId.localeCompare(b.orderId));const grouped=new Map();for(const row of rows)grouped.set(row.date,(grouped.get(row.date)||0)+row.amount);return {rows,total:rows.reduce((n,r)=>n+r.amount,0),daily:[...grouped].map(([date,amount])=>({date,amount})),unallocatedCharges};}
@@ -174,7 +175,7 @@ export function nightInventory(state,propertyId,date){
     if(o.propertyId!==propertyId||!occupiesInventory(o)||o.hourly)continue;
     if(!o.start||!o.end||!(date>=o.start&&date<o.end))continue;
     const pid=PRODUCTS.includes(o.productId)?o.productId:'room',value=nightPrice(o,date);
-    const res=o.resourceId?sellable.find(r=>r.id===o.resourceId)||(state.resources||[]).find(r=>r.id===o.resourceId):null;
+    const unitId=roomAt(o,date),res=unitId?sellable.find(r=>r.id===unitId)||(state.resources||[]).find(r=>r.id===unitId):null;
     if(res)sold[pid]++;else unassigned[pid]++;
     revenue[pid]+=value;
   }
@@ -191,7 +192,7 @@ export function roomChargeDetail(state,q){
     for(const line of orderChargeLines(o).lines){
       if(line.kind!=='room'||!inRange(line.date,q))continue;
       rows.push({...line,channelOrderId:o.channelOrderId||'',roomTypeName:label(state,'roomTypes',o.roomTypeId),
-        resourceLabel:label(state,'resources',o.resourceId,'label'),start:o.start||'',end:o.end||'',
+        resourceLabel:label(state,'resources',roomAt(o,line.date),'label'),start:o.start||'',end:o.end||'',
         nights:(o.nightlyRates||stayDays(o.start,o.end)).filter(r=>inRange(r.date||r,q)).length,
         ratePlanId:o.ratePlanId||null});
     }
@@ -227,7 +228,7 @@ export function roomBusinessSummary(state,q){
     const {sellable}=sellableUnits(state,q.propertyId,date);
     for(const o of orders){
       if(o.hourly||q.selectedIds&&!q.selectedIds.includes(o.id)||q.roomTypeId&&o.roomTypeId!==q.roomTypeId||!occupiesInventory(o)||!o.start||!o.end||!(date>=o.start&&date<o.end))continue;
-      const resource=(state.resources||[]).find(r=>r.id===o.resourceId)||null;
+      const resource=(state.resources||[]).find(r=>r.id===roomAt(o,date))||null;
       const bucket=bucketFor(keyOf(o,resource,date));
       const pid=PRODUCTS.includes(o.productId)?o.productId:'room',value=nightPrice(o,date);
       if(resource&&resource.propertyId===q.propertyId)bucket.sold[pid]++;else bucket.unassigned[pid]++;

@@ -21,7 +21,7 @@ const stayTypes=['undo_checkin','undo_checkout','restore_cancel','edit','assign'
 // and another in the settings form. The list is read by what is waiting on a person:
 // somebody who should be here comes first, housekeeping comes last.
 const staySnapshot=(body,id)=>{const order=(body?.orders||[]).find(o=>o.id===id);return order?{start:order.start,end:order.end,
-  nightly:order.nightly,resourceId:order.resourceId,status:order.status,productId:order.productId,finalCharge:order.finalCharge??null,charge:folio(order).charge}:null;};
+  nightly:order.nightly,roomSegments:order.roomSegments||null,resourceId:order.resourceId,status:order.status,productId:order.productId,finalCharge:order.finalCharge??null,charge:folio(order).charge}:null;};
 
 const changedBlocks = (before,after) => {
   const a=new Map(before.map(b=>[b.id,JSON.stringify(b)])),b=new Map(after.map(b=>[b.id,JSON.stringify(b)]));

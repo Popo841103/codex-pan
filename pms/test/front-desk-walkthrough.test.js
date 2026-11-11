@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {seed,apply,folio} from '../src/demo-store.js';
+import {seed,apply,folio,preview} from '../src/demo-store.js';
 import {dailyOperations} from '../src/financial-reports.js';
 const propertyId='TEST-KL',at='2027-04-02T03:00:00Z';let seq=0;
 const send=(s,type,extra={})=>apply(s,{propertyId,id:'walk-'+(++seq),at,date:'2027-04-02',type,...extra});
@@ -18,4 +18,13 @@ test('recompute early checkout requires refund first and cannot bypass audited o
  s=send(s,'payment',{orderId:'walk-stay',kind:'refund',amount:10000,method:'cash'});
  s=send(s,'checkout',{orderId:'walk-stay',confirmed:true,earlyChoice:'recompute'});assert.equal(folio(s.orders[0]).charge,10000);assert.equal(folio(s.orders[0]).due,0);
  let locked=checkedIn();locked.nightAudits=[{businessDate:'2027-04-01',at}];assert.throws(()=>send(locked,'checkout',{orderId:'walk-stay',confirmed:true,earlyChoice:'keep'}),/audited/);
+});
+
+test('room move from a chosen night preserves first allocation, one folio and audit segments',()=>{
+ let s=checkedIn();const before=folio(s.orders[0]);
+ s=send(s,'assign',{orderId:'walk-stay',resourceId:'TEST-KL-R2',fromDate:'2027-04-02',reason:'Synthetic chosen night'});
+ const o=s.orders[0];assert.deepEqual(o.roomSegments,[{start:'2027-04-01',end:'2027-04-02',resourceId:'TEST-KL-R1'},{start:'2027-04-02',end:'2027-04-03',resourceId:'TEST-KL-R2'}]);
+ assert.deepEqual(preview(s,propertyId).map(p=>[p.resourceId,p.start,p.end]),[['TEST-KL-R1','2027-04-01','2027-04-02'],['TEST-KL-R2','2027-04-02','2027-04-03']]);
+ assert.deepEqual(folio(o),before);assert.equal(s.orders.length,1);assert.equal(s.audit[0].stayChange.after.roomSegments.length,2);
+ assert.throws(()=>send(s,'assign',{orderId:'walk-stay',resourceId:'TEST-KL-R1',fromDate:'2027-04-03',reason:'invalid'}),/date/);
 });
