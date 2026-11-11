@@ -205,3 +205,15 @@ test('front desk creates a room type with one language and rejects an empty name
  assert.deepEqual(type.names,{zh:'Bilik baharu',en:'Bilik baharu',ms:'Bilik baharu'});
  assert.throws(()=>apply(seed(),{...c,names:{zh:'',en:'',ms:''}}),/catalog_input/);
 });
+
+test('new room type can atomically link a default MYR rate plan while preserving existing bookings',async()=>{
+ const {quoteRateStay}=await import('../src/rates.js');
+ const c=command('room_type_save',{productId:'room',gender:'any',maxGuests:2,names:{en:'Default rate type'},defaultRate:12345});
+ const s=apply(seed(),c),type=s.roomTypes.find(t=>t.id===c.id),plan=s.ratePlans.find(p=>p.code===type.defaultRatePlanCode);
+ assert.equal(plan.defaultAmount,12345);assert.deepEqual(plan.roomTypeIds,[type.id]);
+ const stay=quoteRateStay(s,pid,{ratePlanCode:plan.code,roomTypeId:type.id,start:'2027-01-10',end:'2027-01-12'});
+ assert.deepEqual(stay.nightlyRates,[{date:'2027-01-10',amount:12345},{date:'2027-01-11',amount:12345}]);
+ s.rateCells.push({propertyId:pid,planCode:plan.code,roomTypeId:type.id,date:'2027-01-11',amount:15000,sale:'closed'});
+ assert.throws(()=>quoteRateStay(s,pid,{...stay}),/rate_closed/);assert.equal(stay.nightlyRates[1].amount,12345);
+ assert.throws(()=>apply(seed(),{...c,defaultRate:-1}),/catalog_input/);
+});

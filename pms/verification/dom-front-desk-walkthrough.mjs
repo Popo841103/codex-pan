@@ -56,5 +56,13 @@ try {
  $('.hour-slot').click();assert.match($('#detail-body').textContent,/2 h/);assert.doesNotMatch($('#detail-body .stay-card').textContent,/1 晚|每晚房费/);
  $('#detail-close').click();$('#global-nav [data-view="calendar"]').click();$('#nav [data-view="tasks"]').click();
  const dirty=store.read(operator).resources.find(r=>r.cleaning==='dirty');if(dirty){const b=$(`[data-action="clean"][data-id="${dirty.id}"]`);b.click();b.click();await until(()=>store.read(operator).resources.find(r=>r.id===dirty.id).cleaning==='clean','clean saved');await new Promise(r=>setTimeout(r,50));assert.doesNotMatch($('#message').textContent,/正在保存/);}
+ $('#global-nav [data-view="resourcesSettings"]').click();$('[data-catalog="type"][data-id=""]').click();
+ const catalog=$('#catalog-form');catalog.elements.name_en.value='TEST default priced';catalog.elements.maxGuests.value='2';catalog.elements.defaultRate.value='123.45';catalog.querySelector('input[type=checkbox]').checked=true;catalog.querySelector('button').click();
+ await until(()=>store.read(operator).roomTypes.some(t=>t.names.en==='TEST default priced')&&!$('#utility-dialog').open,'one-name type and default plan saved');
+ const type=store.read(operator).roomTypes.find(t=>t.names.en==='TEST default priced');assert.equal(store.read(operator).ratePlans.find(p=>p.code===type.defaultRatePlanCode).defaultAmount,12345);
+ send({type:'physical_room_save',kind:'room',roomTypeId:type.id,label:'TEST default room',floor:''});$('#refresh').click();await new Promise(r=>setTimeout(r,100));
+ $('#global-nav [data-view="calendar"]').click();$('[data-new-order]').click();set('#reservation-form [data-field="roomTypeId"]',type.id);
+ assert.equal($('#reservation-form [data-field="nightly"]').value,'123.45');assert.equal($('#reservation-form [data-field="ratePlanCode"]').value,type.defaultRatePlanCode);assert.match($('#reservation-total').textContent,/123.45/);
+ $('#reservation-dialog [data-command="close"]').click();
  console.log('Front desk DOM passed: opening prompt, normal hourly flow/MYR/phone, closes dialog, partial calendar marker, hours detail, clean completion.');
 }finally {global.fetch=realFetch;server.closeAllConnections();await new Promise(done=>server.close(done));store.close();dom.window.close();}

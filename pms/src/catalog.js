@@ -77,6 +77,12 @@ export function configureCatalog(state, command) {
     const values = { names, maxGuests, sortOrder: integer(command.sortOrder ?? 0, 100000) };
     if (old) Object.assign(old, values, { legacy: false });
     else state.roomTypes.push({ id: command.id, propertyId, productId: command.productId, gender: command.gender, ...values });
+    if(!old&&command.defaultRate!==undefined){
+      const defaultAmount=integer(command.defaultRate,100000000);let n=1;while(state.ratePlans.some(p=>p.propertyId===propertyId&&p.code==='D'+n))n++;
+      const code='D'+n;if(code.length>8)fail('catalog_input');
+      state.ratePlans.push({propertyId,code,name:names.en+' · Default',roomTypeIds:[command.id],kind:'independent',defaultAmount,cancellationPolicy:{kind:'manual'}});
+      state.roomTypes.find(t=>t.id===command.id).defaultRatePlanCode=code;
+    }
   } else if (type === 'physical_room_save') {
     const old = command.physicalRoomId ? localRoom(command.physicalRoomId) : null;
     if (command.physicalRoomId && !old) fail('scope');

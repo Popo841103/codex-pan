@@ -17,14 +17,14 @@ export function composerCommand(draft,mode) {
 export function createStayDraft({day,end,type,resource}={}) {
   end??=new Date(Date.parse(day+'T00:00:00Z')+86400000).toISOString().slice(0,10);
   stayDays(day,end);
-  return {roomTypeId:type?.id||'',productId:type?.productId||'room',gender:type?.gender||'any',resourceId:resource?.id||'',start:day,end:end,arrivalTime:'15:00',departureTime:'12:00',adults:1,children:0,infants:0,occupants:[{name:'',gender:type?.gender||'any'}],nightly:'0',rates:{},extraCharges:[],group:''};
+  return {roomTypeId:type?.id||'',productId:type?.productId||'room',gender:type?.gender||'any',resourceId:resource?.id||'',start:day,end:end,arrivalTime:'15:00',departureTime:'12:00',adults:1,children:0,infants:0,occupants:[{name:'',gender:type?.gender||'any'}],nightly:type?.defaultRatePlanCode?String((type.defaultAmount||0)/100):'0',ratePlanCode:type?.defaultRatePlanCode||'',rates:{},extraCharges:[],group:''};
 }
 export function createComposer({getState,getProperty,getLanguage,businessDate,t,can,commit,currency,onSaved,sources}) {
   const dialog=document.createElement('dialog');dialog.id='reservation-dialog';document.body.append(dialog);
   let draft=null,dirty=false,saving=false;
   const sourceOptions=()=>typeof sources==='function'?sources():sources;
   const types=()=>getState().roomTypes.filter(type=>type.propertyId===getProperty()&&saleResources(getState(),getProperty()).some(r=>r.roomTypeId===type.id));
-  const newStay=(day,resource,end)=>createStayDraft({day,end,resource,type:types().find(t=>t.id===resource?.roomTypeId)||types()[0]});
+  const newStay=(day,resource,end)=>{const type=types().find(t=>t.id===resource?.roomTypeId)||types()[0],plan=getState().ratePlans?.find(p=>p.propertyId===getProperty()&&p.code===type?.defaultRatePlanCode&&!p.archived);return createStayDraft({day,end,resource,type:plan?{...type,defaultAmount:plan.defaultAmount}:type?{...type,defaultRatePlanCode:''}:type});};
   const input=(field,label,value='',extra='')=>`<label>${t(label)}<input data-field="${field}" value="${esc(value)}" ${extra}></label>`;
   const option=(value,label,selected)=>`<option value="${esc(value)}" ${value===selected?'selected':''}>${esc(label)}</option>`;
   const updateTotals=()=>{try{const c=composerCommand(draft,'reserve');let room=0,extras=0;for(const raw of c.stays){const r=quoteRateStay(getState(),getProperty(),raw);room+=r.nightlyRates.reduce((n,r)=>n+r.amount,0);extras+=r.extraCharges.reduce((n,r)=>n+(r.kind==='charge'?1:-1)*r.quantity*r.unitAmount,0);}dialog.querySelector('#reservation-total').textContent=`${t('reservationTotal')}: ${currency(room+extras)} · ${t('roomCharge')}: ${currency(room)} · ${t('extraCharge')}: ${currency(extras)}`;}catch{dialog.querySelector('#reservation-total').textContent=t('reservationTotal')+': —';}};
@@ -60,7 +60,7 @@ export function createComposer({getState,getProperty,getLanguage,businessDate,t,
     else if(field.dataset.rate){row.rates[field.dataset.rate]=field.value;}
     else if(field.dataset.field){const key=field.dataset.field;(row||draft)[key]=field.type==='checkbox'?field.checked:['adults','children','infants'].includes(key)?Number(field.value):field.value;
       if(row&&key==='nightly')row.rates={};
-      if(row&&key==='roomTypeId'){const type=types().find(t=>t.id===row.roomTypeId);row.ratePlanCode='';row.productId=type.productId;row.gender=type.gender;row.resourceId='';row.occupants.forEach(p=>p.gender=type.gender);}
+      if(row&&key==='roomTypeId'){const type=types().find(t=>t.id===row.roomTypeId);const plan=getState().ratePlans?.find(p=>p.propertyId===getProperty()&&p.code===type.defaultRatePlanCode&&!p.archived);row.ratePlanCode=plan?.code||'';row.nightly=String((plan?.defaultAmount||0)/100);row.rates={};row.productId=type.productId;row.gender=type.gender;row.resourceId='';row.occupants.forEach(p=>p.gender=type.gender);}
       if(row&&['adults','children','infants'].includes(key)){const n=row.adults+row.children+row.infants;if(n>=1&&n<=20)row.occupants=Array.from({length:n},(_,i)=>row.occupants[i]||{name:'',gender:row.gender});}
       if(rerender&&['bookingKind','roomTypeId','start','end','adults','children','infants','nightly'].includes(key)){render();return;}
     }

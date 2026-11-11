@@ -21,7 +21,7 @@ export function quoteRateStay(state,propertyId,stay){
  if(!stay.ratePlanCode)return stay;
  const fail=code=>{throw Error(code);};const plan=(state.ratePlans||[]).find(p=>p.propertyId===propertyId&&p.code===stay.ratePlanCode&&p.roomTypeIds.includes(stay.roomTypeId));if(!plan||plan.archived)fail('rate_plan');
  const dates=rateDates([{from:stay.start,to:stay.end}],[1,2,3,4,5,6,7]);if(dates.length<2||dates.at(-1)!==stay.end)fail('rate_dates');dates.pop();
- const cell=date=>(state.rateCells||[]).find(r=>r.propertyId===propertyId&&r.planCode===plan.code&&r.roomTypeId===stay.roomTypeId&&r.date===date);
+ const cell=date=>(state.rateCells||[]).find(r=>r.propertyId===propertyId&&r.planCode===plan.code&&r.roomTypeId===stay.roomTypeId&&r.date===date)??(Number.isSafeInteger(plan.defaultAmount)?{date,amount:plan.defaultAmount,sale:'open',minStay:0,maxStay:0,cta:false,ctd:false}:undefined);
  const rows=dates.map(cell);if(rows.some(r=>!r))fail('rate_missing');if(rows.some(r=>r.sale==='closed'))fail('rate_closed');if(rows[0].cta)fail('rate_arrival');if(cell(stay.end)?.ctd)fail('rate_departure');if(rows[0].minStay&&dates.length<rows[0].minStay||rows[0].maxStay&&dates.length>rows[0].maxStay)fail('rate_length');
  return {...stay,cancellationPolicy:normalizePolicy(plan.cancellationPolicy),nightly:rows[0].amount,nightlyRates:rows.map(r=>({date:r.date,amount:r.amount}))};
 }
