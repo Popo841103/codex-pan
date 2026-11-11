@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import {lookup} from 'node:dns/promises';
 import {request as httpsRequest} from 'node:https';
 import {isIP} from 'node:net';
@@ -11,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { ServiceError } from './store.js';
 const root=fileURLToPath(new URL('../',import.meta.url));
+// Shared brand tokens are read from the existing deployed stylesheet, not copied.
+const brandTokens=readFileSync(new URL('../web/style.css',import.meta.url),'utf8').match(/:root\{--brand-primary:[^}]+\}/)?.[0]||'';
 // The public property site is server-rendered and carries no script at all, so the
 // page cannot be used as a foothold and works without JavaScript enabled.
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -181,37 +184,37 @@ export function renderPropertySite({ site, availability, language, requested, er
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex">
   <title>${escapeHtml(title)}</title>
-  <style>body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;color:#1d2430;background:#f6f7f9}
-  header{background:#123a5e;color:#fff;padding:28px 20px}h1{margin:0 0 6px;font-size:26px}.muted{color:#667}
-  main{max-width:880px;margin:0 auto;padding:24px 20px 60px}.lang a{color:#cfe0ef;text-decoration:none;margin-right:8px}
+  <style>${brandTokens}body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--brand-ink);background:var(--brand-canvas)}
+  header{background:var(--brand-primary);color:#fff;padding:28px 20px}h1{margin:0 0 6px;font-size:26px}.muted{color:#667}
+  main{max-width:880px;margin:0 auto;padding:24px 20px 60px}.lang a{color:#fff;text-decoration:none;margin-right:8px}
   .lang a.on{font-weight:700;text-decoration:underline}
   form.search{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;background:#fff;padding:16px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin:20px 0}
   form.search label{display:flex;flex-direction:column;font-size:13px;color:#556}
-  form.search input{padding:8px;border:1px solid #c9d0da;border-radius:6px;font:inherit}
-  form.search button{padding:9px 18px;background:#123a5e;color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
+  form.search input{padding:8px;border:1px solid var(--brand-border);border-radius:6px;font:inherit}
+  form.search button{padding:9px 18px;background:var(--brand-primary);color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
   ul.rooms{list-style:none;padding:0;display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
   ul.rooms li{background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
   ul.rooms li.off{opacity:.62}ul.rooms h3{margin:0 0 6px;font-size:18px}
   .stock{color:#0a7a3d;font-weight:600}.none{color:#8a5a00}.price{font-size:20px;font-weight:700}
   .error{background:#fdecea;border-left:4px solid #c0392b;padding:10px 14px;border-radius:4px}
-  footer{border-top:1px solid #dfe3e9;margin-top:32px;padding-top:16px;color:#556;font-size:13px}
+  footer{border-top:1px solid var(--brand-border);margin-top:32px;padding-top:16px;color:#556;font-size:13px}
   .contact{white-space:pre-wrap;background:#fff;padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
   .notice{padding:12px 14px;border-radius:8px;margin:16px 0}
   .notice.ok{background:#e8f6ec;border-left:4px solid #0a7a3d}
   .notice.bad{background:#fdecea;border-left:4px solid #c0392b}
   .request-head{margin:12px 0 0;font-size:14px;color:#556;text-transform:none}
-  form.request{display:grid;gap:8px;margin-top:8px;border-top:1px solid #e6e9ee;padding-top:10px}
+  form.request{display:grid;gap:8px;margin-top:8px;border-top:1px solid var(--brand-border);padding-top:10px}
   form.request label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#556}
-  form.request input,form.request textarea{padding:7px;border:1px solid #c9d0da;border-radius:6px;font:inherit}
-  form.request button{justify-self:start;padding:8px 14px;background:#123a5e;color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
-  form.request select{padding:7px;border:1px solid #c9d0da;border-radius:6px;font:inherit}
+  form.request input,form.request textarea{padding:7px;border:1px solid var(--brand-border);border-radius:6px;font:inherit}
+  form.request button{justify-self:start;padding:8px 14px;background:var(--brand-primary);color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
+  form.request select{padding:7px;border:1px solid var(--brand-border);border-radius:6px;font:inherit}
   .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
   .manage{background:#fff;border-radius:10px;padding:16px 20px;margin:24px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
   .manage h2{margin:0 0 6px;font-size:18px}
   form.manage-form{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:12px 0}
   form.manage-form label{display:flex;flex-direction:column;font-size:13px;color:#556}
-  form.manage-form input{padding:8px;border:1px solid #c9d0da;border-radius:6px;font:inherit}
-  form.manage-form button{padding:9px 16px;background:#123a5e;color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
+  form.manage-form input{padding:8px;border:1px solid var(--brand-border);border-radius:6px;font:inherit}
+  form.manage-form button{padding:9px 16px;background:var(--brand-primary);color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
   form.manage-form button[value="withdraw"]{background:#7a4a12}
   .manage-buttons{display:flex;gap:8px}.managed p{margin:4px 0}</style>
   </head><body>
@@ -241,13 +244,13 @@ export function renderSignupPage({language='zh',error=null,done=false,values={}}
     :error&&c.errors[error]?`<p role="alert" class="error">${c.errors[error]}</p>`:'';
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escapeHtml(c.title)}</title>
-  <style>body{font-family:system-ui,sans-serif;margin:0;background:#f4f6f9;color:#1c2733}
+  <style>${brandTokens}body{font-family:system-ui,sans-serif;margin:0;background:var(--brand-canvas);color:var(--brand-ink)}
   main{max-width:560px;margin:40px auto;padding:0 16px}
-  header h1{font-size:22px;margin:0 0 4px}.lang a{color:#123a5e;margin-right:4px}.lang a.on{font-weight:700;text-decoration:none}
-  section{background:#fff;border:1px solid #d8dee7;border-radius:8px;padding:20px;margin:16px 0}
+  header h1{font-size:22px;margin:0 0 4px}.lang a{color:var(--brand-link);margin-right:4px}.lang a.on{font-weight:700;text-decoration:none}
+  section{background:#fff;border:1px solid var(--brand-border);border-radius:8px;padding:20px;margin:16px 0}
   label{display:block;margin:12px 0;font-size:14px}
-  input{display:block;width:100%;box-sizing:border-box;padding:9px;margin-top:4px;border:1px solid #c9d0da;border-radius:6px;font:inherit}
-  button{margin-top:8px;padding:10px 18px;background:#123a5e;color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
+  input{display:block;width:100%;box-sizing:border-box;padding:9px;margin-top:4px;border:1px solid var(--brand-border);border-radius:6px;font:inherit}
+  button{margin-top:8px;padding:10px 18px;background:var(--brand-primary);color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
   p{font-size:14px;line-height:1.5}.muted{color:#5a6675}.done{color:#1c5e2a;font-weight:600}.error{color:#8f2b2b;font-weight:600}
   .hp{position:absolute;left:-9999px}</style></head><body><main>
   <header><h1>${escapeHtml(c.title)}</h1><p class="lang">${switcher}</p></header>

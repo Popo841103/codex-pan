@@ -707,15 +707,16 @@ export function apply(state, command) {
   } else if (type === 'checkout') {
     if (order.status !== 'checked_in' || command.date < order.start || order.hourly && command.date!==order.start) reject('date');
     if(!order.hourly&&command.date<order.end){
-      if(command.confirmed!==true||!['keep','recompute'].includes(command.earlyChoice)||command.date<=order.start)reject('early_checkout');
+      if(command.confirmed!==true||!['keep','recompute'].includes(command.earlyChoice))reject('early_checkout');
       if(order.folioClosed||order.splitBills||order.arMoves?.length||order.folioTransfers?.length)reject('bill_state');
       if(lastClosed&&order.end>lastClosed&&order.start<=lastClosed)reject('audited');
       const rates=order.nightlyRates||stayDays(order.start,order.end).map(date=>({date,amount:order.nightly||0}));
-      const retained=rates.filter(r=>r.date<command.date),removed=rates.filter(r=>r.date>=command.date).reduce((n,r)=>n+r.amount,0);
+      const effectiveEnd=command.date===order.start?nextDay(order.start):command.date;
+      const retained=rates.filter(r=>r.date<effectiveEnd),removed=rates.filter(r=>r.date>=effectiveEnd).reduce((n,r)=>n+r.amount,0);
       if(command.earlyChoice==='keep')retained[retained.length-1].amount+=removed;
       order.earlyDeparture={originalEnd:order.end,date:command.date,choice:command.earlyChoice,retainedAmount:command.earlyChoice==='keep'?removed:0,at:command.at};
-      order.end=command.date;order.nightlyRates=retained;
-      if(order.roomSegments)order.roomSegments=order.roomSegments.filter(p=>p.start<command.date).map(p=>({...p,end:p.end>command.date?command.date:p.end}));
+      order.end=effectiveEnd;order.nightlyRates=retained;
+      if(order.roomSegments)order.roomSegments=order.roomSegments.filter(p=>p.start<effectiveEnd).map(p=>({...p,end:p.end>effectiveEnd?effectiveEnd:p.end}));
     }
     const balance = folio(order);
     if (balance.due !== 0 || balance.deposit !== 0 || order.splitBills?.some(b=>b.charge!==b.paid+(b.arAmount||0))) reject('balance');

@@ -33,3 +33,9 @@ test('in-house future move is refused until the chosen operating day, preserving
  const s=checkedIn();assert.throws(()=>send(s,'assign',{date:'2027-04-01',orderId:'walk-stay',resourceId:'TEST-KL-R2',fromDate:'2027-04-02',reason:'Synthetic tomorrow move'}),/future_room_move/);
  assert.equal(s.resources.find(r=>r.id==='TEST-KL-R1').cleaning,'clean');assert.equal(s.orders[0].resourceId,'TEST-KL-R1');
 });
+
+ test('same-day overnight checkout releases inventory with an explicit one-night minimum',()=>{
+ let s=checkedIn();s=send(s,'payment',{orderId:'walk-stay',kind:'payment',amount:10000,method:'cash'});
+ s=send(s,'checkout',{orderId:'walk-stay',date:'2027-04-01',confirmed:true,earlyChoice:'recompute'});
+ assert.equal(s.orders[0].status,'checked_out');assert.equal(s.orders[0].end,'2027-04-02');assert.equal(s.orders[0].earlyDeparture.date,'2027-04-01');assert.equal(folio(s.orders[0]).charge,10000);assert.equal(preview(s,propertyId).length,0);
+ });
