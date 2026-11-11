@@ -574,7 +574,7 @@ export function parityReport(state,q){
  for(const key of ['createdFrom','createdTo','completedFrom','completedTo'])if(q[key]&&!validDate(q[key]))throw Error('report_input');
  if(q.createdFrom&&q.createdTo&&q.createdFrom>q.createdTo||q.completedFrom&&q.completedTo&&q.completedFrom>q.completedTo)throw Error('report_input');
  const links=customerLinks(state,q.propertyId);
- const selected=orders.filter(o=>(!q.roomTypeId||o.roomTypeId===q.roomTypeId)&&(!q.status||!['revenueSummary','transactionSummary','channelSummary','salesSummary','accommodationSummary','ledgerRecords','customerProfiles','hourlyReservations','transactionDetail','quickEntries'].includes(q.kind)||o.status===q.status)&&(!q.resourceId||o.resourceId===q.resourceId)&&(!q.planCode||o.ratePlanCode===q.planCode)&&(!q.customerId||links.get(o.id)===q.customerId)&&(!q.createdFrom||localDay(o.createdAt)>=q.createdFrom)&&(!q.createdTo||!!o.createdAt&&localDay(o.createdAt)<=q.createdTo)&&(!q.completedFrom||!!o.completedAt&&localDay(o.completedAt)>=q.completedFrom)&&(!q.completedTo||!!o.completedAt&&localDay(o.completedAt)<=q.completedTo));
+ const selected=orders.filter(o=>(!q.roomTypeId||o.roomTypeId===q.roomTypeId)&&(!q.status||!['revenueSummary','transactionSummary','channelSummary','salesSummary','accommodationSummary','ledgerRecords','customerProfiles','hourlyReservations','transactionDetail','quickEntries','managerBusiness','shiftAccrual'].includes(q.kind)||o.status===q.status)&&(!q.resourceId||o.resourceId===q.resourceId)&&(!q.planCode||o.ratePlanCode===q.planCode)&&(!q.customerId||links.get(o.id)===q.customerId)&&(!q.createdFrom||localDay(o.createdAt)>=q.createdFrom)&&(!q.createdTo||!!o.createdAt&&localDay(o.createdAt)<=q.createdTo)&&(!q.completedFrom||!!o.completedAt&&localDay(o.completedAt)>=q.completedFrom)&&(!q.completedTo||!!o.completedAt&&localDay(o.completedAt)<=q.completedTo));
  const allSource=!q.source||q.source==='all';
  let columns=[],rows=[],unallocated=0;
  if(['dailyInventory','futureInventory'].includes(q.kind)){
@@ -656,7 +656,7 @@ export function parityReport(state,q){
   if(q.shiftTypeId){const windows=(state.handovers||[]).filter(h=>h.propertyId===q.propertyId&&h.shiftTypeId===q.shiftTypeId);rows=rows.filter(r=>r.at&&windows.some(h=>Date.parse(r.at)>=Date.parse(h.from)&&Date.parse(r.at)<Date.parse(h.to)));}
   if(q.kind==='shiftAccrual'||q.kind==='managerBusiness'){
    const complete=(state.receptionHistory||[]).filter(a=>a.propertyId===q.propertyId),ids=new Set(complete.map(a=>a.id));
-   rows.push(...[...complete,...(state.audit||[]).filter(a=>!ids.has(a.id))].filter(a=>a.propertyId===q.propertyId&&inRange(a.postingBusinessDate,q)&&(!q.actor||a.actor===q.actor)&&['create','create_reservation','create_hourly','checkin','checkout','cancel','undo_checkin','undo_checkout','restore_cancel'].includes(a.type)&&(!a.orderId||selected.some(o=>o.id===a.orderId))).map(a=>({...a,businessDate:a.postingBusinessDate,kind:'reception:'+a.type})));
+   rows.push(...[...complete,...(state.audit||[]).filter(a=>!ids.has(a.id))].filter(a=>a.propertyId===q.propertyId&&inRange(a.postingBusinessDate,q)&&(!q.actor||a.actor===q.actor)&&['create','create_reservation','create_hourly','checkin','checkout','cancel','undo_checkin','undo_checkout','restore_cancel'].includes(a.type)&&(a.orderId?selected.some(o=>o.id===a.orderId):a.reservationId?selected.some(o=>o.reservationId===a.reservationId):!q.roomTypeId&&allSource&&!q.status)).map(a=>({...a,businessDate:a.postingBusinessDate,kind:'reception:'+a.type})));
   }
   if(q.kind==='guestBalances'){
    columns=['orderId','source','roomTypeId','opening','charge','paid','ar','folioCredit','closing','deposit'];
@@ -669,15 +669,22 @@ export function parityReport(state,q){
   rows=rows.filter(r=>(!q.operationFrom||localDay(r.at)>=q.operationFrom)&&(!q.operationTo||localDay(r.at)<=q.operationTo)&&(!q.planCode||r.planCode===q.planCode)&&(!q.actor||r.actor===q.actor)&&(!q.adjustmentItem||JSON.parse(r.before||'{}')[q.adjustmentItem]!==JSON.parse(r.after)[q.adjustmentItem]));
  }
  if(['shiftAccrual','managerBusiness'].includes(q.kind)){
-  if(q.section==='cashierSummary'){
-   columns=['kind','method','amount'];const groups=new Map();for(const r of rows.filter(r=>['payment','refund','deposit_in','deposit_out'].includes(r.kind))){const key=r.kind+'|'+r.method,g=groups.get(key)||{kind:r.kind,method:r.method,amount:0};g.amount+=r.amount;groups.set(key,g);}rows=[...groups.values()];
+  if(q.shiftTypeId){const windows=(state.handovers||[]).filter(h=>h.propertyId===q.propertyId&&h.shiftTypeId===q.shiftTypeId);rows=rows.filter(r=>r.at&&windows.some(h=>Date.parse(r.at)>=Date.parse(h.from)&&Date.parse(r.at)<Date.parse(h.to)));}
+  if(q.lineKind&&q.section!=='handoverWindows')rows=rows.filter(r=>r.kind===q.lineKind);
+  if(['actorSummary','sourceSummary'].includes(q.section)){
+   const dimension=q.section==='actorSummary'?'actor':'source';columns=[dimension,'transactions','payments','refunds','depositIn','depositOut','netReceipts','depositNet'];
+   const groups=new Map();for(const r of rows.filter(r=>['payment','refund','deposit_in','deposit_out'].includes(r.kind))){const value=r[dimension]||'',g=groups.get(value)||{[dimension]:value,transactions:0,payments:0,refunds:0,depositIn:0,depositOut:0,netReceipts:0,depositNet:0};g.transactions++;g[({payment:'payments',refund:'refunds',deposit_in:'depositIn',deposit_out:'depositOut'})[r.kind]]+=r.amount;g.netReceipts=g.payments-g.refunds;g.depositNet=g.depositIn-g.depositOut;groups.set(value,g);}rows=[...groups.values()];
+  }else if(q.section==='cashierSummary'){
+   columns=['kind','method','amount'];const groups=new Map();for(const r of rows.filter(r=>['payment','refund','deposit_in','deposit_out'].includes(r.kind))){const key=JSON.stringify([r.kind,r.method]),g=groups.get(key)||{kind:r.kind,method:r.method,amount:0};g.amount+=r.amount;groups.set(key,g);}rows=[...groups.values()];
+  }else if(q.section==='receptionSummary'){
+   columns=['actor','kind','transactions'];const groups=new Map();for(const r of rows.filter(r=>r.kind?.startsWith('reception:'))){const key=JSON.stringify([r.actor,r.kind]),g=groups.get(key)||{actor:r.actor||'',kind:r.kind,transactions:0};g.transactions++;groups.set(key,g);}rows=[...groups.values()];
   }else if(q.section==='reception'){
-   columns=['businessDate','at','actor','orderId','kind'];rows=rows.filter(r=>r.kind?.startsWith('reception:'));
+   columns=['businessDate','at','actor','orderId','reservationId','kind'];rows=rows.filter(r=>r.kind?.startsWith('reception:'));
+  }else if(q.section==='handoverWindows'){
+   columns=['businessDate','shiftName','actor','operator','from','to','at'];rows=(state.handovers||[]).filter(h=>h.propertyId===q.propertyId&&inRange(h.businessDate,q)&&(!q.shiftTypeId||h.shiftTypeId===q.shiftTypeId)&&(!q.actor||h.actor===q.actor));
   }else if(q.section==='roomCards'){
-   // No card issuance provider is connected: absence is a capability state, not zero activity.
    columns=['status'];rows=[{status:'room_card_not_connected'}];
   }else rows=rows.filter(r=>!r.kind?.startsWith('reception:'));
-  if(q.shiftTypeId){const windows=(state.handovers||[]).filter(h=>h.propertyId===q.propertyId&&h.shiftTypeId===q.shiftTypeId);if(q.section==='reception')rows=rows.filter(r=>windows.some(h=>Date.parse(r.at)>=Date.parse(h.from)&&Date.parse(r.at)<Date.parse(h.to)));}
  }
  if(q.kind==='accrualOperating'){
   const first=q.to.slice(0,7)+'-01';
@@ -732,9 +739,9 @@ export function parityReport(state,q){
   columns=[...new Set([...columns,'createdAt','completedAt','createdBy','status'])];
   rows=rows.map(r=>{const o=selected.find(o=>o.id===r.orderId);return {...r,createdAt:o?.createdAt||'',completedAt:o?.completedAt||'',createdBy:o?.createdBy||'',status:o?.status||''};});
  }
- if(q.lineKind)rows=rows.filter(r=>r.kind===q.lineKind||['revenueSummary','channelSummary','salesSummary','transactionSummary'].includes(q.kind)&&(!!q.dimension||!!q.dimension2||!!q.lineKind||!!q.actor||!!q.method));
+ if(q.lineKind&&!(['shiftAccrual','managerBusiness'].includes(q.kind)&&['actorSummary','sourceSummary','receptionSummary','handoverWindows'].includes(q.section)))rows=rows.filter(r=>r.kind===q.lineKind||['revenueSummary','channelSummary','salesSummary','transactionSummary'].includes(q.kind)&&(!!q.dimension||!!q.dimension2||!!q.lineKind||!!q.actor||!!q.method));
  if(q.kind==='failedReservations'&&!allSource)rows=rows.filter(r=>r.source===q.source);
- if(q.status&&!['revenueSummary','transactionSummary','channelSummary','salesSummary','accommodationSummary','ledgerRecords','customerProfiles','transactionDetail','quickEntries'].includes(q.kind))rows=rows.filter(r=>r.status===q.status);
+ if(q.status&&!['revenueSummary','transactionSummary','channelSummary','salesSummary','accommodationSummary','ledgerRecords','customerProfiles','transactionDetail','quickEntries','managerBusiness','shiftAccrual'].includes(q.kind))rows=rows.filter(r=>r.status===q.status);
  const query=String(q.search||'').trim().toLowerCase();rows=rows.filter(r=>!query||columns.some(k=>String(r[k]??'').toLowerCase().includes(query))).map(r=>Object.fromEntries(columns.map(k=>[k,r[k]??''])));
  if(q.kind==='futureInventory'&&q.layout==='matrix'){const sourceRows=rows,metrics=columns.filter(k=>!['date','roomTypeId','productId'].includes(k));columns=['roomTypeId','productId','metric',...days];rows=[];for(const id of [...new Set(sourceRows.map(r=>r.roomTypeId))])for(const metric of metrics){const selected=sourceRows.filter(r=>r.roomTypeId===id);rows.push(Object.fromEntries(columns.map(k=>[k,k==='roomTypeId'?id:k==='productId'?selected[0].productId:k==='metric'?metric:selected.find(r=>r.date===k)?.[metric]??''])));}}
  return {kind:q.kind,from:q.from,to:q.to,columns,rows,unallocated,totals:Object.fromEntries(columns.filter(k=>!['dailyInventory','futureInventory','housekeepingCalendar','housekeepingList','ledgerRecords','managerBusiness','shiftAccrual','accrualOperating','transactionDetail','quickEntries','quickNoteSummary'].includes(q.kind)).filter(k=>rows.some(r=>typeof r[k]==='number')).filter(k=>!['unitAmount','occupancy','adr','revpar'].includes(k)).map(k=>[k,rows.reduce((n,r)=>n+(typeof r[k]==='number'?r[k]:0),0)]))};

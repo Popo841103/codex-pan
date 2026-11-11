@@ -331,6 +331,11 @@ export function apply(state, command) {
   if (!next.properties.some(p => p.id === propertyId)) reject('scope');
   let order = next.orders.find(o => o.id === command.orderId && o.propertyId === propertyId);
   let resource = next.resources.find(r => r.id === command.resourceId && r.propertyId === propertyId);
+  if(['create','create_reservation','edit'].includes(type)){
+   const source=command.source||'direct';
+   if((type!=='edit'||source!==order?.source)&&channelSources(next,propertyId).some(r=>r.sourceId===source&&!r.active))reject('source_disabled');
+  }
+
   // Keep the previous commission so the local reducer's audit tells the same
   // before/after story as the shared backend's durable audit.
   const commissionBefore = type === 'commission_save' ? (order?.commission || null) : null;
@@ -1464,7 +1469,7 @@ function changeCompletion(state,c){
 }
 
 // Property-scoped internal front desk workspace. No network, timers or provider writes.
-export const deskActions=['desk_setting_save','ical_import','ical_revoke','corporate_link','desk_task_save'];
+export const deskActions=['channel_source_save','message_draft_save','desk_setting_save','ical_import','ical_revoke','corporate_link','desk_task_save'];
 export const deskSettingFields={
  property:['displayName','address','phone','email','description','arrivalInstructions'],
  frontdesk:['checkinTime','checkoutTime','welcome','checklist'],
@@ -1474,10 +1479,22 @@ export const deskSettingFields={
 export function deskSettings(state,propertyId){const out={};for(const r of state.deskHistory||[])if(r.propertyId===propertyId&&r.type==='desk_setting_save')out[r.section]=r;return out;}
 export function deskReplies(state,propertyId){const out=new Map();for(const r of state.deskHistory||[])if(r.propertyId===propertyId&&r.type==='desk_setting_save'&&r.section==='quickReply')out.set(r.entryId||r.id,r);return [...out.values()];}
 export function deskTasks(state,propertyId){const out=new Map();for(const r of state.deskHistory||[])if(r.propertyId===propertyId&&r.type==='desk_task_save')out.set(r.taskId,r);return [...out.values()];}
+export function channelSources(state,propertyId){const rows=new Map();for(const r of state.deskHistory||[])if(r.propertyId===propertyId&&r.type==='channel_source_save')rows.set(r.sourceId,r);return [...rows.values()];}
+export function messageDrafts(state,propertyId){const rows=new Map();for(const r of state.deskHistory||[])if(r.propertyId===propertyId&&r.type==='message_draft_save')rows.set(r.draftId,r);return [...rows.values()];}
 function changeDesk(state,c){
  const text=(v,max=1000)=>{if(typeof v!=='string'||v.length>max||/[<>\x00-\x08]/.test(v))reject('input');return v.trim();};
  const row={id:c.id,propertyId:c.propertyId,type:c.type,actor:c.actor||'local',at:c.at,businessDate:state.businessDate||null};
- if(c.type==='desk_setting_save'){
+ if(c.type==='channel_source_save'){
+  validSource(c.sourceId);if(typeof c.active!=='boolean')reject('input');
+  Object.assign(row,{sourceId:c.sourceId,name:text(c.name,100),note:text(c.note||'',500),active:c.active,reason:text(c.reason,200)});
+  if(!row.name||!row.reason)reject('input');
+ }else if(c.type==='message_draft_save'){
+  const prior=c.draftId?messageDrafts(state,c.propertyId).find(r=>r.draftId===c.draftId):null;
+  if(c.draftId&&!prior)reject('scope');
+  if(!state.orders.some(o=>o.id===c.orderId&&o.propertyId===c.propertyId)||!isDate(c.dueDate)||!['draft','done','cancelled'].includes(c.status))reject('scope');
+  Object.assign(row,{draftId:prior?.draftId||c.id,orderId:c.orderId,dueDate:c.dueDate,title:text(c.title,100),text:text(c.text),status:c.status,reason:text(c.reason,200)});
+  if(!row.title||!row.text||!row.reason)reject('input');
+ }else if(c.type==='desk_setting_save'){
   if(!Object.hasOwn(deskSettingFields,c.section))reject('input');row.section=c.section;row.values={};
   for(const k of deskSettingFields[c.section])row.values[k]=text(c[k]??'');
   if(c.section==='quickReply'){const prior=c.entryId?deskReplies(state,c.propertyId).find(r=>(r.entryId||r.id)===c.entryId):null;if(c.entryId&&!prior)reject('scope');if(c.active!==undefined&&typeof c.active!=='boolean')reject('input');row.entryId=prior?.entryId||prior?.id||c.id;row.active=c.active??true;}

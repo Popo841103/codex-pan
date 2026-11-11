@@ -1220,7 +1220,7 @@ export class Store {
       // A property override decides what this account may do here, not its account role.
       // The override may name a built-in role or one this property defined itself.
       const allowed=this.permissionsFor(rowUser,propertyId);
-      const batchAdmin=['desk_setting_save','ical_import','ical_revoke','corporate_link','customer_link','meal_grant','meal_reverse','directory_entry_save','customer_tag_set','commission_close_month','notice_scope_save','commission_rate_save','listing_draft_save','booking_content_save'];
+      const batchAdmin=['channel_source_save','message_draft_save','desk_setting_save','ical_import','ical_revoke','corporate_link','customer_link','meal_grant','meal_reverse','directory_entry_save','customer_tag_set','commission_close_month','notice_scope_save','commission_rate_save','listing_draft_save','booking_content_save'];
       if(batchAdmin.includes(command.type)&&rowUser.role!=='admin')error(403,'forbidden');
       if(command.type==='housekeeping_task'&&command.assignee&&!this.db.prepare('SELECT 1 FROM users u JOIN user_properties p ON p.user_id=u.id WHERE u.username=? AND p.property_id=? AND u.active=1').get(command.assignee,propertyId))error(400,'scope');
       if(['notice_scope_save','notice_send'].includes(command.type)){const account=command.username||command.recipient;if(account&&!this.db.prepare('SELECT 1 FROM users u JOIN user_properties p ON p.user_id=u.id WHERE u.username=? AND p.property_id=? AND u.active=1').get(account,propertyId))error(400,'scope');}
@@ -1228,7 +1228,7 @@ export class Store {
       if(command.type==='create_reservation'&&command.mode==='checkin'&&!allowed.includes('checkin'))error(403,'forbidden');
       // Rewriting nights already closed by a night audit stays an administrator-only override.
       if(command.auditOverride===true&&rowUser.role!=='admin')error(403,'forbidden');
-      if(!allowed.includes(({desk_setting_save:'room_type_save',ical_import:'block',ical_revoke:'unblock',corporate_link:'room_type_save',desk_task_save:'memo_save',create_hourly:'create',customer_link:'room_type_save',quick_entry:'payment',item_charge:'edit',housekeeping_task:'clean',reservation_failure_record:'create',meal_grant:'room_type_save',meal_redeem:'checkin',meal_reverse:'room_type_save',inspection_record:'clean',directory_entry_save:'room_type_save',customer_tag_set:'room_type_save',notice_scope_save:'notice_rule_save',commission_rate_save:'commission_close_month',listing_draft_save:'room_type_save',booking_content_save:'site_save',notice_send:'memo_save',notice_withdraw:'memo_save',undo_checkin:'checkin',undo_checkout:'checkout',restore_cancel:'cancel'})[command.type]||command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
+      if(!allowed.includes(({channel_source_save:'display_preferences_save',message_draft_save:'room_type_save',desk_setting_save:'room_type_save',ical_import:'block',ical_revoke:'unblock',corporate_link:'room_type_save',desk_task_save:'memo_save',create_hourly:'create',customer_link:'room_type_save',quick_entry:'payment',item_charge:'edit',housekeeping_task:'clean',reservation_failure_record:'create',meal_grant:'room_type_save',meal_redeem:'checkin',meal_reverse:'room_type_save',inspection_record:'clean',directory_entry_save:'room_type_save',customer_tag_set:'room_type_save',notice_scope_save:'notice_rule_save',commission_rate_save:'commission_close_month',listing_draft_save:'room_type_save',booking_content_save:'site_save',notice_send:'memo_save',notice_withdraw:'memo_save',undo_checkin:'checkin',undo_checkout:'checkout',restore_cancel:'cancel'})[command.type]||command.type)||command.type.startsWith('ar_')&&!allowed.includes('ar_report_view'))error(403,'forbidden');
       const prior=this.db.prepare('SELECT * FROM receipts WHERE user_id=? AND request_key=?').get(user.id,key);
       if(prior){if(prior.fingerprint!==fingerprint)error(409,'idempotency_mismatch');return {...JSON.parse(prior.response),replayed:true};}
       // A request is decided once. Replaying the same key answers from the receipt above;
@@ -1286,6 +1286,7 @@ export class Store {
         ...(['notice_scope_save','notice_send','notice_withdraw','commission_rate_save','listing_draft_save','booking_content_save'].includes(cmd.type)?{internalChange:localAudit,recordId:cmd.id}:{}),
         fields:Object.keys(command).filter(k=>!['type','propertyId'].includes(k)),
         ...(['directory_entry_save','customer_tag_set'].includes(cmd.type)?{directoryChange:localAudit.directoryChange}:{}),
+        ...(localAudit?.deskChange?{deskChange:localAudit.deskChange}:{}),
         ...(cmd.type==='memo_save'?{memoChange:localAudit.memoChange}:{}),
         ...(cmd.type==='payment'?{kind:cmd.kind,amount:cmd.amount,method:cmd.method}:{}),
         ...(cmd.type.startsWith('ar_')?{arEventId:cmd.id}:{}),
