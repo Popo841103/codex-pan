@@ -655,7 +655,7 @@ function showOrderBox(tab='current',filters={}) {
       if(filters.start&&o.start!==filters.start||filters.end&&o.end!==filters.end||filters.roomType&&o.roomTypeId!==filters.roomType||filters.source&&filters.source!=='all'&&(o.source||'direct')!==filters.source)return [];
       const parent=state.reservations?.find(r=>r.id===o.reservationId&&r.propertyId===propertyId);
       if(query&&![o.guest,o.phone,o.id,o.reservationId,parent?.guest,parent?.phone].some(value=>String(value||'').toLowerCase().includes(query)))return [];
-      const no=escape(o.reservationId||o.id),id=escape(staffReportValue('orderId',o.id,state,lang));
+      const no=escape(o.reservationId||o.id),id=escape(o.id);
       return [`<article class="stay-card" data-box-stay="${id}"><strong>${escape(o.guest)}</strong><p>${t('reservationNo')}: ${no} · ${t(o.status)}</p><p>${o.start} → ${o.end} · ${escape(typeName(types.find(r=>r.id===o.roomTypeId),lang,t(o.productId)))} · ${t(o.source||'direct')}</p><p>${t('boxMovedAt')}: ${escape(h?.at||'—')} · ${t('boxOperator')}: ${escape(h?.actor||'—')}</p><div class="actions"><button type="button" data-open-stay="${id}">${t('details')}</button>${current?`<label class="check-label"><input name="orderId" type="checkbox" value="${id}" aria-label="${escape(o.guest+' '+o.start)}" ${can('restore_stays')?'':'disabled'}>${t('selection')}</label><button type="button" data-box-restore="${id}" ${can('restore_stays')?'':'disabled'}>${t('restore_stays')}</button><button type="button" data-box-cancel="${id}" ${can('cancel')&&!o.folioClosed?'':'disabled'}>${t('cancel')}</button>`:''}</div></article>`];
     });
     form.innerHTML=rows.join('')+(rows.length&&tab==='current'?`<button class="primary" ${can('restore_stays')?'':'disabled'}>${t('restore_stays')}</button>`:!rows.length?`<p>${t('boxEmpty')}</p>`:'');
@@ -823,7 +823,7 @@ function folioCreditPanel(stays){
   const eligible=stays.filter(o=>!o.folioClosed&&!o.splitBills&&!o.arMoves?.length);
   const from=eligible.filter(o=>folio(o).due<0),to=eligible.filter(o=>folio(o).due>0);
   const label=o=>state.resources.find(r=>r.id===o.resourceId)?.label||t('unassigned');
-  const options=orders=>orders.map(o=>'<option value="'+escape(staffReportValue('orderId',o.id,state,lang))+'">'+escape(label(o))+
+  const options=orders=>orders.map(o=>'<option value="'+escape(o.id)+'">'+escape(label(o))+
     ' · '+escape(o.start)+' · '+escape(o.id.slice(0,8))+' · '+currency(Math.abs(folio(o).due))+'</option>').join('');
   const reversed=new Set(stays.flatMap(o=>(o.folioTransfers||[]).map(row=>row.reverses).filter(Boolean)));
   const latest=o=>(o?.folioTransfers||[]).findLast(row=>!row.reverses&&!reversed.has(row.id));

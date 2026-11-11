@@ -72,7 +72,7 @@ try {
  ical.elements.ics.value=ics.replace('SUMMARY:Unavailable','RRULE:FREQ=DAILY');ical.querySelector('button:not([type])').click();assert.equal($('[data-ical-preview]').textContent,'');
  for(const language of ['en','ms','zh']){$('#language').value=language;$('#language').dispatchEvent(new dom.window.Event('change',{bubbles:true}));assert($('[data-parity-workspace]'));assert.equal($('[data-parity-query] select').options.length,27);}
  URL.createObjectURL=originalCreate;URL.revokeObjectURL=originalRevoke;dom.window.HTMLAnchorElement.prototype.click=originalAnchor;
- $('#global-nav [data-view="orders"]').click();$('[data-open-stay="'+created.id+'"]').click();$('[data-internal-invoice]').click();assert($('[data-internal-invoice-view]').textContent.includes('24690'));$('#utility-dialog').close();$('#detail-dialog').close();
+ $('#global-nav [data-view="orders"]').click();$('[data-open-stay="'+created.id+'"]').click();$('[data-internal-invoice]').click();assert($('[data-internal-invoice-view]').textContent.includes('MYR 246.90'));$('#utility-dialog').close();$('#detail-dialog').close();
  assert.equal(store.read(operator).revisions['TEST-KL'],revision);assert.equal(store.read(operator).audit.length,auditCount);assert.deepEqual(store.read(operator).orders,before.orders);
  // Property switch removes both the open invoice and the previous query results.
  set('#property','TEST-PG');assert(!document.querySelector('[data-internal-invoice-view]'));

@@ -61,7 +61,7 @@ try {
  for(const kind of ['mealRedemption','mealSummary','holidays','inspections','failedReservations','shiftAccrual','managerBusiness','ledgerRecords','accrualOperating','guestBalances']){query(kind,['inspections','shiftAccrual','managerBusiness','ledgerRecords','accrualOperating','guestBalances'].includes(kind)?'2027-02-01':today);$('[data-parity-csv]').click();assert.equal((await csvBlob.text()).split('\r\n').length,document.querySelectorAll('[data-parity-results] tbody tr').length+1,kind);}
  assert(query('holidays').querySelector('[data-holiday-calendar]').textContent.includes('TEST internal holiday'));
  assert(query('housekeepingList').textContent.includes(taskId+':done'));
- assert(query('managerBusiness','2027-02-01','2027-02-01',{section:'cashierSummary'}).textContent.includes('5000'));
+ assert(query('managerBusiness','2027-02-01','2027-02-01',{section:'cashierSummary'}).textContent.includes('MYR 50.00'));
  assert(query('managerBusiness','2027-02-01','2027-02-01',{section:'roomCards'}).textContent.includes('未接通'));
  const before=store.read(operator);for(const language of ['en','ms','zh']){set('#language',language);assert($('[data-operations-panel]'));assert.equal($('[data-parity-query] [name=kind]').options.length,27);query('mealSummary');}
  assert.equal(store.read(operator).audit.length,before.audit.length);assert.deepEqual(store.read(operator).orders,before.orders);
