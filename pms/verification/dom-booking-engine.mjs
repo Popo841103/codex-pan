@@ -42,7 +42,10 @@ try {
   const preview=$('[data-booking-verify-preview]');
   assert.deepEqual([...preview.querySelectorAll('input')].map(input=>input.name),['businessContact','companyName','phone','address']);
   assert([...preview.querySelectorAll('input')].every(input=>input.readOnly));
-  assert.equal(document.querySelector('#content form'),null);
+  assert.equal(document.querySelector('#content form:not([data-preparation-query])'),null);
+  assert.equal(document.querySelectorAll('[data-preparation-query]').length,1);
+  $('[data-preparation-query] button').click();
+  assert.equal(revision(),0,'the date coverage query must not write business state');
   $('[data-booking-maintenance="resourcesSettings"]').click();
   assert.equal(document.body.dataset.view,'resourcesSettings');
   $('#nav [data-view="bookingEngineSetup"]').click();

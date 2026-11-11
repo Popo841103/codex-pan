@@ -1,3 +1,4 @@
+import {bookingPreparationPanel,stayMorePanel} from './workspace-ui.js';
 import {auditReadPanel} from './workspace-ui.js';
 import {internalSourcePanel,dailyStayPage} from './workspace-ui.js';
 import {channelSources,messageDrafts,isDate} from '../src/demo-store.js';
@@ -181,7 +182,7 @@ function render() {
   else if(view==='resourcesSettings') { $('#content').innerHTML=catalogPage(state,propertyId,lang,t,can); }
   else if(view==='teamAccess') { $('#content').innerHTML=teamAccessPage({members:state.members||[],memberAudit:state.memberAudit||[],properties:state.properties,propertyId,user:backend.user,can,t,escape,roles:state.roles||[],effectiveActions:backend.user?.allowedActionsByProperty?.[propertyId]||backend.user?.allowedActions||[]}); }
   else if(view==='operationsDisplay') { showOperationsDisplay(); }
-  else if(view==='bookingEngineSetup') { $('#content').innerHTML=bookingEngineSetupPage(t,escape); }
+  else if(view==='bookingEngineSetup') { $('#content').innerHTML=bookingPreparationPanel({state,propertyId,from:businessDate(),to:businessDate(),lang,escape})+bookingEngineSetupPage(t,escape); }
   else if(view==='propertySite') { $('#content').innerHTML=propertySitePage({sites:state.sites||[],siteAudit:state.siteAudit||[],roomTypes:state.roomTypes,ratePlans:state.ratePlans,propertyId,can,t,escape}); }
    else if(view==='notifications') { $('#content').innerHTML=notificationsPage({notifications:(state.notifications||[]).map(n=>reminderForAccount(state,n,backend.user?.username||'local')),noticeSettings:state.noticeSettings||[],noticeSettingsAudit:state.noticeSettingsAudit||[],noticeRules:state.noticeRules||[],noticeRulesAudit:state.noticeRulesAudit||[],properties:state.properties,propertyId,can,t,escape}); }
  else if(view==='bookingRequests') { $('#content').innerHTML=bookingRequestsPage({requests:state.bookingRequests||[],events:state.bookingRequestEvents||[],roomTypes:state.roomTypes,propertyId,can,t,escape,currency}); }
@@ -204,6 +205,7 @@ function render() {
   $('#content').insertAdjacentHTML('beforeend',internalOperationsPanel({state,propertyId,lang,username:backend.user?.username||'local',admin:backend.shared?backend.user?.role==='admin':true,view,escape}));
   if(view==='parityWorkspace')runParityQuery();
   if(['home','nightAudit','nightAuditSettings'].includes(view))$('#content').insertAdjacentHTML('beforeend',auditReadPanel({state:nightAuditState(),propertyId,lang,escape,compact:view==='home'}));
+  if(view==='channels')$('#content').insertAdjacentHTML('beforeend',bookingPreparationPanel({state,propertyId,from:businessDate(),to:businessDate(),lang,escape}));
   if(['channels','resourcesSettings'].includes(view))$('#content').insertAdjacentHTML('beforeend',internalSourcePanel({state,propertyId,lang,admin:!backend.shared||backend.user?.role==='admin'&&can('display_preferences_save')&&can('room_type_save'),sources:sourceValues,escape}));
   if(['home','channels'].includes(view))$('#content').insertAdjacentHTML('beforeend',deskPanel({state,propertyId,lang,admin:backend.shared?backend.user?.role==='admin':true,escape,compact:view==='home'}));
   if(['customers','resourcesSettings','parityWorkspace'].includes(view)){const admin=backend.shared?backend.user?.role==='admin':true;$('#content').insertAdjacentHTML('beforeend',directoryPanel({state,propertyId,lang,admin,escape})+operationsPanel({state,propertyId,lang,admin,escape})+completionPanel({state,propertyId,lang,admin,escape})+deskPanel({state,propertyId,lang,admin,escape}));updateInspectionItems();}
@@ -452,6 +454,7 @@ function openDetail(id) {
     const previewButton=e.target.closest('[data-stay-preview]');
     if(previewButton)showStayPreview(previewButton.dataset.stayPreview,'general',id);
   };
+  $('#detail-panel').insertAdjacentHTML('beforeend',stayMorePanel({order:o,resource:state.resources.find(r=>r.propertyId===propertyId&&r.id===o.resourceId),lastClosed:nightAuditState().nightAudits.map(a=>a.businessDate).sort().at(-1),lang,escape,currency}));
   $('#detail-body').onkeydown=e=>{const tab=e.target.closest('[data-detail-tab]');if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const tabs=['details','bill','audit','channel'];detailTab=e.key==='Home'?tabs[0]:e.key==='End'?tabs.at(-1):tabs[(tabs.indexOf(detailTab)+(e.key==='ArrowRight'?1:3))%4];openDetail(id);$(`#detail-tab-${detailTab}`).focus();};
   if($('#detail-box'))$('#detail-box').onclick=()=>openBoxAction([id],isBoxed(o)?'restore_stays':'box_stays',()=>openDetail(id));
   if($('#back-reservation'))$('#back-reservation').onclick=()=>openReservation(o.reservationId);
@@ -1541,3 +1544,9 @@ $('#content').addEventListener('submit',event=>{
 });
 
 $('#content').addEventListener('click',event=>{const button=event.target.closest('[data-audit-read] [data-view]');if(button)goView(button.dataset.view);});
+
+$('#content').addEventListener('click',event=>{const button=event.target.closest('[data-preparation-step]');if(button)goView(button.dataset.preparationStep);});
+$('#content').addEventListener('submit',event=>{
+ if(!event.target.matches('[data-preparation-query]'))return;event.preventDefault();const form=event.target,data=Object.fromEntries(new FormData(form));
+ try{const html=bookingPreparationPanel({state,propertyId,...data,lang,escape});form.closest('[data-booking-preparation]').outerHTML=html;}catch{form.querySelector('output').textContent=rateLabel('日期范围无效，最多31日。','Invalid dates; at most 31 days.','Tarikh tidak sah; maksimum 31 hari.');}
+});

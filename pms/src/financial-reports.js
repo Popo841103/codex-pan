@@ -791,3 +791,25 @@ export function previewIcal(text){
  }
  if(!ended||event||calendar)throw Error('ical_input');return rows;
 }
+
+// Internal preparation snapshot only. A saved price is never a booking quote or OTA readiness.
+export function bookingPreparation(state,{propertyId,from,to}){
+ if(!state.properties.some(p=>p.id===propertyId)||!validDate(from)||!validDate(to)||from>to||(Date.parse(to)-Date.parse(from))/86400000>=31)throw Error('report_input');
+ const days=[];for(let d=from;d<=to;d=nextDay(d))days.push(d);
+ const site=(state.sites||[]).find(r=>r.propertyId===propertyId)||null;
+ const types=state.roomTypes.filter(r=>r.propertyId===propertyId&&!r.archived);
+ const plans=(state.ratePlans||[]).filter(r=>r.propertyId===propertyId&&!r.archived);
+ const selectedTypes=types.filter(r=>!site?.roomTypeIds?.length||site.roomTypeIds.includes(r.id));
+ const selectedPlans=plans.filter(r=>site?.planCodes?.includes(r.code));
+ const rows=[];
+ for(const type of selectedTypes){
+  const units=state.resources.filter(r=>r.propertyId===propertyId&&r.roomTypeId===type.id&&!r.archived).length;
+  const ownPlans=selectedPlans.filter(p=>p.roomTypeIds.includes(type.id));
+  if(!ownPlans.length)rows.push({roomTypeId:type.id,units,planCode:'',pricedDays:0,openDays:0,missingDays:days.length});
+  for(const plan of ownPlans){const cells=(state.rateCells||[]).filter(c=>c.propertyId===propertyId&&c.roomTypeId===type.id&&c.planCode===plan.code&&days.includes(c.date)&&Number.isSafeInteger(c.amount)&&c.amount>=0),pricedDays=new Set(cells.map(c=>c.date)).size;rows.push({roomTypeId:type.id,units,planCode:plan.code,pricedDays,openDays:new Set(cells.filter(c=>c.sale!=='closed').map(c=>c.date)).size,missingDays:days.length-pricedDays});}
+ }
+ const textChecks=['title','description','contact'].flatMap(field=>['zh','en','ms'].map(lang=>({field,lang,recorded:typeof site?.[field]?.[lang]==='string'&&!!site[field][lang].trim()})));
+ const requests=(state.bookingRequests||[]).filter(r=>r.propertyId===propertyId),counts={pending:0,accepted:0,declined:0,withdrawn:0};
+ for(const request of requests){const status=request.withdrawnAt?'withdrawn':request.status;if(Object.hasOwn(counts,status))counts[status]++;}
+ return {propertyId,from,to,days:days.length,siteExists:!!site,enabled:site?.enabled===true,slug:site?.slug||'',updatedAt:site?.updatedAt||'',textChecks,rows,counts,configuredTypes:types.length,configuredPlans:plans.length,listingDrafts:(state.listingDrafts||[]).filter(r=>r.propertyId===propertyId).length};
+}
