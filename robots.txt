@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+Disallow: /community-admin.html
+
+Sitemap: https://cohub.jovianhome.com/sitemap.xml

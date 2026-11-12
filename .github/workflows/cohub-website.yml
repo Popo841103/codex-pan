@@ -10,6 +10,8 @@ on:
       - 'locale-*.json'
       - scripts/i18n/**
       - assets/**
+      - robots.txt
+      - sitemap.xml
       - scripts/deploy/**
       - tests/**
       - .github/workflows/cohub-website.yml
