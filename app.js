@@ -12,8 +12,8 @@ function renderRooms(){if(!document.querySelector('#rooms'))return;const n=langu
 const malay = {
 'BOOK NOW':'TEMPAH SEKARANG','BOOK NOW ↗':'TEMPAH SEKARANG ↗',
 'Come as a guest.\\nLeave with a story.':'Datang sebagai tetamu.\\nPulang dengan cerita.',
-'Your space to rest. Your place to connect. Hostel, café and craft beer in the heart of Kuala Lumpur.':'Ruang untuk berehat. Tempat untuk berkenalan. Hostel, kafe dan bir kraf di tengah Kuala Lumpur.',
-'Our hostel is being prepared. Opening date and reservations will be announced.':'Hostel kami sedang disediakan. Tarikh pembukaan dan tempahan akan diumumkan.',
+'Your space to rest. Your place to connect. A themed lifestyle community with coffee, food and craft beer in Kuala Lumpur.':'Ruang untuk berehat. Tempat untuk berkenalan. Komuniti gaya hidup bertema dengan kopi, makanan dan bir kraf di Kuala Lumpur.',
+'Accommodation is being prepared. Opening date and reservations will be announced.':'Penginapan sedang disediakan. Tarikh pembukaan dan tempahan akan diumumkan.',
 'Atmosphere illustration · AI-generated':'Ilustrasi suasana · Dijana AI',
 'YOUR NEXT STOP':'DESTINASI SETERUSNYA','Make room for a new story.':'Mulakan cerita baharu.',
 'DESTINATION':'DESTINASI','CHECK-IN':'DAFTAR MASUK','CHECK-OUT':'DAFTAR KELUAR','GUESTS':'TETAMU','EXPLORE ROOMS ↗':'LIHAT BILIK ↗',
@@ -22,7 +22,7 @@ const malay = {
 'Stay':'Penginapan','Café & beer':'Kafe & bir','Visit us':'Lokasi',
 'A good rest.\\nA great connection.':'Rehat yang lena.\\nKenalan baharu.',
 'Your own little space, with a whole world downstairs. Capsules, comfortable beds, coffee and craft beer — all under one roof.':'Ruang rehat peribadi di tingkat atas, tempat bertemu di tingkat bawah. Kapsul, katil selesa, kopi dan bir kraf — semuanya di satu tempat.',
-'Find your space ↗':'Pilih penginapan ↗','Just here for coffee? ↓':'Singgah untuk kopi? ↓','Hostel opening date to be announced.':'Tarikh pembukaan hostel akan diumumkan.',
+'Find your space ↗':'Pilih penginapan ↗','Just here for coffee? ↓':'Singgah untuk kopi? ↓','Accommodation opening date to be announced.':'Tarikh pembukaan penginapan akan diumumkan.',
 'A little privacy. A lot of possibility.':'Sedikit privasi. Pelbagai kemungkinan.',
 '01 / STAY WITH US':'01 / MENGINAP DI SINI','Find your kind of quiet.':'Cari ruang rehat anda.',
 'Women’s capsules. Men’s dorms. Private rooms for everyone.':'Kapsul wanita. Dorm lelaki. Bilik persendirian untuk semua.',
@@ -32,7 +32,7 @@ const malay = {
 'Coffee, food and craft beer. A place for travellers and neighbours to take a seat and share a moment.':'Kopi, makanan dan bir kraf. Tempat untuk pengembara dan jiran duduk bersama dan menikmati masa santai.',
 'Explore the menu ↗':'Lihat menu ↗',
 '03 / FIND YOUR HUB':'03 / TEMUI KAMI','See you in Kuala Lumpur.':'Jumpa di Kuala Lumpur.',
-'Café hours · 09:00–23:30 (Malaysia time)':'Waktu kafe · 09:00–23:30 (waktu Malaysia)',
+'Coffee, food & craft beer · 09:00–23:30 (Malaysia time)':'Kopi, makanan & bir kraf · 09:00–23:30 (waktu Malaysia)',
 'Contact us on WhatsApp ↗':'Hubungi melalui WhatsApp ↗','Get directions ↗':'Dapatkan arah ↗',
 'Mobile check-in is planned. Instructions will be available once accommodation bookings open.':'Daftar masuk melalui telefon dirancang. Panduan akan tersedia apabila tempahan penginapan dibuka.'
 };
@@ -52,8 +52,8 @@ let selectedRoom=null;
 const dialog=document.querySelector('#room-dialog');
 function renderRoomDetail(){
  const room=inventory[selectedRoom],n=language==='zh'?1:language==='ms'?2:0;
- const note=n===0?'Our hostel is under renovation. Reservations are not open. Rates are indicative; final rates, taxes and policies will be announced before bookings open.':n===1?'青旅装修筹备中，暂不接受预订。展示价格仅供参考，最终房价、税费与政策将在开放预订前公布。':'Hostel sedang dalam pengubahsuaian. Tempahan belum dibuka. Kadar adalah indikatif; kadar akhir, cukai dan polisi akan diumumkan sebelum tempahan dibuka.';
- document.querySelector('#room-dialog-content').innerHTML=`<p class="eyebrow">CO-HUB / COMING SOON</p><h2 id="room-dialog-title">${room.name[n]}</h2><p>${room.qty[n]}</p><p>${room.details[n]}</p><div class="room-price"><strong>RM ${room.price}</strong><span>${n===0?`/ ${room.unit[n]} / night`:n===1?`／${room.unit[n]}／晚`:`/ ${room.unit[n]} / malam`}</span></div><p class="footnote">${note}</p><a class="button" href="${enquiryLink(room)}">${n===0?'Ask about our upcoming hostel ↗':n===1?'咨询青旅筹备信息 ↗':'Tanya tentang hostel akan datang ↗'}</a>`;
+ const note=n===0?'Accommodation is being prepared. Reservations are not open. Rates are indicative; final rates, taxes and policies will be announced before bookings open.':n===1?'住宿筹备中，暂不接受预订。展示价格仅供参考，最终房价、税费与政策将在开放预订前公布。':'Penginapan sedang disediakan. Tempahan belum dibuka. Kadar adalah indikatif; kadar akhir, cukai dan polisi akan diumumkan sebelum tempahan dibuka.';
+ document.querySelector('#room-dialog-content').innerHTML=`<p class="eyebrow">CO-HUB / COMING SOON</p><h2 id="room-dialog-title">${room.name[n]}</h2><p>${room.qty[n]}</p><p>${room.details[n]}</p><div class="room-price"><strong>RM ${room.price}</strong><span>${n===0?`/ ${room.unit[n]} / night`:n===1?`／${room.unit[n]}／晚`:`/ ${room.unit[n]} / malam`}</span></div><p class="footnote">${note}</p><a class="button" href="${enquiryLink(room)}">${n===0?'Ask about upcoming accommodation ↗':n===1?'咨询住宿筹备信息 ↗':'Tanya tentang penginapan akan datang ↗'}</a>`;
 }
 document.querySelector('#language').addEventListener('change',event=>{language=event.target.value;document.documentElement.lang=language==='zh'?'zh-Hans':language;document.querySelectorAll('[data-en]').forEach(el=>{const value=language==='ms'?(el.dataset.ms||malay[el.dataset.en]):el.dataset[language];el.textContent=(value||el.dataset.en).replaceAll('\\n','\n');});renderRooms();if(selectedRoom!==null)renderRoomDetail();});
 document.querySelectorAll('[data-filter]').forEach(button=>{button.setAttribute('aria-pressed',button.dataset.filter==='all');button.addEventListener('click',()=>{filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',b===button);});renderRooms();});});

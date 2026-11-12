@@ -33,7 +33,7 @@
       lines.push(local('Guests: ','人数：','Tetamu: ')+value('stay-guests'));
       if(value('stay-arrival'))lines.push(local('Planned arrival: ','计划入住：','Tarikh tiba: ')+value('stay-arrival'));
       if(value('stay-departure'))lines.push(local('Planned departure: ','计划退房：','Tarikh keluar: ')+value('stay-departure'));
-      lines.push(local('I understand the hostel is being prepared. Please confirm future booking arrangements; this is not a reservation.','我了解青旅仍在筹备，请确认未来预订安排。本次仅咨询，不是订房。','Saya memahami hostel sedang disediakan. Sila sahkan aturan tempahan akan datang; ini bukan tempahan.'));
+      lines.push(local('I understand accommodation is still being prepared. Please confirm future booking arrangements; this is not a reservation.','我了解住宿仍在筹备，请确认未来预订安排。本次仅咨询，不是订房。','Saya memahami penginapan masih disediakan. Sila sahkan aturan tempahan akan datang; ini bukan tempahan.'));
     }
     if(topic.value==='activities'){
       const activities=[...form.querySelectorAll('[name="activity"]:checked')].map(input=>window.COHUB_I18N.t(input.closest('label').querySelector('span').textContent));

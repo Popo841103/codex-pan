@@ -1,6 +1,6 @@
 # CO-HUB 项目资料（恢复自聊天及线上站点）
 
-品牌CO-HUB，副标题Hostel · Café · Craft Beer。公司COHUB HOSPITALITY SDN. BHD.，注册号202601036422（1698517-V）。地址38B Jalan Nagasari, Bukit Bintang, 50200 Kuala Lumpur, Malaysia。WhatsApp/电话+60 17-849 7319，邮件cohubcom@gmail.com。餐饮09:00–23:30（马来西亚时间）。菜单https://eats.jovianhome.com/menu.html?c=cohubkl，官网不点餐、不支付。
+品牌CO-HUB，官网定位为吉隆坡 Bukit Bintang 的主题生活社区空间。公司COHUB HOSPITALITY SDN. BHD.，注册号202601036422（1698517-V）。地址38B Jalan Nagasari, Bukit Bintang, 50200 Kuala Lumpur, Malaysia。WhatsApp/电话+60 17-849 7319，邮件cohubcom@gmail.com。餐饮09:00–23:30（马来西亚时间）。菜单https://eats.jovianhome.com/menu.html?c=cohubkl，官网不点餐、不支付。
 
 官网https://cohub.jovianhome.com/，Vultr Ubuntu/Caddy，站点目录/var/www/cohub。此前源码未保存在新环境，2026-10-14通过HTTPS恢复了线上HTML/CSS/JS及所有40个页面引用素材。尚未修改线上服务器。
 
@@ -74,7 +74,7 @@ CO-HUB官网通过GitHub Actions40146936228正式更新成功，8项公网文件
 
 ## 19种内置语言与品牌（2026-10-25，以此为准）
 用户要求原16种扩展语言全部改为本站内置译文，不再跳出Google翻译。英文、简体中文、马来文保留，新增繁体中文、日语、韩语、泰语、印尼语、越南语、法语、德语、西语、葡语、俄语、阿拉伯语、印地语、意语、荷兰语、土耳其语。扩展译文预先保存locale-*.json，浏览器只从本站加载，不向外部翻译服务发送页面、表单或购物车；阿语RTL。动态房型、商品、咨询和购物车统一使用语言接口。术语及长篇内容初稿仍应结合母语反馈继续润色，不声称全量专业审校。
-用户确认门头已经是CO-HUB Hostel & Café，官网抬头和页面标题采用该名称；共享办公尚未开放，FAQ明确说明，Google后台未提交。
+用户确认门头已经是CO-HUB Hostel & Café，官网抬头和页面标题采用该名称；共享办公尚未开放，FAQ明确说明，Google后台未提交。2026-11-12起，官网对外定位改为主题生活社区空间，页面标题与口号不再使用 Hostel · Café 或 STAY · SIP · CONNECT。共享办公仍未开放。住宿仍计划于2026年圣诞节期间开业，暂不接受预订。
 
 Google商家资料补充：用户已确认实体门头为CO-HUB Hostel & Café；共享办公尚未开放。用户将由员工填写商家资料，已提供可转发英文版本。助手未提交Google更名或其他后台变更；账号密码不写入任何项目文件。
 
