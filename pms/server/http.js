@@ -1,3 +1,4 @@
+import {applicationPage,trialAsset} from './external-trial-web.js';
 import {readFileSync} from 'node:fs';
 import {lookup} from 'node:dns/promises';
 import {request as httpsRequest} from 'node:https';
@@ -275,7 +276,7 @@ export function validatePublicOrigin(value) {
     throw new Error('PMS_PUBLIC_ORIGIN must be an HTTPS origin without credentials or a path');
   return parsed.origin;
 }
-export function makeServer(store, { publicOrigin, recovery = null, listingReader=readPublicListing } = {}) {
+export function makeServer(store, { publicOrigin, recovery = null, listingReader=readPublicListing, externalTrial=false } = {}) {
   publicOrigin=validatePublicOrigin(publicOrigin);
   const secureCookie=publicOrigin ? '; Secure' : '';
   const attempts=new Map();
@@ -308,6 +309,21 @@ export function makeServer(store, { publicOrigin, recovery = null, listingReader
       const origin=publicOrigin||`http://${req.headers.host}`;
       if(req.method!=='GET'&&(req.headers.origin!==origin||req.headers['sec-fetch-site']==='cross-site'))throw new ServiceError(403,'origin');
       const url=new URL(req.url,origin), path=url.pathname;
+      if(externalTrial && (path==='/signup'||path==='/trial/apply')) {
+        if(req.method==='GET') {
+          res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
+          return res.end(applicationPage(url.searchParams.has('done')));
+        }
+        if(req.method!=='POST')throw new ServiceError(405,'method');
+        const now=Date.now(),key='trial-apply|'+req.socket.remoteAddress;
+        for(const [k,v] of attempts)if(v.until<=now)attempts.delete(k);
+        const limit=attempts.get(key)||{count:0,until:now+15*60*1000};
+        if(limit.count>=5||attempts.size>=10000)throw new ServiceError(429,'rate_limited');
+        limit.count++;attempts.set(key,limit);
+        store.applyForTrial(await form(req));
+        res.writeHead(303,{'Location':'/trial/apply?done','Cache-Control':'no-store'});
+        return res.end();
+      }
       if(path==='/api/mode'&&req.method==='GET')return json(res,200,{mode:'shared-development',version:'0.10.0'});
       // Open trial signup. The page is served from a template inside this module on
       // purpose: the release installer only refreshes existing files, so a new runtime
@@ -486,6 +502,19 @@ export function makeServer(store, { publicOrigin, recovery = null, listingReader
       if(path.startsWith('/api/')){
         const token=cookie(req),session=store.session(token);
         if(req.method==='POST'&&req.headers['x-csrf-token']!==session.csrf)throw new ServiceError(403,'csrf');
+        if(externalTrial) {
+          let pid=url.searchParams.get('propertyId');
+          // Guard before subsystem handling, including direct API calls.
+          if(req.method==='POST' && /^\/api\/(smart-lock|guest-messages|checkin-admin)\/commands$/.test(path)) {
+            const input=await body(req);pid=input.propertyId;
+            store.guardRoute(session.user,path,pid);
+            const subsystem=path.includes('smart-lock')?store.checkin:path.includes('guest-messages')?store.guest:store.checkin;
+            const result=path.includes('smart-lock')?subsystem.lockCommand(session.user,input):await subsystem.command(session.user,input);
+            return json(res,200,result);
+          }
+          store.guardRoute(session.user,path,pid);
+          if(path==='/api/listing-preview')throw new ServiceError(403,'trial_external_connections_disabled');
+        }
         if(path==='/api/session'&&req.method==='GET')return json(res,200,session);
         if(path==='/api/guest-messages'&&req.method==='GET')return json(res,200,store.guest.read(session.user,url.searchParams.get('propertyId'),{threadId:url.searchParams.get('threadId')||undefined,search:url.searchParams.get('search')||'',channel:url.searchParams.get('channel')||'all'}));
         if(path==='/api/guest-messages/commands'&&req.method==='POST')return json(res,200,await store.guest.command(session.user,await body(req)));
@@ -522,7 +551,7 @@ export function makeServer(store, { publicOrigin, recovery = null, listingReader
         '/web/icon-192.png':'web/icon-192.png','/web/icon-512.png':'web/icon-512.png','/web/icon-maskable.png':'web/icon-maskable.png','/src/inventory.js':'src/inventory.js','/src/demo-store.js':'src/demo-store.js','/src/catalog.js':'src/catalog.js','/src/reservations.js':'src/reservations.js','/src/dashboard.js':'src/dashboard.js','/web/dashboard-ui.js':'web/dashboard-ui.js','/web/reservation-ui.js':'web/reservation-ui.js','/web/catalog-ui.js':'web/catalog-ui.js'};
       if(!Object.hasOwn(assets,path))throw new ServiceError(404,'not_found');
       const mime=(path.endsWith('.png')||path==='/favicon.ico')?'image/png':path.endsWith('.webmanifest')?'application/manifest+json':path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html';
-      const content=await readFile(join(root,assets[path]));res.writeHead(200,{'Content-Type':mime+((path.endsWith('.png')||path==='/favicon.ico')?'':'; charset=utf-8'),'Cache-Control':'no-store'});res.end(content);
+      let content=await readFile(join(root,assets[path]));if(externalTrial)content=trialAsset(path,content);res.writeHead(200,{'Content-Type':mime+((path.endsWith('.png')||path==='/favicon.ico')?'':'; charset=utf-8'),'Cache-Control':'no-store'});res.end(content);
     }catch(e){json(res,e instanceof ServiceError||e instanceof SupportError||e instanceof MessagingError||e instanceof CheckinError?e.status:500,{error:e instanceof ServiceError||e instanceof SupportError||e instanceof MessagingError||e instanceof CheckinError?e.message:'internal_error'});}
   });
   server.requestTimeout=10000;server.headersTimeout=10000;

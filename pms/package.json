@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node --test",
     "start": "node server/main.js",
-    "setup": "node server/setup.js"
+    "setup": "node server/setup.js",
+    "trial": "node server/external-trial-main.js",
+    "trial:admin": "node server/external-trial-admin.js"
   },
   "engines": {
     "node": ">=24"
