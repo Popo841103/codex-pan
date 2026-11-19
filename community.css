@@ -90,3 +90,8 @@ dialog.host-dialog .slot:has(:checked){border-color:#86601b;background:#f8edd6}
 dialog.host-dialog .slot:has(:disabled){background:#f0ece6;color:#72695f;cursor:not-allowed}
 @media(max-width:420px){dialog.host-dialog .slot-grid{grid-template-columns:1fr}}
 @media(max-width:560px){body.community-guest header .nav-book span{white-space:normal;overflow-wrap:anywhere}}
+
+dialog.host-dialog #hostResult{margin:0 22px 22px;overflow-wrap:anywhere}
+dialog.host-dialog #hostResult:not(:has(> :not([hidden]))){margin:0}
+dialog.host-dialog #hostResult a{display:inline-block;text-decoration:underline}
+dialog.host-dialog .host-send:disabled{opacity:.55;cursor:not-allowed}

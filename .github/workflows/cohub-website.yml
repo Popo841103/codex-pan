@@ -6,6 +6,7 @@ on:
       - '*.html'
       - '*.js'
       - '*.css'
+      - community-events.php
       - community-activities.json
       - 'locale-*.json'
       - scripts/i18n/**
@@ -33,6 +34,8 @@ jobs:
         run: |
           python3 scripts/i18n/check-locales.py
           python3 tests/deploy-release.py
+          php -l community-events.php
+          python3 tests/community-events.py
           bash -n scripts/deploy/ci/setup-server.sh
           bash -n scripts/deploy/ci/receive-release.sh
           python3 scripts/deploy/build-static.py cohub-release.zip
@@ -60,4 +63,7 @@ jobs:
           SSH=(ssh -F /dev/null -i "$TASK_SSH_DIR/key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$TASK_SSH_DIR/known_hosts" -o ConnectTimeout=20 root@207.148.78.107)
           "${SSH[@]}" status
           "${SSH[@]}" "deploy $GITHUB_SHA" < cohub-release.zip
+          curl --fail --silent --show-error --compressed --max-time 20 https://cohub.jovianhome.com/community.html | cmp - community.html
+          curl --fail --silent --show-error --max-time 20 'https://cohub.jovianhome.com/community-events.php?date=2000-01-01' |
+            python3 -c 'import json,sys; data=json.load(sys.stdin); assert data["date"] == "2000-01-01" and isinstance(data["occupied"], list)'
           echo "CO-HUB website deployment verified for commit $GITHUB_SHA. PMS unchanged." >> "$GITHUB_STEP_SUMMARY"

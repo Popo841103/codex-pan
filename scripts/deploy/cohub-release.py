@@ -11,11 +11,15 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 def safe_name(name):
+    if not isinstance(name,str):
+        raise DeploymentError('Unsafe release path')
     p=PurePosixPath(name)
-    if not isinstance(name,str) or p.is_absolute() or '\\' in name or '..' in p.parts or not p.parts or p.parts[0]=='_deploy':
+    if p.as_posix()!=name or p.is_absolute() or '\\' in name or '..' in p.parts or not p.parts or p.parts[0]=='_deploy':
         raise DeploymentError('Unsafe release path')
     if len(p.parts)>1 and p.parts[0]!='assets':
         raise DeploymentError('Unexpected release directory: '+name)
+    if p.suffix.lower().startswith(('.php', '.phtml', '.phar')) and name!='community-events.php':
+        raise DeploymentError('Unexpected PHP file: '+name)
     return p
 
 def atomic_copy(source,target):
@@ -73,6 +77,10 @@ def apply_release(root,archive,backup_base,probe,log=print,baseline_override=Non
             touched.append(name);atomic_copy(stage.joinpath(*p.parts),target)
         for name in ['index.html','community.html','guide.html','enquiry.html','enquiry.js']:
             if name in files and digest(probe(name))!=files[name]:raise DeploymentError('Live verification failed: '+name)
+        if 'community-events.php' in files:
+            occupancy=json.loads(probe('community-events.php?date=2000-01-01'))
+            if occupancy.get('date')!='2000-01-01' or not isinstance(occupancy.get('occupied'),list):
+                raise DeploymentError('Community occupancy health check failed.')
         log('SUCCESS: CO-HUB community, guide and enquiry release verified. No services restarted.')
         return backup
     except Exception:
@@ -87,7 +95,7 @@ def apply_release(root,archive,backup_base,probe,log=print,baseline_override=Non
 
 def local_https_probe(name):
     from urllib.parse import quote
-    command=['curl','--fail','--silent','--show-error','--compressed','--max-time','20','--resolve','cohub.jovianhome.com:443:127.0.0.1','https://cohub.jovianhome.com/'+quote(name,safe='/')]
+    command=['curl','--fail','--silent','--show-error','--compressed','--max-time','20','--resolve','cohub.jovianhome.com:443:127.0.0.1','https://cohub.jovianhome.com/'+quote(name,safe='/?=')]
     result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False)
     if result.returncode:raise DeploymentError('Local HTTPS check failed; no TLS bypass used. '+result.stderr.decode('utf-8','replace')[:300])
     return result.stdout
