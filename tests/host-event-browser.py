@@ -87,25 +87,25 @@ def verify(browser, url):
     assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == ['10-12']
     confirmed = row.locator('[data-result=confirmed]')
     required_copy = {
-        'en': ['poster and request ID', 'public business number', 'other private numbers',
-               'do not upload the poster on this website yourself', 'will not appear on the public list'],
-        'zh': ['海报和申请编号', '商家公开号', '不要发到其他私人号码',
-               '不要在本网站自行上传海报', '没有海报前，活动不会出现在公开列表'],
-        'ms': ['poster serta ID permohonan', 'nombor perniagaan awam', 'Jangan hantar ke nombor peribadi lain',
-               'jangan muat naik poster sendiri di laman ini', 'aktiviti tidak akan muncul dalam senarai awam'],
+        'en': ['upload your poster in My Events', 'will not appear on the public list'],
+        'zh': ['在「我的活动」自行上传海报', '没有海报前，活动不会出现在公开列表'],
+        'ms': ['muat naik poster anda di Aktiviti Saya', 'aktiviti tidak akan muncul dalam senarai awam'],
     }
     english = confirmed.inner_text()
+    upload = row.locator('[data-poster-button=upload]')
+    upload_english = upload.inner_text()
     for lang in LANGUAGES:
         page.select_option('#language', lang)
         expect(page.locator('#language-status')).to_be_hidden()
-        expect(confirmed).to_contain_text('+60 17-849 7319')
         if lang != 'en':
             expect(confirmed).not_to_have_text(english)
+            expect(upload).not_to_have_text(upload_english)
         for phrase in required_copy.get(lang, []):
             expect(confirmed).to_contain_text(phrase)
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), lang
     page.select_option('#language', 'en')
-    expect(page.locator('input[type=file]')).to_have_count(0)
+    expect(form.locator('input[type=file]')).to_have_count(0)
+    expect(row.locator('input[type=file]')).to_be_visible()
     page.get_by_role('link', name="What's on", exact=True).click()
     expect(page).to_have_url(url + 'community.html#events')
     expect(grid.locator('[data-published]')).to_have_count(0)
@@ -115,6 +115,22 @@ def verify(browser, url):
     page.get_by_role('link', name='My Events', exact=True).click()
     expect(row).to_contain_text('Confirmed')
     expect(auth).to_be_hidden()
+    row.locator('input[type=file]').set_input_files(str(ROOT / 'assets/coffee/cohub-event-ai-meetup-v2.webp'))
+    row.get_by_role('button', name='Upload poster').click()
+    expect(page.locator('#accountStatus')).to_contain_text('Poster uploaded.')
+    expect(row.get_by_role('button', name='Replace poster')).to_be_visible()
+    page.reload()
+    expect(row.get_by_role('button', name='Replace poster')).to_be_visible()
+    page.get_by_role('link', name="What's on", exact=True).click()
+    published = grid.locator('[data-published]')
+    expect(published).to_contain_text('Saturday coffee and conversation')
+    expect(grid.locator('.event-sample')).to_have_count(10)
+    image = published.locator('img')
+    image.scroll_into_view_if_needed()
+    assert image.get_attribute('src').startswith('/community-events.php?poster=cohub-poster-')
+    page.wait_for_function('image => image.complete && image.naturalWidth > 0', arg=image.element_handle())
+    page.get_by_role('link', name='My Events', exact=True).click()
+    expect(row.get_by_role('button', name='Replace poster')).to_be_visible()
     page.locator('#signOut').click()
     expect(row).to_have_count(0)
     expect(form).to_be_hidden()
@@ -127,6 +143,8 @@ def verify(browser, url):
     row.get_by_role('button', name='Cancel').click()
     expect(row).to_contain_text('Cancelled')
     expect(row.get_by_role('button', name='Cancel')).to_have_count(0)
+    expect(row.locator('input[type=file]')).to_have_count(0)
+    assert page.request.get(url + 'community-events.php?published=1').json()['events'] == []
     assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == []
     # A rejected proposal shows its specific reason locally and leaves the slot open.
     form.locator('[name=name]').fill('Local organizer')
@@ -173,7 +191,7 @@ def main():
         finally:
             server.terminate()
             server.wait(timeout=5)
-    print('PASS: four/three/two-column grid, 19 languages, hosting, automatic confirmation, sign-in and guest cancellation.')
+    print('PASS: four/three/two-column grid, 19 languages, hosting, automatic confirmation, poster upload and public display, sign-in and guest cancellation.')
 
 
 if __name__ == '__main__':

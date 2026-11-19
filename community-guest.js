@@ -92,6 +92,10 @@
         if (['pending', 'confirmed'].includes(record.status)) {
           card.append(localCopy('[data-result="' + record.status + '"]'));
         }
+        if (record.status === 'confirmed') {
+          if (record.poster) card.append(localCopy('[data-result="poster-uploaded"]'));
+          card.append(posterForm(record));
+        }
         if (record.reason) {
           const reasonCopy = Array.from(copy.querySelectorAll('[data-reason]'))
             .find(node => node.dataset.reason === record.reason);
@@ -119,6 +123,37 @@
         byId('myRequests').append(card);
       }
       if (!account.requests.length) byId('myRequests').append(localCopy('[data-copy="empty"]'));
+    }
+
+    function posterForm(record) {
+      const upload = localCopy('[data-poster-form]');
+      upload.querySelector('[data-poster-button="upload"]').hidden = Boolean(record.poster);
+      upload.querySelector('[data-poster-button="replace"]').hidden = !record.poster;
+      upload.addEventListener('submit', event => {
+        event.preventDefault();
+        void run(async () => {
+          const fields = new FormData(upload);
+          const file = fields.get('poster');
+          if (!file.size || file.size > 2000000) return message('[data-result="poster-failed"]');
+          fields.set('action', 'upload-poster');
+          fields.set('id', record.id);
+          try {
+            const response = await fetch(endpoint, {
+              method: 'POST', body: fields, signal: AbortSignal.timeout(15000)
+            });
+            if (response.status === 401) {
+              showAccount(null);
+              return message('[data-result="poster-failed"]');
+            }
+            if (!response.ok) return message('[data-result="poster-failed"]');
+            await loadMine();
+            message('[data-result="poster-uploaded"]');
+          } catch {
+            message('[data-result="poster-failed"]');
+          }
+        });
+      });
+      return upload;
     }
 
     async function loadMine() {

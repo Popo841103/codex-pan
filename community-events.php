@@ -7,6 +7,9 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
+const POSTER_LIMIT = 2000000;
+const POSTER_TYPES = ['webp' => 'image/webp', 'png' => 'image/png', 'jpg' => 'image/jpeg'];
+
 const SLOTS = ['10-12', '14-17', '18-20', '20-2230'];
 const LIMITS = ['name' => 80, 'phone' => 40, 'email' => 120, 'title' => 80,
     'date' => 10, 'slot' => 7, 'intro' => 400, 'note' => 400];
@@ -202,7 +205,8 @@ function transaction(bool $write, callable $operation, string $store = 'events')
                 throw new RuntimeException('Invalid event store');
             }
         }
-        [$status, $response, $changed] = $operation($records);
+        $result = $operation($records);
+        [$status, $response, $changed] = $result;
         if ($changed) {
             $temporary = tempnam($directory, $store . '-');
             if ($temporary === false) {
@@ -218,6 +222,9 @@ function transaction(bool $write, callable $operation, string $store = 'events')
                     unlink($temporary);
                 }
             }
+        }
+        if (isset($result[3])) {
+            $result[3]();
         }
         return [$status, $response];
     } finally {
@@ -387,11 +394,15 @@ function accountAction(string $action, array $body): array
             $mine = [];
             foreach (array_reverse($records) as $record) {
                 if (($record['owner'] ?? null) === $guest['id']) {
-                    $mine[] = summary($record) + array_intersect_key($record, ['reason' => true]);
+                    $mine[] = summary($record) + ['poster' => posterUrl($record['poster'] ?? null)]
+                        + array_intersect_key($record, ['reason' => true]);
                 }
             }
             return [200, ['email' => $guest['email'], 'phone' => $guest['phone'], 'requests' => $mine], false];
         });
+    }
+    if ($action === 'upload-poster') {
+        return uploadPoster($body['id'] ?? '', $guest['id']);
     }
     if ($action === 'cancel-my-event') {
         $id = $body['id'] ?? '';
@@ -431,13 +442,114 @@ function accountAction(string $action, array $body): array
     });
 }
 
+function posterDirectory(bool $create = false): string
+{
+    $directory = privateDirectory() . '/posters';
+    if ($create && !is_dir($directory) && !mkdir($directory, 0700)) {
+        throw new RuntimeException('Cannot create poster directory');
+    }
+    if (is_link($directory) || (file_exists($directory)
+        && (!is_dir($directory) || (fileperms($directory) & 0077) !== 0))) {
+        throw new RuntimeException('Private poster storage unavailable');
+    }
+    return $directory;
+}
+
 function posterPath($file): ?string
 {
     if (!is_string($file) || !preg_match('/\Acohub-poster-[a-z0-9-]+\.(?:webp|png|jpg)\z/', $file)) {
         return null;
     }
-    $path = 'assets/coffee/' . $file;
-    return is_file(__DIR__ . '/' . $path) ? $path : null;
+    $private = posterDirectory() . '/' . $file;
+    if (!is_link($private) && is_file($private)) {
+        return $private;
+    }
+    $static = __DIR__ . '/assets/coffee/' . $file;
+    return is_file($static) ? $static : null;
+}
+
+function posterUrl($file): ?string
+{
+    return posterPath($file) === null ? null : '/community-events.php?poster=' . $file;
+}
+
+function uploadPoster($id, string $owner): array
+{
+    return transaction(true, static function (array &$records) use ($id, $owner): array {
+        if (!is_string($id) || !preg_match('/\ACOHUB-[a-f0-9]{32}\z/', $id)
+            || ($records[$id]['owner'] ?? null) !== $owner) {
+            return [404, ['status' => 'unknown'], false];
+        }
+        $record = &$records[$id];
+        if ($record['status'] !== 'confirmed') {
+            return [409, ['status' => 'not_confirmed'], false];
+        }
+
+        $upload = $_FILES['poster'] ?? [];
+        $type = false;
+        if (($upload['error'] ?? null) === UPLOAD_ERR_OK && $upload['size'] <= POSTER_LIMIT) {
+            $image = @getimagesize($upload['tmp_name']);
+            if ($image !== false && $image[0] > 0 && $image[1] > 0) {
+                $type = array_search($image['mime'], POSTER_TYPES, true);
+            }
+        }
+        if ($type === false) {
+            return [422, ['status' => 'invalid', 'fields' => ['poster']], false];
+        }
+
+        $prefix = 'cohub-poster-' . substr($id, 6);
+        $file = $prefix . '.' . $type;
+        $directory = posterDirectory(true);
+        $temporary = tempnam($directory, 'upload-');
+        if ($temporary === false) {
+            throw new RuntimeException('Cannot stage poster');
+        }
+        try {
+            if (!move_uploaded_file($upload['tmp_name'], $temporary) || !chmod($temporary, 0600)
+                || !rename($temporary, $directory . '/' . $file)) {
+                throw new RuntimeException('Cannot save poster');
+            }
+        } finally {
+            if (is_file($temporary)) {
+                unlink($temporary);
+            }
+        }
+
+        $previous = $record['poster'] ?? null;
+        $record['poster'] = $file;
+        // Keep the previous image available until the new association is committed.
+        $cleanup = static function () use ($previous, $file, $prefix, $directory, &$records): void {
+            if ($previous !== $file && in_array($previous, [
+                $prefix . '.webp', $prefix . '.png', $prefix . '.jpg',
+            ], true) && !in_array($previous, array_column($records, 'poster'), true)) {
+                $path = $directory . '/' . $previous;
+                if (is_file($path) && !unlink($path)) {
+                    error_log('CO-HUB could not remove a superseded guest poster');
+                }
+            }
+        };
+        return [200, summary($record) + ['poster' => posterUrl($file)], $previous !== $file, $cleanup];
+    });
+}
+
+function servePoster($file): void
+{
+    [$status, $body] = transaction(false, static function (array $records) use ($file): array {
+        $path = posterPath($file);
+        if ($path !== null) {
+            foreach ($records as $record) {
+                if (($record['poster'] ?? null) === $file && $record['status'] === 'confirmed' && isUpcoming($record)) {
+                    header('Content-Type: ' . POSTER_TYPES[pathinfo($path, PATHINFO_EXTENSION)]);
+                    readfile($path);
+                    return [200, [], false];
+                }
+            }
+        }
+        return [404, ['status' => 'unknown'], false];
+    });
+    if ($status !== 200) {
+        reply($status, $body);
+    }
 }
 
 function isUpcoming(array $record): bool
@@ -483,7 +595,7 @@ function publishedEvents(): array
             if ($record['status'] !== 'confirmed' || !isUpcoming($record)) {
                 continue;
             }
-            $poster = posterPath($record['poster'] ?? null);
+            $poster = posterUrl($record['poster'] ?? null);
             if ($poster !== null) {
                 $events[] = summary($record) + ['intro' => $record['intro'], 'poster' => $poster];
             }
@@ -520,7 +632,11 @@ function handle(): array
         header('Allow: GET, POST');
         return [405, ['status' => 'method']];
     }
-    if (strtolower(trim(explode(';', $_SERVER['CONTENT_TYPE'] ?? '')[0])) !== 'application/json') {
+    $contentType = strtolower(trim(explode(';', $_SERVER['CONTENT_TYPE'] ?? '')[0]));
+    if ($contentType === 'multipart/form-data' && ($_POST['action'] ?? '') === 'upload-poster') {
+        return accountAction('upload-poster', $_POST);
+    }
+    if ($contentType !== 'application/json') {
         return [415, ['status' => 'invalid']];
     }
     $raw = file_get_contents('php://input', false, null, 0, 8193);
@@ -576,10 +692,10 @@ function handle(): array
     if ($action === 'publish') {
         $id = $body['id'] ?? '';
         $poster = $body['poster'] ?? null;
-        if (posterPath($poster) === null) {
-            return [422, ['status' => 'invalid', 'fields' => ['poster']]];
-        }
         return transaction(true, static function (array &$records) use ($id, $poster): array {
+            if (posterPath($poster) === null) {
+                return [422, ['status' => 'invalid', 'fields' => ['poster']], false];
+            }
             if (!is_string($id) || !isset($records[$id])) {
                 return [404, ['status' => 'unknown'], false];
             }
@@ -673,8 +789,12 @@ function handle(): array
 }
 
 try {
-    [$status, $body] = handle();
-    reply($status, $body);
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && array_key_exists('poster', $_GET)) {
+        servePoster($_GET['poster']);
+    } else {
+        [$status, $body] = handle();
+        reply($status, $body);
+    }
 } catch (Throwable $error) {
     error_log('CO-HUB community event store request failed');
     reply(503, ['status' => 'unavailable']);
