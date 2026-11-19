@@ -83,7 +83,7 @@ class CommunityEvents(unittest.TestCase):
     def call(self, body=None, staff=False, client=None, query=None):
         headers = {'Content-Type': 'application/json'}
         if staff:
-            headers['Authorization'] = 'Bearer ' + self.token
+            headers['Authorization'] = 'Bearer ' + (self.token if staff is True else staff)
         url = self.url if body is not None else self.url + '?' + (query or 'date=' + self.day)
         request = Request(url, data=json.dumps(body).encode() if body is not None else None, headers=headers)
         try:
@@ -129,7 +129,7 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.call(self.fields)[0], 401)
         client, _ = self.guest()
         status, record = self.call({**self.fields, 'action': 'submit-event'}, client=client)
-        self.assertEqual((status, record['status']), (202, 'pending'))
+        self.assertEqual((status, record['status']), (201, 'confirmed'))
         self.assertEqual(self.occupancy(), ['20-2230'])
         self.assertEqual(self.call({'action': 'approve', 'id': record['id']}, staff=True)[0], 403)
         self.assertEqual(self.call({'action': 'cancel-my-event', 'id': record['id']}, client=client)[0], 200)
@@ -142,7 +142,7 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.call({'action': 'sign-in', **auth, 'password': 'invalid-password'}, client=second)[0], 403)
         self.assertNotIn(auth['password'], (self.data / 'accounts.json').read_text())
         self.assertEqual((self.data / 'accounts.json').stat().st_mode & 0o777, 0o600)
-        request = {**self.fields, 'action': 'submit-event'}
+        request = {**self.fields, 'action': 'submit-event', 'note': 'Need a stage'}
         self.assertEqual(self.call(request)[0], 401)
         start = Barrier(2)
 
@@ -195,8 +195,6 @@ class CommunityEvents(unittest.TestCase):
         event_id = event['id']
         request = {'action': 'join-event', 'id': event_id, 'name': 'Local participant'}
         self.assertEqual(self.call({**request, 'email': 'before@invalid.test'})[0], 404)
-        self.assertEqual(self.call({'action': 'approve', 'id': event_id}, staff=True)[0], 200)
-        self.assertEqual(self.call({**request, 'email': 'before@invalid.test'})[0], 404)
         self.assertEqual(self.call({'action': 'publish', 'id': event_id, 'poster': self.poster}, staff=True)[0], 200)
 
         def join(index):
@@ -217,7 +215,7 @@ class CommunityEvents(unittest.TestCase):
 
     def test_rejected_or_withdrawn_requests_release_hold(self):
         client, _ = self.guest()
-        request = {**self.fields, 'action': 'submit-event'}
+        request = {**self.fields, 'action': 'submit-event', 'note': 'Need a stage'}
         _, first = self.call(request, client=client)
         self.assertEqual(self.occupancy(), ['20-2230'])
         self.assertEqual(self.call({'action': 'reject', 'id': first['id'], 'reason': 'Staff review reason'}, staff=True)[0], 200)
@@ -228,7 +226,59 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.occupancy(), [])
         _, rejected = self.call({**request, 'intro': 'Sell illegal drugs'}, client=client)
         self.assertEqual(rejected['status'], 'rejected')
+        self.assertEqual(rejected['reason'], 'venue_policy')
         self.assertEqual(self.occupancy(), [])
+
+    def test_manual_review_signals_hold_the_slot(self):
+        owner, _ = self.guest()
+        for note in ('15–24 attendees', '20–30人', 'Exclusive use', 'Possible scheduling conflict',
+                     'Special sound equipment', 'Details TBD'):
+            with self.subTest(note=note):
+                code, event = self.call({**self.fields, 'action': 'submit-event', 'note': note}, client=owner)
+                self.assertEqual((code, event['status']), (202, 'pending'))
+                self.assertEqual(self.occupancy(), ['20-2230'])
+                self.assertEqual(self.call({'action': 'cancel-my-event', 'id': event['id']}, client=owner)[0], 200)
+                self.assertEqual(self.occupancy(), [])
+
+    def test_automatic_confirmation_and_updates(self):
+        owner, auth = self.guest()
+        other, _ = self.guest(2)
+        request = {**self.fields, 'action': 'submit-event', 'title': 'Saturday yoga for neighbours',
+                   'intro': 'A guided beginner session with breathing exercises for 20 people.'}
+        code, event = self.call(request, client=owner)
+        self.assertEqual(code, 201)
+        self.assertEqual(event, {key: request[key] for key in ('title', 'date', 'slot')}
+                         | {'id': event['id'], 'status': 'confirmed'})
+        self.assertEqual(self.occupancy(), ['20-2230'])
+        self.assertEqual(self.call(request, client=other), (409, {'status': 'taken'}))
+        poll = {'action': 'updates'}
+        self.assertEqual(self.call(poll)[0], 403)
+        self.assertEqual(self.call(poll, staff=secrets.token_hex(32))[0], 403)
+        self.assertEqual(self.call({**poll, 'since': '2100-02-29T00:00:00Z'}, staff=True)[0], 422)
+
+        cancel = {'action': 'cancel-my-event', 'id': event['id']}
+        self.assertEqual(self.call(cancel, client=owner), (200, {**event, 'status': 'cancelled'}))
+        self.assertEqual(self.occupancy(), [])
+        self.assertEqual(self.call(cancel, client=owner)[0], 200)
+        _, pending = self.call({**request, 'intro': 'Yoga for 25 people'}, client=other)
+        self.assertEqual(pending['status'], 'pending')
+        self.assertEqual(self.call(request, client=owner), (409, {'status': 'taken'}))
+        self.assertEqual(self.call({'action': 'cancel', 'id': pending['id']}, staff=True)[0], 200)
+
+        code, response = self.call(poll, staff=True)
+        self.assertEqual(code, 200)
+        confirmed, cancelled, staff_cancelled = response['updates']
+        for update, expected in [(confirmed, event), (cancelled, {**event, 'status': 'cancelled'})]:
+            self.assertRegex(update['changedAt'], r'^\d{4}-\d{2}-\d{2}T.*\.\d{6}Z$')
+            self.assertEqual(update, {**expected, 'changedAt': update['changedAt'], 'name': request['name'],
+                                      'phone': '601101000001', 'email': auth['email']})
+        self.assertEqual(staff_cancelled['id'], pending['id'])
+        self.assertEqual(staff_cancelled['status'], 'cancelled')
+        self.assertEqual(staff_cancelled['email'], 'guest2@invalid.test')
+        self.assertEqual(self.call({**poll, 'since': cancelled['changedAt']}, staff=True),
+                         (200, {'updates': [cancelled, staff_cancelled]}))
+        self.assertEqual(self.call({**poll, 'since': '9999-01-01T00:00:00Z'}, staff=True),
+                         (200, {'updates': []}))
 
     def test_fields_and_sample_cards(self):
         parser = Samples()
@@ -256,7 +306,7 @@ class CommunityEvents(unittest.TestCase):
         (success, record), (conflict, error) = results
         self.assertEqual((success, conflict, error['status']), (201, 409, 'taken'))
         self.assertEqual(self.occupancy(), ['20-2230'])
-        self.assertEqual(set(record), {'id', 'date', 'slot', 'status', 'cancelToken'})
+        self.assertEqual(set(record), {'id', 'date', 'slot', 'status', 'title', 'cancelToken'})
         self.assertEqual(self.call({'action': 'cancel', 'id': record['id']})[0], 403)
         self.assertEqual(self.call({'action': 'cancel', 'id': 'unknown'}, staff=True)[0], 404)
         cancel = {'action': 'cancel', 'id': record['id']}
@@ -276,7 +326,7 @@ class CommunityEvents(unittest.TestCase):
         credentials = {'id': record['id'], 'token': record['cancelToken']}
         status, booking = self.call({'action': 'guest-status', **credentials})
         self.assertEqual(status, 200)
-        self.assertEqual(booking, {key: record[key] for key in ('id', 'status', 'date', 'slot')})
+        self.assertEqual(booking, {key: record[key] for key in ('id', 'status', 'title', 'date', 'slot')})
 
         cancel = {'action': 'guest-cancel', **credentials}
         self.assertEqual(self.call({'action': 'guest-cancel', 'id': record['id']})[0], 403)
@@ -296,9 +346,9 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.occupancy(), ['20-2230'])
 
     def test_moderation_and_pending_withdrawal(self):
-        status, pending = self.staff_lock({**self.fields, 'intro': 'A topic for staff to review'})
+        status, pending = self.staff_lock({**self.fields, 'intro': 'The topic is still to be decided'})
         self.assertEqual(status, 202)
-        self.assertEqual(self.occupancy(), [])
+        self.assertEqual(self.occupancy(), ['20-2230'])
         queued = self.call({'action': 'pending'}, staff=True)[1]['requests'][0]
         self.assertEqual(queued['id'], pending['id'])
         self.assertNotIn('cancelToken', queued)
@@ -307,7 +357,7 @@ class CommunityEvents(unittest.TestCase):
         rejected = self.staff_lock({**self.fields, 'intro': 'Sell illegal drugs'})
         self.assertEqual(rejected, (422, {'status': 'rejected', 'reason': 'venue_policy'}))
         self.assertEqual(self.occupancy(), [])
-        _, pending = self.staff_lock({**self.fields, 'intro': 'A topic for staff to review'})
+        _, pending = self.staff_lock({**self.fields, 'intro': 'The topic is still to be decided'})
         approve = {'action': 'approve', 'id': pending['id']}
         self.assertEqual(self.call(approve, staff=True)[0], 200)
         self.assertEqual(self.occupancy(), ['20-2230'])

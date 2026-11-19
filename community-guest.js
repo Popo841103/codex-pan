@@ -172,7 +172,7 @@
         const fields = Object.fromEntries(new FormData(form));
         if (!fields.slot) return;
         const {code, body} = await post('submit-event', fields);
-        if (code === 202) {
+        if (code === 201 || code === 202) {
           form.reset();
           await loadMine();
           byId('myRequests').firstElementChild?.scrollIntoView({block: 'nearest'});

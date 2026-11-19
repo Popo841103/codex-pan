@@ -59,24 +59,30 @@ function validateRequest(array $body, array &$errors): array
 function moderation(array $request): string
 {
     $text = implode("\n", [$request['title'], $request['intro'], $request['note']]);
-    if (preg_match('/\b(?:sell illegal drugs|stalk and harass|organize a hate rally|drinking contest)\b|贩卖毒品|販賣毒品|组织骚扰|組織騷擾|jualan dadah haram/iu', $text)) {
+    if (preg_match('/\b(?:sell(?:ing)? illegal drugs|stalk and harass|(?:organize a )?hate rally|drinking contest|'
+        . 'underage drinking|racial supremacy rally|doxx(?:ing)? participants)\b|贩卖毒品|販賣毒品|组织骚扰|組織騷擾|'
+        . '拼酒比赛|種族仇恨集會|种族仇恨集会|jualan dadah haram|pertandingan minum arak/iu', $text)) {
         return 'rejected';
     }
-    // Immediate approval is limited to recognizable low-risk titles and descriptions.
-    $topic = '(?:AI meetup|language exchange|book club|coffee tasting|drawing workshop|board games|'
-        . 'AI 交流局|AI交流|语言交换|讀書會|读书会|咖啡品鉴|绘画工作坊|桌游|'
-        . 'Pertemuan AI|Pertukaran bahasa|Kelab buku|Sesi merasa kopi|Bengkel melukis|Permainan papan)';
-    $intro = '(?:Share AI tools and tips|Practice languages together|Discuss books together|'
-        . 'Taste coffee together|Draw together|Play board games together|分享AI工具和技巧|一起练习语言|一起读书|'
-        . '一起品尝咖啡|一起画画|一起玩桌游|Kongsi alat dan petua AI|Berlatih bahasa bersama|'
-        . 'Bincang buku bersama|Rasa kopi bersama|Melukis bersama|Bermain permainan papan bersama)';
-    $notes = ['', 'projector', 'projector needed', '需要投影仪', 'Perlu projektor'];
-    if (preg_match('/\A' . $topic . '\z/iu', $request['title'])
-        && preg_match('/\A' . $intro . '[.!。！]?\z/iu', $request['intro'])
-        && in_array(strtolower($request['note']), $notes, true)) {
-        return 'confirmed';
+    preg_match_all('/([0-9]+)\s*(?:[-–~至到]\s*([0-9]+)\s*)?(?:[+＋-]\s*)?'
+        . '(?:people\b|persons?\b|participants?\b|guests?\b|attendees?\b|pax\b|orang\b|peserta\b|人|位)/iu', $text, $counts, PREG_SET_ORDER);
+    foreach ($counts as $count) {
+        if ((int)$count[1] > 20 || (int)$count[2] > 20) {
+            return 'pending';
+        }
     }
-    return 'pending';
+    if (preg_match('/\b(?:exclusive use|private buyout|whole venue|(?:book|rent) (?:out )?the entire venue|'
+        . 'stage setup|portable stage|(?:need|build|set up) (?:a )?stage|special (?:audio|sound)|large decorations|'
+        . 'extensive decorations|structural changes|reconfigure the venue|venue schedule conflict|'
+        . 'possible (?:schedule|scheduling) conflict|overlap with (?:another|a house|an in-house)|'
+        . 'to be decided|to be confirmed|unspecified|not sure|undecided|details (?:pending|tbd)|'
+        . 'sewa seluruh ruang|pentas khas|sistem bunyi khas|hiasan besar|belum pasti|pertindihan jadual)\b|'
+        . '包场|包場|独占场地|獨佔場地|舞台|特殊音响|特殊音響|大量装饰|大量裝飾|改建场地|改建場地|'
+        . '可能冲突|可能衝突|店内安排冲突|店內安排衝突|待定|还没想好|還沒想好/iu', $text)
+        || preg_match('/\A(?:[^\p{L}\p{N}]*|tbd|test|n\/?a|unknown|未知|再说|再說)\z/iu', $request['intro'])) {
+        return 'pending';
+    }
+    return 'confirmed';
 }
 
 function authorizeStaff(): bool
@@ -92,8 +98,7 @@ function authorizeStaff(): bool
 
 function occupy(array $record): bool
 {
-    return $record['status'] === 'confirmed'
-        || ($record['status'] === 'pending' && isset($record['owner']));
+    return in_array($record['status'], ['pending', 'confirmed'], true);
 }
 
 function privateDirectory(): string
@@ -167,7 +172,45 @@ function taken(array $records, array $request, string $except = ''): bool
 
 function summary(array $record): array
 {
-    return array_intersect_key($record, array_flip(['id', 'status', 'date', 'slot']));
+    return array_intersect_key($record, array_flip(['id', 'status', 'title', 'date', 'slot']));
+}
+
+function changeStatus(array &$record, string $status): void
+{
+    $record['status'] = $status;
+    if (in_array($status, ['confirmed', 'cancelled'], true)) {
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $record['updates'][] = ['status' => $status, 'changedAt' => $now->format('Y-m-d\TH:i:s.u\Z')];
+    }
+}
+
+function eventUpdates(array $body): array
+{
+    $since = '';
+    if (array_key_exists('since', $body)) {
+        $value = $body['since'];
+        if (!is_string($value)
+            || !preg_match('/\A([0-9]{4}-[0-9]{2}-[0-9]{2})T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]{1,6})?Z\z/', $value, $parts)
+            || !validDate($parts[1])) {
+            return [422, ['status' => 'invalid', 'fields' => ['since']]];
+        }
+        $since = (new DateTimeImmutable($value))->format('Y-m-d\TH:i:s.u\Z');
+    }
+    return transaction(false, static function (array $records) use ($since): array {
+        $updates = [];
+        foreach ($records as $record) {
+            foreach ($record['updates'] ?? [] as $change) {
+                if ($change['changedAt'] >= $since) {
+                    $updates[] = $change + summary($record)
+                        + array_intersect_key($record, array_flip(['name', 'phone', 'email']));
+                }
+            }
+        }
+        usort($updates, static function (array $a, array $b): int {
+            return $a['changedAt'] <=> $b['changedAt'];
+        });
+        return [200, ['updates' => $updates], false];
+    });
 }
 
 function guestBooking(array $body, bool $cancel): array
@@ -185,7 +228,7 @@ function guestBooking(array $body, bool $cancel): array
         $record = &$records[$id];
         $changed = $cancel && $record['status'] === 'confirmed';
         if ($changed) {
-            $record['status'] = 'cancelled';
+            changeStatus($record, 'cancelled');
         }
         $response = summary($record);
         if ($record['status'] === 'cancelled') {
@@ -279,7 +322,7 @@ function accountAction(string $action, array $body): array
             $mine = [];
             foreach (array_reverse($records) as $record) {
                 if (($record['owner'] ?? null) === $guest['id']) {
-                    $mine[] = summary($record) + array_intersect_key($record, array_flip(['title', 'reason']));
+                    $mine[] = summary($record) + array_intersect_key($record, ['reason' => true]);
                 }
             }
             return [200, ['email' => $guest['email'], 'phone' => $guest['phone'], 'requests' => $mine], false];
@@ -294,7 +337,7 @@ function accountAction(string $action, array $body): array
             $record = &$records[$id];
             $changed = occupy($record);
             if ($changed) {
-                $record['status'] = 'cancelled';
+                changeStatus($record, 'cancelled');
             }
             return [200, summary($record), $changed];
         });
@@ -305,18 +348,20 @@ function accountAction(string $action, array $body): array
     if ($errors) {
         return [422, ['status' => 'invalid', 'fields' => $errors]];
     }
-    $rejected = moderation($request) === 'rejected';
-    return transaction(true, static function (array &$records) use ($request, $guest, $rejected): array {
-        if (!$rejected && taken($records, $request)) {
+    $status = moderation($request);
+    return transaction(true, static function (array &$records) use ($request, $guest, $status): array {
+        if (taken($records, $request)) {
             return [409, ['status' => 'taken'], false];
         }
         $id = 'COHUB-' . bin2hex(random_bytes(16));
-        $record = ['id' => $id, 'owner' => $guest['id'], 'status' => $rejected ? 'rejected' : 'pending'] + $request;
-        if ($rejected) {
+        $record = ['id' => $id, 'owner' => $guest['id']] + $request;
+        changeStatus($record, $status);
+        if ($status === 'rejected') {
             $record['reason'] = 'venue_policy';
         }
         $records[$id] = $record;
-        return [202, summary($record), true];
+        return [$status === 'confirmed' ? 201 : 202,
+            summary($record) + array_intersect_key($record, ['reason' => true]), true];
     });
 }
 
@@ -374,7 +419,7 @@ function publishedEvents(): array
             }
             $poster = posterPath($record['poster'] ?? null);
             if ($poster !== null) {
-                $events[] = summary($record) + ['title' => $record['title'], 'intro' => $record['intro'], 'poster' => $poster];
+                $events[] = summary($record) + ['intro' => $record['intro'], 'poster' => $poster];
             }
         }
         usort($events, static function (array $a, array $b): int {
@@ -399,10 +444,10 @@ function handle(): array
             $occupied = [];
             foreach ($records as $record) {
                 if (occupy($record) && $record['date'] === $date) {
-                    $occupied[] = $record['slot'];
+                    $occupied[$record['slot']] = $record['slot'];
                 }
             }
-            return [200, ['date' => $date, 'occupied' => $occupied, 'events' => []], false];
+            return [200, ['date' => $date, 'occupied' => array_values($occupied), 'events' => []], false];
         });
     }
     if ($method !== 'POST') {
@@ -433,11 +478,14 @@ function handle(): array
     if ($action === 'request') {
         return [401, ['status' => 'sign_in']];
     }
-    if (!in_array($action, ['lock', 'pending', 'approve', 'reject', 'cancel', 'publish', 'attendees'], true)) {
+    if (!in_array($action, ['lock', 'updates', 'pending', 'approve', 'reject', 'cancel', 'publish', 'attendees'], true)) {
         return [400, ['status' => 'invalid']];
     }
     if (!authorizeStaff()) {
         return [403, ['status' => 'forbidden']];
+    }
+    if ($action === 'updates') {
+        return eventUpdates($body);
     }
     if ($action === 'pending') {
         return transaction(false, static function (array $records): array {
@@ -489,7 +537,7 @@ function handle(): array
             }
             $record = &$records[$id];
             if ($action === 'cancel' && in_array($record['status'], ['pending', 'confirmed'], true)) {
-                $record['status'] = 'cancelled';
+                changeStatus($record, 'cancelled');
                 return [200, summary($record), true];
             }
             if ($action === 'reject' && $record['status'] === 'pending') {
@@ -508,7 +556,7 @@ function handle(): array
             if (taken($records, $record, $id)) {
                 return [409, ['status' => 'taken'], false];
             }
-            $record['status'] = 'confirmed';
+            changeStatus($record, 'confirmed');
             return [200, summary($record), true];
         });
     }
@@ -549,8 +597,9 @@ function handle(): array
             return [409, ['status' => 'taken'], false];
         }
         $id = 'COHUB-' . bin2hex(random_bytes(16));
-        $record = ['id' => $id, 'status' => $status, 'retryHash' => $retryHash,
+        $record = ['id' => $id, 'retryHash' => $retryHash,
             'cancelToken' => bin2hex(random_bytes(32))] + $request;
+        changeStatus($record, $status);
         $records[$id] = $record;
         return [$status === 'confirmed' ? 201 : 202,
             summary($record) + ['cancelToken' => $record['cancelToken']], true];

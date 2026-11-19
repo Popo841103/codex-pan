@@ -2,7 +2,6 @@
 from datetime import date, timedelta
 import os
 from pathlib import Path
-import secrets
 import socket
 import subprocess
 import tempfile
@@ -17,7 +16,7 @@ LANGUAGES = ['en', 'zh', 'ms', 'zh-TW', 'ja', 'ko', 'th', 'id', 'vi', 'fr',
              'de', 'es', 'pt', 'ru', 'ar', 'hi', 'it', 'nl', 'tr']
 
 
-def verify(browser, url, staff_token):
+def verify(browser, url):
     page = browser.new_page()
     page.route('**/fonts.googleapis.com/**', lambda route: route.abort())
     page_errors = []
@@ -59,7 +58,7 @@ def verify(browser, url, staff_token):
 
     email = 'browser@invalid.test'
     phone = '+60 11 0100 0000'
-    password = secrets.token_urlsafe(24)
+    password = 'abc123'
 
     def enter_account(action):
         auth.locator('[name=email]').fill(email)
@@ -72,25 +71,20 @@ def verify(browser, url, staff_token):
     form = page.locator('#hostForm')
     expect(form).to_be_visible()
     form.locator('[name=name]').fill('Local organizer')
-    form.locator('[name=title]').fill('Book club')
+    form.locator('[name=title]').fill('Saturday coffee and conversation')
     day = (date.today() + timedelta(days=60)).isoformat()
     form.locator('[name=date]').fill(day)
     form.locator('[value="10-12"]').check()
-    form.locator('[name=intro]').fill('Discuss books together')
+    form.locator('[name=intro]').fill('Neighbors will share brewing tips and sample coffee together.')
     form.get_by_role('button', name='Submit request').click()
     row = page.locator('#myRequests .request-card')
-    expect(row).to_contain_text('Pending review')
+    expect(row).to_contain_text('Confirmed')
     expect(row).to_contain_text(day + ' · 10:00–12:00')
     expect(row.get_by_role('button', name='Cancel')).to_be_visible()
 
     page.reload()
-    expect(row).to_contain_text('Pending review')
+    expect(row).to_contain_text('Confirmed')
     assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == ['10-12']
-    event_id = next(text for text in row.locator('p').all_text_contents() if text.startswith('COHUB-'))
-    approval = page.request.post(url + 'community-events.php', data={'action': 'approve', 'id': event_id},
-                                 headers={'Authorization': 'Bearer ' + staff_token})
-    assert approval.ok, approval.status
-    page.reload()
     expect(row).to_contain_text('Your slot is confirmed.')
     expect(row).to_contain_text('send your poster')
     page.get_by_role('link', name="What's on", exact=True).click()
@@ -123,10 +117,9 @@ def main():
         listener.bind(('127.0.0.1', 0))
         port = listener.getsockname()[1]
         listener.close()
-        token = secrets.token_hex(32)
         server = subprocess.Popen(
             [os.environ.get('COHUB_TEST_PHP', 'php'), '-n', '-S', f'127.0.0.1:{port}', '-t', str(ROOT)],
-            env={**os.environ, 'COHUB_EVENTS_DATA_DIR': data, 'COHUB_EVENTS_API_TOKEN': token},
+            env={**os.environ, 'COHUB_EVENTS_DATA_DIR': data, 'COHUB_EVENTS_API_TOKEN': ''},
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         url = f'http://127.0.0.1:{port}/'
@@ -142,12 +135,12 @@ def main():
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(executable_path=os.environ.get('COHUB_TEST_CHROMIUM'),
                                                      args=['--no-sandbox'])
-                verify(browser, url, token)
+                verify(browser, url)
                 browser.close()
         finally:
             server.terminate()
             server.wait(timeout=5)
-    print('PASS: four/three/two-column grid, 19 languages, hosting, approval, sign-in and guest cancellation.')
+    print('PASS: four/three/two-column grid, 19 languages, hosting, automatic confirmation, sign-in and guest cancellation.')
 
 
 if __name__ == '__main__':
