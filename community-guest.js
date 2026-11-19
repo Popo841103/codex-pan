@@ -66,6 +66,10 @@
     const date = form.elements.date;
     const slots = [...form.querySelectorAll('[name="slot"]')];
     const status = byId('accountStatus');
+    const uploadLinkStatus = byId('uploadLinkStatus');
+    const uploadRequest = new URLSearchParams(location.search).get('upload');
+    const uploadTargetId = /^COHUB-[0-9a-f]{32}$/.test(uploadRequest ?? '')
+      ? 'upload-poster-' + uploadRequest : null;
     let slotRevision = 0;
     let busy = false;
 
@@ -78,6 +82,7 @@
       guestArea.hidden = !account;
       byId('myRequests').replaceChildren();
       byId('guestIdentity').textContent = '';
+      uploadLinkStatus.replaceChildren();
       if (!account) return;
       byId('guestIdentity').textContent = account.email + ' · ' + account.phone;
       for (const record of account.requests) {
@@ -95,6 +100,15 @@
         if (record.status === 'confirmed') {
           if (record.poster) card.append(localCopy('[data-result="poster-uploaded"]'));
           card.append(posterForm(record));
+          const url = new URL('https://cohub.jovianhome.com/my-events.html');
+          url.searchParams.set('upload', record.id);
+          const link = userText('a', url.href);
+          link.href = url.href;
+          link.dir = 'ltr';
+          const linkRow = document.createElement('p');
+          linkRow.className = 'upload-link';
+          linkRow.append(link);
+          card.append(linkRow);
         }
         if (record.reason) {
           const reasonCopy = Array.from(copy.querySelectorAll('[data-reason]'))
@@ -123,10 +137,17 @@
         byId('myRequests').append(card);
       }
       if (!account.requests.length) byId('myRequests').append(localCopy('[data-copy="empty"]'));
+      if (uploadRequest !== null && !(uploadTargetId && byId(uploadTargetId))) {
+        uploadLinkStatus.append(localCopy('[data-result="upload-link-unavailable"]'));
+      }
     }
 
     function posterForm(record) {
       const upload = localCopy('[data-poster-form]');
+      upload.id = 'upload-poster-' + record.id;
+      const heading = upload.querySelector('h4');
+      heading.id = upload.id + '-title';
+      upload.setAttribute('aria-labelledby', heading.id);
       upload.querySelector('[data-poster-button="upload"]').hidden = Boolean(record.poster);
       upload.querySelector('[data-poster-button="replace"]').hidden = !record.poster;
       upload.addEventListener('submit', event => {
@@ -162,7 +183,7 @@
       showAccount(code === 200 ? body : null);
     }
 
-    async function run(operation) {
+    async function run(operation, revealUpload = false) {
       if (busy) return;
       busy = true;
       panel.setAttribute('aria-busy', 'true');
@@ -178,6 +199,15 @@
         accountForm.inert = false;
         guestArea.inert = false;
         panel.removeAttribute('aria-busy');
+        if (revealUpload) {
+          const target = (uploadTargetId && byId(uploadTargetId)) || uploadLinkStatus.firstElementChild;
+          if (target) {
+            target.tabIndex = -1;
+            target.focus({preventScroll: true});
+            const top = target.getBoundingClientRect().top - document.querySelector('header').offsetHeight - 12;
+            window.scrollBy({top, behavior: 'instant'});
+          }
+        }
         void refreshSlots();
       }
     }
@@ -196,7 +226,7 @@
         } else {
           throw new Error('Sign-in unavailable');
         }
-      });
+      }, true);
     });
 
     byId('signOut').addEventListener('click', () => void run(async () => {
@@ -268,10 +298,10 @@
       void refreshSlots();
     });
     addEventListener('pageshow', event => {
-      if (event.persisted) void run(loadMine);
+      if (event.persisted) void run(loadMine, true);
     });
 
-    void run(loadMine);
+    void run(loadMine, true);
   }
 
   function initDiscovery() {

@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "Scegli una data e una fascia oraria e descrivi il tuo evento. Le richieste da esaminare resteranno in attesa.",
   "Submit request": "Invia richiesta",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "La tua fascia oraria è confermata. Organizza l'evento come previsto, quindi carica la locandina in I miei eventi. L'evento non apparirà nell'elenco pubblico finché non sarà aggiunta una locandina.",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "La tua fascia oraria è confermata. Organizza l’evento come previsto. Se non hai ancora aggiunto una locandina, caricala qui, in I miei eventi, nella sezione Carica locandina. L’evento non apparirà nell’elenco pubblico finché non sarà aggiunta una locandina.",
+  "This poster upload link is unavailable.": "Questo link per caricare la locandina non è disponibile.",
   "Poster file": "File della locandina",
   "WebP, PNG or JPG, up to 2 MB.": "WebP, PNG o JPG, fino a 2 MB.",
   "Upload poster": "Carica locandina",

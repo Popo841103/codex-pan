@@ -8,7 +8,7 @@
 
 讲座、交流会、工作坊、聚会以及常规社区主题均可自动确认，包括 AI 和 Web3 交流，标题无需与示例完全一致。官网检查标题、简介和备注中的中文、英文和马来文。明确涉及违法、诈骗或投资保本保收益及拉人头、骚扰、露骨性内容或暴力及鼓励伤害、政党竞选或组织抗议、宗教极端或攻击、歧视或仇恨的申请会被拒绝，不占用时段。页面按类别显示理由。内容含糊、可疑或待定，以及超过 20 人、包场、可能与店内安排冲突或需要额外布置的申请，交员工审核并暂留时段。
 
-确认后，主办人按时举办活动，并在「我的活动」上传或替换海报。已确认且日期尚未过去的活动，关联到实际存在的海报文件后才进入官网公开列表。十张官方示例卡不参与占位或报名。公开活动允许访客填姓名和邮箱报名，每场 20 人，同一邮箱重复提交不增加人数，取消后停止报名。
+确认后，主办人按时举办活动。如果还没交海报，确认说明会提示在官网「我的活动」的「上传海报」处提交。已确认且日期尚未过去的活动，关联到实际存在的海报文件后才进入官网公开列表。十张官方示例卡不参与占位或报名。公开活动允许访客填姓名和邮箱报名，每场 20 人，同一邮箱重复提交不增加人数，取消后停止报名。
 
 ## HTTP API
 
@@ -25,6 +25,16 @@
 `submit-event` 和 `cancel-my-event` 的成功响应包含 `id`、`status`、`title`、`date`、`slot`。自动拒绝记录还包含 `reason`，值为 `venue_policy_illegal`、`venue_policy_fraud`、`venue_policy_harassment`、`venue_policy_harmful` 或 `venue_policy_controversial`。「我的活动」按当前语言显示对应理由，旧记录的 `venue_policy` 仍可显示。
 
 ### 访客上传与公开海报
+
+客服发送确认消息时，用确认记录的 `id` 填入完整直达 URL 模板 `https://cohub.jovianhome.com/my-events.html?upload=COHUB-<32位连续小写十六进制>`。示例为 `https://cohub.jovianhome.com/my-events.html?upload=COHUB-0ba2170b8a47bbff651aceb2a09a9f0c`。接口返回的 `id` 已含 `COHUB-` 前缀，拼接时使用 `?upload=` 加完整 `id`。已确认卡片也会显示可复制的完整链接。
+
+客服确认消息模板：
+
+> 你的活动时段已确认，请按时举办。如果还没交海报，请打开下方链接，在官网「我的活动」的「上传海报」处提交。添加海报后，活动才会出现在公开列表。
+>
+> https://cohub.jovianhome.com/my-events.html?upload=COHUB-<32位连续小写十六进制>
+
+页面保留 `upload=` 参数，未登录时先显示原有登录／注册表单。认证成功后，若该申请属于当前已登录账号且已确认，页面滚动并聚焦到编号为 `upload-poster-<完整申请编号>` 的「上传海报」表单。编号格式错误、申请不存在、不属于当前账号或尚未确认时，统一显示「此海报上传链接不可用。」
 
 向 `community-events.php` 发送 `multipart/form-data` POST，表单字段为 `action=upload-poster`、申请编号 `id` 和文件 `poster`。使用现有 `COHUB_EVENTS` 会话 cookie（HttpOnly、SameSite=Strict）。仅已确认申请的所属账号可以上传或替换。
 

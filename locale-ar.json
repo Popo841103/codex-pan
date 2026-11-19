@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "اختر تاريخًا وفترة زمنية وصف فعاليتك. ستبقى الطلبات التي تحتاج إلى مراجعة معلقة.",
   "Submit request": "إرسال الطلب",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "تم تأكيد موعدك. يرجى تنظيم الفعالية في موعدها ثم رفع الملصق في «فعالياتي». لن تظهر الفعالية في القائمة العامة حتى تتم إضافة ملصق.",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "تم تأكيد موعدك. يرجى تنظيم الفعالية في موعدها. إذا لم تضف ملصقًا بعد، فارفعه هنا في «فعالياتي»، ضمن قسم «رفع الملصق». لن تظهر الفعالية في القائمة العامة حتى تتم إضافة ملصق.",
+  "This poster upload link is unavailable.": "رابط رفع الملصق هذا غير متاح.",
   "Poster file": "ملف الملصق",
   "WebP, PNG or JPG, up to 2 MB.": "WebP أو PNG أو JPG، بحد أقصى 2 ميغابايت.",
   "Upload poster": "رفع الملصق",

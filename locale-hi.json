@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "तारीख और समय चुनें और अपने कार्यक्रम का विवरण दें। समीक्षा की ज़रूरत वाले अनुरोध लंबित रहेंगे।",
   "Submit request": "अनुरोध भेजें",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "आपका समय पक्का हो गया है। तय समय पर कार्यक्रम आयोजित करें और अपना पोस्टर मेरे कार्यक्रम में अपलोड करें। पोस्टर जोड़ने तक कार्यक्रम सार्वजनिक सूची में नहीं दिखेगा।",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "आपका समय पक्का हो गया है। तय समय पर कार्यक्रम आयोजित करें। अगर आपने अभी तक पोस्टर नहीं जोड़ा है, तो यहीं मेरे कार्यक्रम पेज पर पोस्टर अपलोड करें अनुभाग में उसे अपलोड करें। पोस्टर जोड़ने तक कार्यक्रम सार्वजनिक सूची में नहीं दिखेगा।",
+  "This poster upload link is unavailable.": "पोस्टर अपलोड करने का यह लिंक उपलब्ध नहीं है।",
   "Poster file": "पोस्टर फ़ाइल",
   "WebP, PNG or JPG, up to 2 MB.": "WebP, PNG या JPG, अधिकतम 2 MB।",
   "Upload poster": "पोस्टर अपलोड करें",

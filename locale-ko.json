@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "날짜와 시간대를 선택하고 행사를 소개해 주세요. 검토가 필요한 신청은 보류됩니다.",
   "Submit request": "신청 제출",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "시간대가 확정되었습니다. 예정대로 행사를 진행하고 내 이벤트에서 포스터를 업로드해 주세요. 포스터를 추가하기 전에는 행사가 공개 목록에 표시되지 않습니다.",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "시간대가 확정되었습니다. 예정대로 행사를 진행해 주세요. 아직 포스터를 추가하지 않았다면 이 페이지의 내 이벤트에서 포스터 업로드 항목을 이용해 주세요. 포스터를 추가하기 전에는 행사가 공개 목록에 표시되지 않습니다.",
+  "This poster upload link is unavailable.": "이 포스터 업로드 링크는 사용할 수 없습니다.",
   "Poster file": "포스터 파일",
   "WebP, PNG or JPG, up to 2 MB.": "WebP, PNG 또는 JPG, 최대 2 MB.",
   "Upload poster": "포스터 업로드",

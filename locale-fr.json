@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "Choisissez une date et un créneau, puis décrivez votre événement. Les demandes à examiner resteront en attente.",
   "Submit request": "Envoyer la demande",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "Votre créneau est confirmé. Organisez votre événement comme prévu, puis téléversez votre affiche dans Mes événements. L'événement ne figurera pas dans la liste publique tant qu'une affiche n'aura pas été ajoutée.",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "Votre créneau est confirmé. Organisez votre événement comme prévu. Si vous n’avez pas encore ajouté d’affiche, téléversez-la ici, dans Mes événements, à la rubrique Téléverser l’affiche. L’événement ne figurera pas dans la liste publique tant qu’une affiche n’aura pas été ajoutée.",
+  "This poster upload link is unavailable.": "Ce lien de téléversement d’affiche est indisponible.",
   "Poster file": "Fichier de l'affiche",
   "WebP, PNG or JPG, up to 2 MB.": "WebP, PNG ou JPG, 2 Mo maximum.",
   "Upload poster": "Téléverser l'affiche",

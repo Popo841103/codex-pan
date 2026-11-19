@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "Kies een datum en tijdvak en beschrijf je evenement. Aanvragen die beoordeling vereisen blijven in behandeling.",
   "Submit request": "Aanvraag versturen",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "Je tijdslot is bevestigd. Organiseer je evenement zoals gepland en upload de poster in Mijn evenementen. Het evenement verschijnt pas in de openbare lijst nadat een poster is toegevoegd.",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "Je tijdslot is bevestigd. Organiseer je evenement zoals gepland. Als je nog geen poster hebt toegevoegd, upload deze dan hier in Mijn evenementen, in het gedeelte Poster uploaden. Het evenement verschijnt pas in de openbare lijst nadat een poster is toegevoegd.",
+  "This poster upload link is unavailable.": "Deze link om een poster te uploaden is niet beschikbaar.",
   "Poster file": "Posterbestand",
   "WebP, PNG or JPG, up to 2 MB.": "WebP, PNG of JPG, maximaal 2 MB.",
   "Upload poster": "Poster uploaden",

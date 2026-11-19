@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "請選擇日期和時段，並介紹你的活動。需要人工審核的申請會維持待審核狀態。",
   "Submit request": "送出申請",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "時段已確認。請按時舉辦活動，並在「我的活動」自行上傳海報。沒有海報前，活動不會出現在公開列表。",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "時段已確認。請按時舉辦活動。如果還沒交海報，請在本頁「我的活動」的「上傳海報」處提交。沒有海報前，活動不會出現在公開列表。",
+  "This poster upload link is unavailable.": "此海報上傳連結無法使用。",
   "Poster file": "海報檔案",
   "WebP, PNG or JPG, up to 2 MB.": "支援 WebP、PNG 或 JPG，最大 2 MB。",
   "Upload poster": "上傳海報",

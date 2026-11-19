@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "Tarih ve saat aralığını seçip etkinliğinizi açıklayın. İnceleme gereken talepler beklemede kalır.",
   "Submit request": "Talebi gönder",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "Saat diliminiz onaylandı. Etkinliğinizi planlandığı gibi düzenleyin ve ardından afişinizi Etkinliklerim bölümünden yükleyin. Afiş eklenene kadar etkinlik herkese açık listede görünmez.",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "Saat diliminiz onaylandı. Etkinliğinizi planlandığı gibi düzenleyin. Henüz afiş eklemediyseniz burada, Etkinliklerim sayfasındaki Afiş yükle bölümünden yükleyin. Afiş eklenene kadar etkinlik herkese açık listede görünmez.",
+  "This poster upload link is unavailable.": "Bu afiş yükleme bağlantısı kullanılamıyor.",
   "Poster file": "Afiş dosyası",
   "WebP, PNG or JPG, up to 2 MB.": "WebP, PNG veya JPG, en fazla 2 MB.",
   "Upload poster": "Afiş yükle",

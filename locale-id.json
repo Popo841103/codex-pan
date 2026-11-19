@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "Pilih tanggal dan slot waktu, lalu jelaskan acara Anda. Permintaan yang perlu ditinjau akan menunggu persetujuan.",
   "Submit request": "Kirim permintaan",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "Slot Anda telah dikonfirmasi. Selenggarakan acara sesuai jadwal, lalu unggah poster di Acara Saya. Acara tidak akan muncul di daftar publik sebelum poster ditambahkan.",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "Slot Anda telah dikonfirmasi. Selenggarakan acara sesuai jadwal. Jika belum menambahkan poster, unggah di bagian Unggah poster pada halaman Acara Saya ini. Acara tidak akan muncul di daftar publik sebelum poster ditambahkan.",
+  "This poster upload link is unavailable.": "Tautan unggah poster ini tidak tersedia.",
   "Poster file": "File poster",
   "WebP, PNG or JPG, up to 2 MB.": "WebP, PNG, atau JPG, maksimal 2 MB.",
   "Upload poster": "Unggah poster",

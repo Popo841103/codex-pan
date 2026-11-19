@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "Chọn ngày và khung giờ rồi mô tả sự kiện. Yêu cầu cần xem xét sẽ ở trạng thái chờ.",
   "Submit request": "Gửi yêu cầu",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "Khung giờ của bạn đã được xác nhận. Vui lòng tổ chức đúng lịch rồi tải áp phích lên trong Sự kiện của tôi. Sự kiện sẽ không xuất hiện trong danh sách công khai cho đến khi có áp phích.",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "Khung giờ của bạn đã được xác nhận. Vui lòng tổ chức đúng lịch. Nếu chưa thêm áp phích, hãy tải lên tại mục Tải áp phích lên trên trang Sự kiện của tôi này. Sự kiện sẽ không xuất hiện trong danh sách công khai cho đến khi có áp phích.",
+  "This poster upload link is unavailable.": "Liên kết tải áp phích lên này không khả dụng.",
   "Poster file": "Tệp áp phích",
   "WebP, PNG or JPG, up to 2 MB.": "WebP, PNG hoặc JPG, tối đa 2 MB.",
   "Upload poster": "Tải áp phích lên",

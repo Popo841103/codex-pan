@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "Выберите дату и время и опишите мероприятие. Заявки, требующие проверки, останутся на рассмотрении.",
   "Submit request": "Отправить заявку",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "Ваше время подтверждено. Проведите мероприятие по расписанию и загрузите афишу в разделе «Мои мероприятия». Без афиши мероприятие не появится в открытом списке.",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "Ваше время подтверждено. Проведите мероприятие по расписанию. Если вы ещё не добавили афишу, загрузите её здесь, на странице «Мои мероприятия», в разделе «Загрузить афишу». Без афиши мероприятие не появится в открытом списке.",
+  "This poster upload link is unavailable.": "Эта ссылка для загрузки афиши недоступна.",
   "Poster file": "Файл афиши",
   "WebP, PNG or JPG, up to 2 MB.": "WebP, PNG или JPG, до 2 МБ.",
   "Upload poster": "Загрузить афишу",

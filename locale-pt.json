@@ -2,7 +2,8 @@
   "Choose a date and time slot, and describe your event. Requests requiring review will stay pending.": "Escolha uma data e um horário e descreva o evento. Os pedidos que precisarem de análise ficarão pendentes.",
   "Submit request": "Enviar pedido",
 
-  "Your slot is confirmed. Please host as scheduled, then upload your poster in My Events. Until a poster is added, the event will not appear on the public list.": "O seu horário está confirmado. Realize o evento conforme planeado e carregue o cartaz em Os meus eventos. O evento só aparecerá na lista pública depois de adicionar um cartaz.",
+  "Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.": "O seu horário está confirmado. Realize o evento conforme planeado. Se ainda não adicionou um cartaz, carregue-o aqui em Os meus eventos, na secção Carregar cartaz. O evento só aparecerá na lista pública depois de adicionar um cartaz.",
+  "This poster upload link is unavailable.": "Esta ligação para carregar o cartaz está indisponível.",
   "Poster file": "Ficheiro do cartaz",
   "WebP, PNG or JPG, up to 2 MB.": "WebP, PNG ou JPG, até 2 MB.",
   "Upload poster": "Carregar cartaz",
