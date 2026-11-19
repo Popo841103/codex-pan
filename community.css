@@ -71,3 +71,22 @@ dialog.host-dialog .hint{margin:4px 0 0;font-size:13px;font-weight:400;color:var
 dialog.host-dialog .host-send{display:inline-block;width:100%;padding:14px 22px;border-radius:5px;background:var(--gold);color:var(--ink);font-weight:700;font-size:14px;border:0}
 dialog.host-dialog .host-send:hover{background:#c4922e}
 @media(max-width:720px){body.community-guest .community-intro p.host-note{font-size:12px;line-height:1.65}body.community-guest .community-simple{padding-top:28px}dialog.host-dialog .pair{grid-template-columns:1fr}}
+
+body.community-guest .event-sample{position:relative}
+body.community-guest .sample-tag{position:absolute;inset-block-start:10px;inset-inline-start:10px;background:#32271e;color:#f8f4e9;font-size:11px;padding:4px 8px;border-radius:4px}
+body.community-guest .event .eyebrow{margin:0 0 4px;font-size:12px;letter-spacing:.08em;color:#86601b;font-weight:700}
+body.community-guest .activity-calendar{margin-bottom:22px;padding:12px 16px;border:1px solid #32271e33;border-radius:8px}
+body.community-guest .activity-calendar summary{cursor:pointer;font-weight:700}
+body.community-guest .activity-calendar p{margin:8px 0;font-size:13px}
+body.community-guest .activity-calendar input{max-width:100%;background:white;color:var(--ink);color-scheme:light}
+dialog.host-dialog .pair,dialog.host-dialog .slot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+dialog.host-dialog .pair input{min-width:0;font:inherit}
+dialog.host-dialog .host-slots{margin:0;border:0;padding:0;min-width:0}
+dialog.host-dialog .host-slots legend{padding:0;font-size:14px;font-weight:700}
+dialog.host-dialog .slot-grid{margin-top:8px}
+dialog.host-dialog .hostform .slot{display:flex;flex-direction:row;align-items:center;gap:6px;border:1px solid #32271e55;background:white;border-radius:6px;padding:10px;font-size:13px;cursor:pointer}
+dialog.host-dialog .slot input{width:auto;margin:0;accent-color:#86601b}
+dialog.host-dialog .slot:has(:checked){border-color:#86601b;background:#f8edd6}
+dialog.host-dialog .slot:has(:disabled){background:#f0ece6;color:#72695f;cursor:not-allowed}
+@media(max-width:420px){dialog.host-dialog .slot-grid{grid-template-columns:1fr}}
+@media(max-width:560px){body.community-guest header .nav-book span{white-space:normal;overflow-wrap:anywhere}}

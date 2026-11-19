@@ -45,8 +45,8 @@
       const value=text(state.en);state.last=value;sources.set(node,state);if(value!==node.nodeValue)node.nodeValue=value;
     }
     document.querySelectorAll('[placeholder],[aria-label],[title],img[alt]').forEach(el=>{
-      if(protectedNode(el))return;let state=attributes.get(el);
-      if(!state){state={};for(const name of ['placeholder','aria-label','title','alt'])if(el.hasAttribute(name))state[name]=el.getAttribute(name);attributes.set(el,state);}
+      if(protectedNode(el)&&!el.hasAttribute('data-local-placeholder'))return;let state=attributes.get(el);
+      if(!state){state={};for(const name of ['placeholder','aria-label','title','alt'])if(el.hasAttribute(name))state[name]=el.getAttribute(name);if(el.dataset.localPlaceholder)state.placeholder=el.dataset.localPlaceholder;attributes.set(el,state);}
       for(const [name,value] of Object.entries(state)){const target=text(value);if(el.getAttribute(name)!==target)el.setAttribute(name,target);}
     });
   }
@@ -62,7 +62,7 @@
     status.hidden=false;status.textContent='Loading '+extra.find(([id])=>id===code)[1]+'…';
     try{
       let data=cache.get(code);
-      if(!data){const response=await fetch('locale-'+code+'.json?v=20261112-brand1',{credentials:'same-origin'});if(!response.ok)throw Error('Language file unavailable');data=await response.json();if(!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid language file');cache.set(code,data);}
+      if(!data){const response=await fetch('locale-'+code+'.json?v=20261119-slots1',{credentials:'same-origin'});if(!response.ok)throw Error('Language file unavailable');data=await response.json();if(!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid language file');cache.set(code,data);}
       if(request!==revision||active!==code)return;
       messages=Object.fromEntries(Object.entries(data).map(([k,v])=>[normal(k),String(v)]));
       window.COHUB_I18N.fragments=Object.entries(messages).filter(([k])=>k.length>2&&k.length<120&&!k.includes('http')).sort((a,b)=>b[0].length-a[0].length);
