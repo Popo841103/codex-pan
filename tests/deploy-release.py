@@ -45,4 +45,22 @@ class DeploymentTests(unittest.TestCase):
         self.data['../outside.html']=b'bad';self.make_zip()
         with self.assertRaises(deploy.DeploymentError):self.apply()
         self.assertFalse((self.base/'outside.html').exists())
+    def test_community_health_probe_failure_restores_site(self):
+        self.data['community-events.php']=b'<?php /* php entry point */'
+        self.make_zip()
+        def probe(name):
+            if name=='community-events.php?date=2000-01-01':
+                return b'{"status":"unavailable"}'
+            return (self.root/name).read_bytes()
+        with self.assertRaisesRegex(deploy.DeploymentError,'Community occupancy'):
+            self.apply(probe)
+        self.assertFalse((self.root/'community-events.php').exists())
+        self.assertEqual((self.root/'index.html').read_text(),'CO-HUB old')
+
+    def test_php_path_restriction(self):
+        self.assertEqual(str(deploy.safe_name('community-events.php')),'community-events.php')
+        for name in ['other.php','assets/other.PHP','assets/other.phtml','./community-events.php']:
+            with self.subTest(name=name), self.assertRaises(deploy.DeploymentError):
+                deploy.safe_name(name)
+
 if __name__=='__main__':unittest.main()
