@@ -13,5 +13,11 @@
   "Save your private booking link": "अपना निजी बुकिंग लिंक सहेजें",
   "Cancel this booking?": "यह बुकिंग रद्द करें?",
   "Booking cancelled. The slot is available again.": "बुकिंग रद्द हो गई है। समय स्लॉट फिर से उपलब्ध है।",
-  "This booking link is invalid.": "यह बुकिंग लिंक अमान्य है।"
+  "This booking link is invalid.": "यह बुकिंग लिंक अमान्य है।",
+  "My Events": "मेरे कार्यक्रम",
+  "See what's on, or host your own gathering.": "देखें कि कौन से कार्यक्रम हैं, या अपनी बैठक आयोजित करें।",
+  "Check your email, phone number and password.": "अपना ईमेल, फ़ोन नंबर और पासवर्ड जाँचें।",
+  "Use at least 12 characters for your password.": "पासवर्ड में कम से कम 12 वर्ण रखें।",
+  "Your slot is held while your request is under review.": "आपके अनुरोध की समीक्षा के दौरान चुना हुआ समय अस्थायी रूप से आपके लिए रखा जाता है।",
+  "That time slot is unavailable. Choose another time.": "वह समय उपलब्ध नहीं है। कोई दूसरा समय चुनें।"
 }

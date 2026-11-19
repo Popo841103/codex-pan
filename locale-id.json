@@ -13,5 +13,11 @@
   "Save your private booking link": "Simpan tautan pemesanan pribadi Anda",
   "Cancel this booking?": "Batalkan pemesanan ini?",
   "Booking cancelled. The slot is available again.": "Pemesanan dibatalkan. Slot tersedia kembali.",
-  "This booking link is invalid.": "Tautan pemesanan ini tidak valid."
+  "This booking link is invalid.": "Tautan pemesanan ini tidak valid.",
+  "My Events": "Acara Saya",
+  "See what's on, or host your own gathering.": "Lihat acara yang ada, atau adakan pertemuan sendiri.",
+  "Check your email, phone number and password.": "Periksa alamat email, nomor telepon, dan kata sandi Anda.",
+  "Use at least 12 characters for your password.": "Gunakan kata sandi minimal 12 karakter.",
+  "Your slot is held while your request is under review.": "Slot waktu Anda ditahan sementara permohonan ditinjau.",
+  "That time slot is unavailable. Choose another time.": "Slot waktu tersebut tidak tersedia. Pilih waktu lain."
 }

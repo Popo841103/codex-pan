@@ -13,5 +13,11 @@
   "Save your private booking link": "Özel rezervasyon bağlantınızı kaydedin",
   "Cancel this booking?": "Bu rezervasyon iptal edilsin mi?",
   "Booking cancelled. The slot is available again.": "Rezervasyon iptal edildi. Saat aralığı yeniden müsait.",
-  "This booking link is invalid.": "Bu rezervasyon bağlantısı geçersiz."
+  "This booking link is invalid.": "Bu rezervasyon bağlantısı geçersiz.",
+  "My Events": "Etkinliklerim",
+  "See what's on, or host your own gathering.": "Yaklaşan etkinliklere göz atın veya kendi buluşmanızı düzenleyin.",
+  "Check your email, phone number and password.": "E-posta adresinizi, telefon numaranızı ve parolanızı kontrol edin.",
+  "Use at least 12 characters for your password.": "Parolanız en az 12 karakterden oluşmalıdır.",
+  "Your slot is held while your request is under review.": "Talebiniz incelenirken seçtiğiniz zaman aralığı geçici olarak ayrılır.",
+  "That time slot is unavailable. Choose another time.": "Bu zaman aralığı uygun değil. Başka bir saat seçin."
 }

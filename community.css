@@ -33,9 +33,9 @@ html[dir="rtl"] .brand,html[dir="rtl"] .company-details strong,html[dir="rtl"] .
 .experience-card.activity-theme-card{padding:0;overflow:hidden;align-items:stretch}.activity-cover{width:100%;aspect-ratio:16/9;overflow:hidden;background:#dce5e2;flex-shrink:0}.activity-cover img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .3s ease}.activity-theme-card:hover .activity-cover img{transform:scale(1.025)}.activity-card-content{padding:28px;display:flex;flex-direction:column;align-items:flex-start;flex:1;min-width:0;box-sizing:border-box}.activity-card-content>p:not(.eyebrow){font-size:14px}.activity-card-content .planning-label{padding-top:14px}.activity-card-content .text-link{margin-top:14px}@media(max-width:600px){.activity-card-content{padding:23px}}@media(prefers-reduced-motion:reduce){.activity-cover img{transition:none}.activity-theme-card:hover .activity-cover img{transform:none}}
 .activity-cover svg{display:block;width:100%;height:100%;overflow:hidden;transition:transform .3s ease}.activity-theme-card:hover .activity-cover svg{transform:scale(1.025)}@media(prefers-reduced-motion:reduce){.activity-cover svg{transition:none}.activity-theme-card:hover .activity-cover svg{transform:none}}
 
-/* Guest community page: one host button, a short note, and confirmed events only. */
+/* Guest community page and hosting account. */
 body.community-guest{font-family:"Noto Sans SC",Arial,"PingFang SC","Microsoft YaHei",sans-serif}
-body.community-guest .community-simple{max-width:760px;margin:0 auto;padding:40px 6% 80px}
+body.community-guest .community-simple{max-width:1240px;margin:0 auto;padding:40px 6% 80px}
 body.community-guest .community-simple h1{font-size:clamp(36px,6vw,64px);line-height:1.08;letter-spacing:-2px;margin:0 0 12px;white-space:normal}
 body.community-guest .community-intro p{margin:0 0 28px;font-size:18px;color:var(--muted);max-width:28em}
 body.community-guest .host-open{display:flex;width:100%;align-items:center;justify-content:center;min-height:88px;padding:22px 28px;border:0;border-radius:8px;background:var(--gold);color:var(--ink);font-weight:800;font-size:clamp(24px,4vw,36px);letter-spacing:-.5px;box-shadow:0 8px 20px #d1a14a40}
@@ -47,31 +47,35 @@ body.community-guest .events-lead{margin:0 0 22px;color:var(--muted);font-size:1
 body.community-guest .empty{border:1px dashed #32271e33;border-radius:8px;padding:28px 22px;color:var(--muted);background:#fffdf8}
 body.community-guest .empty p{margin:0;font-size:16px}
 body.community-guest .events:has(.event) .empty{display:none}
-body.community-guest .event-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-@media(max-width:480px){body.community-guest .event-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+body.community-guest .event-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+@media(max-width:959px){body.community-guest .event-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:639px){body.community-guest .event-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
 body.community-guest .event-list:not(:has(.event)){display:none}
 body.community-guest .event{background:#fffdf8;border-radius:12px;overflow:hidden;border:1px solid #32271e22}
-body.community-guest .event img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:#e8e0d2}
+body.community-guest .event img{display:block;width:100%;height:auto;aspect-ratio:5/4;object-fit:cover;background:#e8e0d2}
 body.community-guest .event .body{padding:10px 12px 12px;overflow-wrap:anywhere}
 body.community-guest .event .when{margin:0 0 4px;font-size:13px;color:var(--muted)}
 body.community-guest .event h3{margin:0 0 8px;font-size:clamp(16px,2vw,20px);letter-spacing:-.4px}
 body.community-guest .event .desc{margin:0;color:var(--ink);font-size:14px}
 body.community-guest .join{display:inline-block;font-size:14px;font-weight:700;color:#8a5a16;border-bottom:1px solid var(--gold);padding-bottom:1px}
-dialog.host-dialog{width:min(520px,94vw);max-height:min(90vh,860px);overflow:auto;border:0;border-radius:12px;padding:0;background:var(--cream);color:var(--ink);box-shadow:0 20px 60px #0004}
-dialog.host-dialog::backdrop{background:#32271ecc}
-dialog.host-dialog .dialog-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px 22px 0}
-dialog.host-dialog h2{margin:0;font-size:26px;letter-spacing:-.6px;white-space:normal}
-dialog.host-dialog .host-close{border:1px solid #32271e33;background:transparent;font-size:28px;line-height:1;width:40px;height:40px;border-radius:4px;color:var(--ink);flex-shrink:0}
-dialog.host-dialog .host-lead{margin:0;padding:8px 22px 0;color:var(--muted);font-size:16px}
-dialog.host-dialog .hostform{display:grid;gap:14px;padding:8px 22px 24px}
-dialog.host-dialog .hostform label,dialog.host-dialog .pair label{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:700}
-dialog.host-dialog .hostform input,dialog.host-dialog .hostform select,dialog.host-dialog .hostform textarea{width:100%;font-weight:400;padding:12px;border:1px solid #32271e55;border-radius:5px;background:white;color:var(--ink);color-scheme:light}
-dialog.host-dialog .hostform textarea{min-height:80px;resize:vertical}
-dialog.host-dialog .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-dialog.host-dialog .hint{margin:4px 0 0;font-size:13px;font-weight:400;color:var(--muted)}
-dialog.host-dialog .host-send{display:inline-block;width:100%;padding:14px 22px;border-radius:5px;background:var(--gold);color:var(--ink);font-weight:700;font-size:14px;border:0}
-dialog.host-dialog .host-send:hover{background:#c4922e}
-@media(max-width:720px){body.community-guest .community-intro p.host-note{font-size:12px;line-height:1.65}body.community-guest .community-simple{padding-top:28px}dialog.host-dialog .pair{grid-template-columns:1fr}}
+body.community-guest .community-intro,.host-panel{max-width:660px}
+.community-links,.account-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px}
+.community-links{margin-top:20px}
+.community-links a{text-decoration:underline}
+.host-panel{margin-top:48px;padding:clamp(12px,4vw,24px);border:1px solid #32271e33;border-radius:12px;scroll-margin-top:150px;overflow-wrap:anywhere}
+.host-panel h2{margin:0 0 12px}
+.host-panel .request-card{margin:12px 0;padding:14px;border:1px solid #32271e33;border-radius:8px;background:#fffdf8}
+.host-panel .request-card h3,.host-panel .request-card p{margin:0 0 8px}
+.host-panel .account-actions button{width:auto}
+.host-panel [hidden]{display:none}
+.host-panel .hostform{display:grid;gap:14px;padding:8px 0 16px}
+.host-panel .hostform label{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:700}
+.host-panel .hostform input,.host-panel .hostform textarea{width:100%;font-weight:400;padding:12px;border:1px solid #32271e55;border-radius:5px;background:white;color:var(--ink);color-scheme:light}
+.host-panel .hostform textarea{min-height:80px;resize:vertical}
+.host-panel .hint{margin:4px 0 0;font-size:13px;font-weight:400;color:var(--muted)}
+.host-panel .host-send{display:inline-block;width:100%;padding:14px 22px;border-radius:5px;background:var(--gold);color:var(--ink);font-weight:700;font-size:14px;border:0}
+.host-panel .host-send:hover{background:#c4922e}
+@media(max-width:720px){body.community-guest .community-intro p.host-note{font-size:12px;line-height:1.65}body.community-guest .community-simple{padding-top:28px}}
 
 body.community-guest .event-sample{position:relative}
 body.community-guest .sample-tag{position:absolute;inset-block-start:10px;inset-inline-start:10px;background:#32271e;color:#f8f4e9;font-size:11px;padding:4px 8px;border-radius:4px}
@@ -80,24 +84,24 @@ body.community-guest .activity-calendar{margin-bottom:22px;padding:12px 16px;bor
 body.community-guest .activity-calendar summary{cursor:pointer;font-weight:700}
 body.community-guest .activity-calendar p{margin:8px 0;font-size:13px}
 body.community-guest .activity-calendar input{max-width:100%;background:white;color:var(--ink);color-scheme:light}
-dialog.host-dialog .pair,dialog.host-dialog .slot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-dialog.host-dialog .pair input{min-width:0;font:inherit}
-dialog.host-dialog .host-slots{margin:0;border:0;padding:0;min-width:0}
-dialog.host-dialog .host-slots legend{padding:0;font-size:14px;font-weight:700}
-dialog.host-dialog .slot-grid{margin-top:8px}
-dialog.host-dialog .hostform .slot{display:flex;flex-direction:row;align-items:center;gap:6px;border:1px solid #32271e55;background:white;border-radius:6px;padding:10px;font-size:13px;cursor:pointer}
-dialog.host-dialog .slot input{width:auto;margin:0;accent-color:#86601b}
-dialog.host-dialog .slot:has(:checked){border-color:#86601b;background:#f8edd6}
-dialog.host-dialog .slot:has(:disabled){background:#f0ece6;color:#72695f;cursor:not-allowed}
-@media(max-width:420px){dialog.host-dialog .slot-grid{grid-template-columns:1fr}}
+.host-panel .pair, .host-panel .slot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.host-panel .pair input{min-width:0;font:inherit}
+.host-panel .host-slots{margin:0;border:0;padding:0;min-width:0}
+.host-panel .host-slots legend{padding:0;font-size:14px;font-weight:700}
+.host-panel .slot-grid{margin-top:8px}
+.host-panel .hostform .slot{display:flex;flex-direction:row;align-items:center;gap:6px;border:1px solid #32271e55;background:white;border-radius:6px;padding:10px;font-size:13px;cursor:pointer}
+.host-panel .slot input{width:auto;margin:0;accent-color:#86601b}
+.host-panel .slot:has(:checked){border-color:#86601b;background:#f8edd6}
+.host-panel .slot:has(:disabled){background:#f0ece6;color:#72695f;cursor:not-allowed}
+@media(max-width:420px){ .host-panel .slot-grid{grid-template-columns:1fr}}
 @media(max-width:560px){body.community-guest header .nav-book span{white-space:normal;overflow-wrap:anywhere}}
 
-dialog.host-dialog #hostResult{margin:0 22px 22px;overflow-wrap:anywhere}
-dialog.host-dialog #hostResult:not(:has(> :not([hidden]))){margin:0}
-dialog.host-dialog #hostResult a{display:inline-block;text-decoration:underline}
-dialog.host-dialog .host-send:disabled{opacity:.55;cursor:not-allowed}
+.host-panel .host-send:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:560px){.host-panel .pair{grid-template-columns:1fr}}
 
-dialog.host-dialog .hostform[hidden]{display:none}
-dialog.host-dialog #bookingActions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
-dialog.host-dialog #bookingActions[hidden]{display:none}
-dialog.host-dialog #cancelBooking{width:auto}
+.host-panel .hostform[hidden]{display:none}
+.poster-signup{margin-top:10px;font-size:13px}
+.poster-signup summary{cursor:pointer;text-decoration:underline}
+.poster-signup form,.poster-signup label{display:grid;gap:6px;margin-top:6px}
+.poster-signup input{min-width:0;width:100%;padding:6px;border:1px solid #32271e55;border-radius:4px}
+.poster-signup button{background:var(--gold);color:var(--ink);border:0;border-radius:4px;padding:8px}

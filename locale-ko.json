@@ -13,5 +13,11 @@
   "Save your private booking link": "개인 예약 링크 저장",
   "Cancel this booking?": "이 예약을 취소하시겠어요?",
   "Booking cancelled. The slot is available again.": "예약이 취소되었습니다. 해당 시간대를 다시 예약할 수 있습니다.",
-  "This booking link is invalid.": "유효하지 않은 예약 링크입니다."
+  "This booking link is invalid.": "유효하지 않은 예약 링크입니다.",
+  "My Events": "내 행사",
+  "See what's on, or host your own gathering.": "어떤 행사가 있는지 확인하거나 직접 모임을 열어 보세요.",
+  "Check your email, phone number and password.": "이메일, 전화번호, 비밀번호를 확인해 주세요.",
+  "Use at least 12 characters for your password.": "비밀번호는 12자 이상이어야 합니다.",
+  "Your slot is held while your request is under review.": "심사 중에는 선택한 시간대가 임시로 확보됩니다.",
+  "That time slot is unavailable. Choose another time.": "해당 시간대는 이용할 수 없습니다. 다른 시간을 선택해 주세요."
 }

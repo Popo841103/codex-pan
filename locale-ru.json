@@ -13,5 +13,11 @@
   "Save your private booking link": "Сохраните личную ссылку на бронирование",
   "Cancel this booking?": "Отменить это бронирование?",
   "Booking cancelled. The slot is available again.": "Бронирование отменено. Это время снова доступно.",
-  "This booking link is invalid.": "Ссылка на бронирование недействительна."
+  "This booking link is invalid.": "Ссылка на бронирование недействительна.",
+  "My Events": "Мои мероприятия",
+  "See what's on, or host your own gathering.": "Посмотрите, какие события запланированы, или организуйте свою встречу.",
+  "Check your email, phone number and password.": "Проверьте электронную почту, номер телефона и пароль.",
+  "Use at least 12 characters for your password.": "В пароле должно быть не менее 12 символов.",
+  "Your slot is held while your request is under review.": "Выбранное время предварительно зарезервировано на период рассмотрения заявки.",
+  "That time slot is unavailable. Choose another time.": "Этот интервал недоступен. Выберите другое время."
 }

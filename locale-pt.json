@@ -13,5 +13,11 @@
   "Save your private booking link": "Salve seu link privado de reserva",
   "Cancel this booking?": "Cancelar esta reserva?",
   "Booking cancelled. The slot is available again.": "Reserva cancelada. O horário está disponível novamente.",
-  "This booking link is invalid.": "Este link de reserva é inválido."
+  "This booking link is invalid.": "Este link de reserva é inválido.",
+  "My Events": "Meus eventos",
+  "See what's on, or host your own gathering.": "Veja os próximos eventos ou organize seu próprio encontro.",
+  "Check your email, phone number and password.": "Confira seu e-mail, número de telefone e senha.",
+  "Use at least 12 characters for your password.": "Use pelo menos 12 caracteres na sua senha.",
+  "Your slot is held while your request is under review.": "Seu horário fica reservado provisoriamente enquanto analisamos o pedido.",
+  "That time slot is unavailable. Choose another time.": "Esse horário não está disponível. Escolha outro horário."
 }

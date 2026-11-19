@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from html.parser import HTMLParser
+from http.cookiejar import CookieJar
 import json
 import os
 from pathlib import Path
@@ -15,7 +16,7 @@ from threading import Barrier
 import time
 import unittest
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 PHP = os.environ.get('COHUB_TEST_PHP', 'php')
@@ -43,6 +44,9 @@ class CommunityEvents(unittest.TestCase):
         web = directory / 'web'
         web.mkdir()
         shutil.copyfile(ROOT / 'community-events.php', web / 'community-events.php')
+        self.poster = 'cohub-poster-local.webp'
+        (web / 'assets/coffee').mkdir(parents=True)
+        shutil.copyfile(ROOT / 'assets/coffee/cohub-event-ai-meetup-v2.webp', web / 'assets/coffee' / self.poster)
         with socket.socket() as listener:
             listener.bind(('127.0.0.1', 0))
             port = listener.getsockname()[1]
@@ -76,14 +80,14 @@ class CommunityEvents(unittest.TestCase):
         os.killpg(self.server.pid, signal.SIGTERM)
         self.server.wait(timeout=5)
 
-    def call(self, body=None, staff=False):
+    def call(self, body=None, staff=False, client=None, query=None):
         headers = {'Content-Type': 'application/json'}
         if staff:
             headers['Authorization'] = 'Bearer ' + self.token
-        url = self.url if body is not None else self.url + '?date=' + self.day
+        url = self.url if body is not None else self.url + '?' + (query or 'date=' + self.day)
         request = Request(url, data=json.dumps(body).encode() if body is not None else None, headers=headers)
         try:
-            response = urlopen(request, timeout=5)
+            response = (client.open if client else urlopen)(request, timeout=5)
         except HTTPError as error:
             response = error
         with response:
@@ -97,13 +101,119 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(body['events'], [])
         return body['occupied']
 
+    def guest(self, index=1):
+        client = build_opener(HTTPCookieProcessor(CookieJar()))
+        auth = {'email': f'guest{index}@invalid.test', 'phone': f'+60 11 0100 000{index}',
+                'password': secrets.token_urlsafe(24)}
+        self.assertEqual(self.call({'action': 'register', **auth}, client=client)[0], 200)
+        return client, auth
+
+    def staff_lock(self, fields):
+        return self.call({**fields, 'action': 'lock'}, staff=True)
+
     def test_public_lock_without_staff_token(self):
-        status, record = self.call(self.fields)
-        self.assertEqual(status, 201)
-        self.assertEqual(self.call({'action': 'cancel', 'id': record['id']}, staff=True)[0], 403)
+        self.assertEqual(self.call(self.fields)[0], 401)
+        client, _ = self.guest()
+        status, record = self.call({**self.fields, 'action': 'submit-event'}, client=client)
+        self.assertEqual((status, record['status']), (202, 'pending'))
         self.assertEqual(self.occupancy(), ['20-2230'])
-        self.assertEqual(self.call({'action': 'guest-cancel', 'id': record['id'],
-                                    'token': record['cancelToken']})[0], 200)
+        self.assertEqual(self.call({'action': 'approve', 'id': record['id']}, staff=True)[0], 403)
+        self.assertEqual(self.call({'action': 'cancel-my-event', 'id': record['id']}, client=client)[0], 200)
+        self.assertEqual(self.occupancy(), [])
+
+    def test_accounts_hold_approve_cancel_and_rebook(self):
+        first, auth = self.guest(1)
+        second, _ = self.guest(2)
+        self.assertEqual(self.call({'action': 'register', **auth}, client=second)[0], 409)
+        self.assertEqual(self.call({'action': 'sign-in', **auth, 'password': 'invalid-password'}, client=second)[0], 403)
+        self.assertNotIn(auth['password'], (self.data / 'accounts.json').read_text())
+        self.assertEqual((self.data / 'accounts.json').stat().st_mode & 0o777, 0o600)
+        request = {**self.fields, 'action': 'submit-event'}
+        self.assertEqual(self.call(request)[0], 401)
+        start = Barrier(2)
+
+        def submit(client):
+            start.wait(timeout=5)
+            return self.call(request, client=client)
+
+        with ThreadPoolExecutor(2) as workers:
+            results = list(workers.map(submit, [first, second]))
+        self.assertEqual(sorted(code for code, _ in results), [202, 409])
+        winner = 0 if results[0][0] == 202 else 1
+        owner, other = (first, second) if winner == 0 else (second, first)
+        _, booking = results[winner]
+        event_id = booking['id']
+        self.assertEqual(booking['status'], 'pending')
+        self.assertNotIn('cancelToken', booking)
+        self.assertEqual(self.occupancy(), ['20-2230'])
+        self.assertEqual(self.call({'action': 'my-events'}, client=other)[1]['requests'], [])
+        cancel = {'action': 'cancel-my-event', 'id': event_id}
+        self.assertEqual(self.call(cancel, client=other)[0], 404)
+        self.assertEqual(self.call(cancel)[0], 401)
+        self.assertEqual(self.call({'action': 'guest-cancel', 'id': event_id, 'token': '0' * 64})[0], 403)
+        publish = {'action': 'publish', 'id': event_id, 'poster': self.poster}
+        self.assertEqual(self.call(publish, staff=True)[0], 409)
+        self.assertEqual(self.call({'action': 'approve', 'id': event_id}, staff=True)[1]['status'], 'confirmed')
+        self.assertEqual(self.occupancy(), ['20-2230'])
+        self.assertEqual(self.call({'action': 'my-events'}, client=owner)[1]['requests'][0]['status'], 'confirmed')
+        self.assertEqual(self.call(query='published=1')[1], {'events': []})
+        self.assertEqual(self.call({**publish, 'poster': '../private.webp'}, staff=True)[0], 422)
+        self.assertEqual(self.call(publish, staff=True)[0], 200)
+        public = self.call(query='published=1')[1]['events']
+        self.assertEqual([item['id'] for item in public], [event_id])
+        self.assertNotIn(self.fields['email'], json.dumps(public))
+        self.assertEqual(self.call(cancel, client=other)[0], 404)
+        self.assertEqual(self.call(cancel, client=owner)[1]['status'], 'cancelled')
+        self.assertEqual(self.occupancy(), [])
+        self.assertEqual(self.call(query='published=1')[1], {'events': []})
+        self.assertEqual(self.call(request, client=other)[0], 202)
+        self.assertEqual(self.call(cancel, client=owner)[1]['status'], 'cancelled')
+        self.assertEqual(self.occupancy(), ['20-2230'])
+        self.assertEqual(self.call({'action': 'sign-out'}, client=first)[0], 200)
+        self.assertEqual(self.call({'action': 'my-events'}, client=first)[0], 401)
+        self.assertEqual(self.call({'action': 'sign-in', **auth}, client=first)[0], 200)
+        expected = 'cancelled' if winner == 0 else 'pending'
+        self.assertEqual(self.call({'action': 'my-events'}, client=first)[1]['requests'][0]['status'], expected)
+
+    def test_public_signup_cap_is_atomic_and_private(self):
+        owner, _ = self.guest()
+        _, event = self.call({**self.fields, 'action': 'submit-event'}, client=owner)
+        event_id = event['id']
+        request = {'action': 'join-event', 'id': event_id, 'name': 'Local participant'}
+        self.assertEqual(self.call({**request, 'email': 'before@invalid.test'})[0], 404)
+        self.assertEqual(self.call({'action': 'approve', 'id': event_id}, staff=True)[0], 200)
+        self.assertEqual(self.call({**request, 'email': 'before@invalid.test'})[0], 404)
+        self.assertEqual(self.call({'action': 'publish', 'id': event_id, 'poster': self.poster}, staff=True)[0], 200)
+
+        def join(index):
+            return self.call({**request, 'email': f'attendee{index}@invalid.test'})
+
+        with ThreadPoolExecutor(4) as workers:
+            results = list(workers.map(join, range(24)))
+        self.assertEqual([code for code, _ in results].count(201), 20)
+        self.assertEqual([code for code, _ in results].count(409), 4)
+        joined = next(index for index, (code, _) in enumerate(results) if code == 201)
+        self.assertEqual(join(joined), (200, {'status': 'joined'}))
+        attendees = {'action': 'attendees', 'id': event_id}
+        self.assertEqual(self.call(attendees)[0], 403)
+        self.assertEqual(len(self.call(attendees, staff=True)[1]['attendees']), 20)
+        self.assertNotIn('attendee', json.dumps(self.call(query='published=1')[1]))
+        self.assertEqual(self.call({'action': 'cancel-my-event', 'id': event_id}, client=owner)[0], 200)
+        self.assertEqual(join(25)[0], 404)
+
+    def test_rejected_or_withdrawn_requests_release_hold(self):
+        client, _ = self.guest()
+        request = {**self.fields, 'action': 'submit-event'}
+        _, first = self.call(request, client=client)
+        self.assertEqual(self.occupancy(), ['20-2230'])
+        self.assertEqual(self.call({'action': 'reject', 'id': first['id'], 'reason': 'Staff review reason'}, staff=True)[0], 200)
+        self.assertEqual(self.occupancy(), [])
+        self.assertEqual(self.call({'action': 'my-events'}, client=client)[1]['requests'][0]['reason'], 'Staff review reason')
+        _, second = self.call(request, client=client)
+        self.assertEqual(self.call({'action': 'cancel-my-event', 'id': second['id']}, client=client)[0], 200)
+        self.assertEqual(self.occupancy(), [])
+        _, rejected = self.call({**request, 'intro': 'Sell illegal drugs'}, client=client)
+        self.assertEqual(rejected['status'], 'rejected')
         self.assertEqual(self.occupancy(), [])
 
     def test_fields_and_sample_cards(self):
@@ -114,10 +224,10 @@ class CommunityEvents(unittest.TestCase):
             with self.subTest(field=field):
                 body = self.fields.copy()
                 del body[field]
-                self.assertEqual(self.call(body), (422, {'status': 'invalid', 'fields': [field]}))
+                self.assertEqual(self.staff_lock(body), (422, {'status': 'invalid', 'fields': [field]}))
         for field, value in [('slot', ['10-12', '14-17']), ('phone', 'no'), ('email', 'invalid'),
                              ('date', '2100-02-29'), ('intro', '\u3000')]:
-            self.assertEqual(self.call({**self.fields, field: value})[0], 422)
+            self.assertEqual(self.staff_lock({**self.fields, field: value})[0], 422)
         self.assertEqual(self.occupancy(), [])
 
     def test_double_booking_cancel_and_rebook(self):
@@ -125,7 +235,7 @@ class CommunityEvents(unittest.TestCase):
 
         def submit(index):
             start.wait(timeout=5)
-            return self.call({**self.fields, 'name': f'Organizer {index}'})
+            return self.staff_lock({**self.fields, 'name': f'Organizer {index}'})
 
         with ThreadPoolExecutor(2) as workers:
             results = sorted(workers.map(submit, range(2)), key=lambda response: response[0])
@@ -146,7 +256,7 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.occupancy(), ['20-2230'])
 
     def test_guest_cancel_and_rebook(self):
-        status, record = self.call(self.fields)
+        status, record = self.staff_lock(self.fields)
         self.assertEqual(status, 201)
         self.assertRegex(record['cancelToken'], r'^[a-f0-9]{64}$')
         credentials = {'id': record['id'], 'token': record['cancelToken']}
@@ -164,7 +274,7 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.occupancy(), [])
         self.assertEqual(self.call(cancel), (status, cancelled))
 
-        status, second = self.call({**self.fields, 'name': 'Second organizer'})
+        status, second = self.staff_lock({**self.fields, 'name': 'Second organizer'})
         self.assertEqual(status, 201)
         self.assertNotEqual(second['cancelToken'], record['cancelToken'])
         self.assertEqual(self.call({**cancel, 'id': second['id']})[0], 403)
@@ -172,7 +282,7 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.occupancy(), ['20-2230'])
 
     def test_moderation_and_pending_withdrawal(self):
-        status, pending = self.call({**self.fields, 'intro': 'A topic for staff to review'})
+        status, pending = self.staff_lock({**self.fields, 'intro': 'A topic for staff to review'})
         self.assertEqual(status, 202)
         self.assertEqual(self.occupancy(), [])
         queued = self.call({'action': 'pending'}, staff=True)[1]['requests'][0]
@@ -180,10 +290,10 @@ class CommunityEvents(unittest.TestCase):
         self.assertNotIn('cancelToken', queued)
         self.assertEqual(self.call({'action': 'cancel', 'id': pending['id']}, staff=True)[0], 200)
         self.assertEqual(self.occupancy(), [])
-        rejected = self.call({**self.fields, 'intro': 'Sell illegal drugs'})
+        rejected = self.staff_lock({**self.fields, 'intro': 'Sell illegal drugs'})
         self.assertEqual(rejected, (422, {'status': 'rejected', 'reason': 'venue_policy'}))
         self.assertEqual(self.occupancy(), [])
-        _, pending = self.call({**self.fields, 'intro': 'A topic for staff to review'})
+        _, pending = self.staff_lock({**self.fields, 'intro': 'A topic for staff to review'})
         approve = {'action': 'approve', 'id': pending['id']}
         self.assertEqual(self.call(approve, staff=True)[0], 200)
         self.assertEqual(self.occupancy(), ['20-2230'])
@@ -193,15 +303,15 @@ class CommunityEvents(unittest.TestCase):
 
     def test_response_retry_and_private_permissions(self):
         request = {**self.fields, 'retryKey': 'a1234567-1234-1234-1234-a12345678901'}
-        first = self.call(request)
+        first = self.staff_lock(request)
         self.assertEqual(first[0], 201)
-        self.assertEqual(self.call(request), first)
-        self.assertEqual(self.call({**request, 'name': 'Different organizer'})[0], 409)
+        self.assertEqual(self.staff_lock(request), first)
+        self.assertEqual(self.staff_lock({**request, 'name': 'Different organizer'})[0], 409)
         self.assertEqual(self.occupancy(), ['20-2230'])
         self.assertEqual((self.data / 'events.json').stat().st_mode & 0o777, 0o600)
         self.data.chmod(0o755)
         self.assertEqual(self.call()[0], 503)
-        self.assertEqual(self.call(self.fields)[0], 503)
+        self.assertEqual(self.staff_lock(self.fields)[0], 503)
 
 
 if __name__ == '__main__':

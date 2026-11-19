@@ -13,5 +13,11 @@
   "Save your private booking link": "儲存你的私人預約連結",
   "Cancel this booking?": "要取消這項預約嗎？",
   "Booking cancelled. The slot is available again.": "預約已取消，該時段已重新開放。",
-  "This booking link is invalid.": "此預約連結無效。"
+  "This booking link is invalid.": "此預約連結無效。",
+  "My Events": "我的活動",
+  "See what's on, or host your own gathering.": "看看目前有哪些活動，或自己辦一場。",
+  "Check your email, phone number and password.": "請檢查電子郵件、電話號碼和密碼。",
+  "Use at least 12 characters for your password.": "密碼至少需要 12 個字元。",
+  "Your slot is held while your request is under review.": "審核期間會暫留你選擇的時段。",
+  "That time slot is unavailable. Choose another time.": "該時段暫不可選，請選擇其他時段。"
 }

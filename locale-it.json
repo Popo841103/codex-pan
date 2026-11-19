@@ -13,5 +13,11 @@
   "Save your private booking link": "Salva il tuo link privato di prenotazione",
   "Cancel this booking?": "Annullare questa prenotazione?",
   "Booking cancelled. The slot is available again.": "Prenotazione annullata. La fascia oraria è di nuovo disponibile.",
-  "This booking link is invalid.": "Questo link di prenotazione non è valido."
+  "This booking link is invalid.": "Questo link di prenotazione non è valido.",
+  "My Events": "I miei eventi",
+  "See what's on, or host your own gathering.": "Scopri cosa c’è in programma oppure organizza il tuo incontro.",
+  "Check your email, phone number and password.": "Controlla l’indirizzo e-mail, il numero di telefono e la password.",
+  "Use at least 12 characters for your password.": "Usa almeno 12 caratteri per la password.",
+  "Your slot is held while your request is under review.": "La fascia oraria è riservata provvisoriamente durante la valutazione della richiesta.",
+  "That time slot is unavailable. Choose another time.": "Quella fascia oraria non è disponibile. Scegli un altro orario."
 }

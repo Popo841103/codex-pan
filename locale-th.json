@@ -13,5 +13,11 @@
   "Save your private booking link": "บันทึกลิงก์การจองส่วนตัวของคุณ",
   "Cancel this booking?": "ยกเลิกการจองนี้หรือไม่",
   "Booking cancelled. The slot is available again.": "ยกเลิกการจองแล้ว ช่วงเวลานี้เปิดให้จองอีกครั้ง",
-  "This booking link is invalid.": "ลิงก์การจองนี้ไม่ถูกต้อง"
+  "This booking link is invalid.": "ลิงก์การจองนี้ไม่ถูกต้อง",
+  "My Events": "กิจกรรมของฉัน",
+  "See what's on, or host your own gathering.": "ดูกิจกรรมที่กำลังจะจัด หรือจัดกิจกรรมของคุณเอง",
+  "Check your email, phone number and password.": "โปรดตรวจสอบอีเมล หมายเลขโทรศัพท์ และรหัสผ่าน",
+  "Use at least 12 characters for your password.": "ใช้รหัสผ่านอย่างน้อย 12 อักขระ",
+  "Your slot is held while your request is under review.": "ระบบจะกันช่วงเวลาที่เลือกไว้ระหว่างการพิจารณาคำขอ",
+  "That time slot is unavailable. Choose another time.": "ช่วงเวลานี้ไม่ว่าง โปรดเลือกช่วงเวลาอื่น"
 }

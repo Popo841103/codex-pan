@@ -13,5 +13,11 @@
   "Save your private booking link": "予約専用リンクを保存",
   "Cancel this booking?": "この予約をキャンセルしますか？",
   "Booking cancelled. The slot is available again.": "予約をキャンセルしました。この枠は再び予約できます。",
-  "This booking link is invalid.": "この予約リンクは無効です。"
+  "This booking link is invalid.": "この予約リンクは無効です。",
+  "My Events": "マイイベント",
+  "See what's on, or host your own gathering.": "開催予定をチェックしたり、自分でイベントを企画したりできます。",
+  "Check your email, phone number and password.": "メールアドレス、電話番号、パスワードを確認してください。",
+  "Use at least 12 characters for your password.": "パスワードは12文字以上にしてください。",
+  "Your slot is held while your request is under review.": "審査中は選択した時間枠が仮押さえされます。",
+  "That time slot is unavailable. Choose another time.": "その時間枠は利用できません。別の時間を選んでください。"
 }

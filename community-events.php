@@ -92,10 +92,11 @@ function authorizeStaff(): bool
 
 function occupy(array $record): bool
 {
-    return $record['status'] === 'confirmed';
+    return $record['status'] === 'confirmed'
+        || ($record['status'] === 'pending' && isset($record['owner']));
 }
 
-function transaction(bool $write, callable $operation): array
+function privateDirectory(): string
 {
     $directory = getenv('COHUB_EVENTS_DATA_DIR') ?: '/var/lib/cohub-events';
     $directory = realpath($directory);
@@ -105,7 +106,13 @@ function transaction(bool $write, callable $operation): array
         throw new RuntimeException('Private event storage unavailable');
     }
     umask(0077);
-    $lock = fopen($directory . '/events.lock', 'c');
+    return $directory;
+}
+
+function transaction(bool $write, callable $operation, string $store = 'events'): array
+{
+    $directory = privateDirectory();
+    $lock = fopen($directory . '/' . $store . '.lock', 'c');
     if ($lock === false) {
         throw new RuntimeException('Cannot open event lock');
     }
@@ -113,7 +120,7 @@ function transaction(bool $write, callable $operation): array
         if (!flock($lock, $write ? LOCK_EX : LOCK_SH)) {
             throw new RuntimeException('Cannot acquire event lock');
         }
-        $path = $directory . '/events.json';
+        $path = $directory . '/' . $store . '.json';
         $records = [];
         if (file_exists($path)) {
             $contents = file_get_contents($path);
@@ -127,7 +134,7 @@ function transaction(bool $write, callable $operation): array
         }
         [$status, $response, $changed] = $operation($records);
         if ($changed) {
-            $temporary = tempnam($directory, 'events-');
+            $temporary = tempnam($directory, $store . '-');
             if ($temporary === false) {
                 throw new RuntimeException('Cannot stage event store');
             }
@@ -148,10 +155,10 @@ function transaction(bool $write, callable $operation): array
     }
 }
 
-function taken(array $records, array $request): bool
+function taken(array $records, array $request, string $except = ''): bool
 {
     foreach ($records as $record) {
-        if (occupy($record) && $record['date'] === $request['date'] && $record['slot'] === $request['slot']) {
+        if ($record['id'] !== $except && occupy($record) && $record['date'] === $request['date'] && $record['slot'] === $request['slot']) {
             return true;
         }
     }
@@ -188,10 +195,202 @@ function guestBooking(array $body, bool $cancel): array
     });
 }
 
+function accountAction(string $action, array $body): array
+{
+    if (!in_array($action, ['register', 'sign-in'], true) && !isset($_COOKIE['COHUB_EVENTS'])) {
+        return $action === 'sign-out' ? [200, ['status' => 'signed_out']] : [401, ['status' => 'sign_in']];
+    }
+    session_save_path(privateDirectory());
+    session_name('COHUB_EVENTS');
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.cache_limiter', '');
+    ini_set('session.gc_maxlifetime', '86400');
+    ini_set('session.gc_probability', '1');
+    session_set_cookie_params([
+        'path' => '/', 'httponly' => true, 'samesite' => 'Strict',
+        'secure' => ($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off',
+    ]);
+    if (!session_start()) {
+        throw new RuntimeException('Cannot start guest session');
+    }
+    if ($action === 'sign-out') {
+        $_SESSION = [];
+        session_destroy();
+        setcookie(session_name(), '', ['expires' => 1, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict']);
+        return [200, ['status' => 'signed_out']];
+    }
+
+    if ($action === 'register' || $action === 'sign-in') {
+        $email = $body['email'] ?? '';
+        $phone = $body['phone'] ?? '';
+        $password = $body['password'] ?? '';
+        if (!is_string($email) || strlen($email) > 120 || !filter_var(trim($email), FILTER_VALIDATE_EMAIL)
+            || !is_string($phone) || strlen($phone) > 40 || !preg_match('/\A\+?[0-9 ()-]+\z/', trim($phone))
+            || !is_string($password) || strlen($password) < 12 || strlen($password) > 72
+            || strpos($password, "\0") !== false) {
+            return [422, ['status' => 'credentials']];
+        }
+        $email = strtolower(trim($email));
+        $phone = preg_replace('/\D/', '', $phone);
+        if (strlen($phone) < 7 || strlen($phone) > 15) {
+            return [422, ['status' => 'credentials']];
+        }
+        $identity = hash('sha256', $email . ':' . $phone);
+        $register = $action === 'register';
+        [$code, $account] = transaction($register, static function (array &$accounts) use ($identity, $register, $password, $email, $phone): array {
+            $account = $accounts[$identity] ?? null;
+            if ($register) {
+                if ($account !== null) {
+                    return [409, ['status' => 'credentials'], false];
+                }
+                $account = ['id' => bin2hex(random_bytes(16)), 'email' => $email, 'phone' => $phone,
+                    'passwordHash' => password_hash($password, PASSWORD_DEFAULT)];
+                $accounts[$identity] = $account;
+            } else {
+                // Run password verification even for an unknown contact pair.
+                $hash = $account['passwordHash'] ?? '$2y$10$LX4uuXQVcMsz5SNRSyXT6O/jTWMjj3BMlW5Y9J.kZOEh7kM/rDgou';
+                if (!password_verify($password, $hash) || $account === null) {
+                    return [403, ['status' => 'credentials'], false];
+                }
+            }
+            return [200, $account, $register];
+        }, 'accounts');
+        if ($code !== 200) {
+            return [$code, $account];
+        }
+        if (!session_regenerate_id(true)) {
+            throw new RuntimeException('Cannot rotate session');
+        }
+        $_SESSION = ['guest' => array_intersect_key($account, array_flip(['id', 'email', 'phone'])),
+            'expires' => time() + 86400];
+    }
+
+    $guest = ($_SESSION['expires'] ?? 0) > time() ? ($_SESSION['guest'] ?? null) : null;
+    if (!session_write_close()) {
+        throw new RuntimeException('Cannot save guest session');
+    }
+    if ($guest === null) {
+        return [401, ['status' => 'sign_in']];
+    }
+
+    if (in_array($action, ['register', 'sign-in', 'my-events'], true)) {
+        return transaction(false, static function (array $records) use ($guest): array {
+            $mine = [];
+            foreach (array_reverse($records) as $record) {
+                if (($record['owner'] ?? null) === $guest['id']) {
+                    $mine[] = summary($record) + array_intersect_key($record, array_flip(['title', 'reason']));
+                }
+            }
+            return [200, ['email' => $guest['email'], 'phone' => $guest['phone'], 'requests' => $mine], false];
+        });
+    }
+    if ($action === 'cancel-my-event') {
+        $id = $body['id'] ?? '';
+        return transaction(true, static function (array &$records) use ($id, $guest): array {
+            if (!is_string($id) || ($records[$id]['owner'] ?? null) !== $guest['id']) {
+                return [404, ['status' => 'unknown'], false];
+            }
+            $record = &$records[$id];
+            $changed = occupy($record);
+            if ($changed) {
+                $record['status'] = 'cancelled';
+            }
+            return [200, summary($record), $changed];
+        });
+    }
+
+    $errors = [];
+    $request = validateRequest(array_replace($body, ['email' => $guest['email'], 'phone' => $guest['phone']]), $errors);
+    if ($errors) {
+        return [422, ['status' => 'invalid', 'fields' => $errors]];
+    }
+    $rejected = moderation($request) === 'rejected';
+    return transaction(true, static function (array &$records) use ($request, $guest, $rejected): array {
+        if (!$rejected && taken($records, $request)) {
+            return [409, ['status' => 'taken'], false];
+        }
+        $id = 'COHUB-' . bin2hex(random_bytes(16));
+        $record = ['id' => $id, 'owner' => $guest['id'], 'status' => $rejected ? 'rejected' : 'pending'] + $request;
+        if ($rejected) {
+            $record['reason'] = 'venue_policy';
+        }
+        $records[$id] = $record;
+        return [202, summary($record), true];
+    });
+}
+
+function posterPath($file): ?string
+{
+    if (!is_string($file) || !preg_match('/\Acohub-poster-[a-z0-9-]+\.(?:webp|png|jpg)\z/', $file)) {
+        return null;
+    }
+    $path = 'assets/coffee/' . $file;
+    return is_file(__DIR__ . '/' . $path) ? $path : null;
+}
+
+function isUpcoming(array $record): bool
+{
+    $timezone = new DateTimeZone('Asia/Kuala_Lumpur');
+    $today = new DateTimeImmutable('today', $timezone);
+    return $record['date'] >= $today->format('Y-m-d');
+}
+
+function signUpForEvent(array $body): array
+{
+    $id = $body['id'] ?? '';
+    $name = $body['name'] ?? '';
+    $email = $body['email'] ?? '';
+    if (!is_string($id) || !is_string($name) || !preg_match('/\A[^\p{C}]{1,80}\z/u', trim($name))
+        || !is_string($email) || strlen($email) > 120 || !filter_var(trim($email), FILTER_VALIDATE_EMAIL)) {
+        return [422, ['status' => 'invalid']];
+    }
+    $email = strtolower(trim($email));
+    return transaction(true, static function (array &$records) use ($id, $name, $email): array {
+        $record = $records[$id] ?? null;
+        if ($record === null || $record['status'] !== 'confirmed' || !isUpcoming($record)
+            || posterPath($record['poster'] ?? null) === null) {
+            return [404, ['status' => 'unknown'], false];
+        }
+        $registrations = $record['registrations'] ?? [];
+        if (isset($registrations[$email])) {
+            return [200, ['status' => 'joined'], false];
+        }
+        if (count($registrations) >= 20) {
+            return [409, ['status' => 'full'], false];
+        }
+        $records[$id]['registrations'][$email] = ['name' => trim($name), 'email' => $email];
+        return [201, ['status' => 'joined'], true];
+    });
+}
+
+function publishedEvents(): array
+{
+    return transaction(false, static function (array $records): array {
+        $events = [];
+        foreach ($records as $record) {
+            if ($record['status'] !== 'confirmed' || !isUpcoming($record)) {
+                continue;
+            }
+            $poster = posterPath($record['poster'] ?? null);
+            if ($poster !== null) {
+                $events[] = summary($record) + ['title' => $record['title'], 'intro' => $record['intro'], 'poster' => $poster];
+            }
+        }
+        usort($events, static function (array $a, array $b): int {
+            return [$a['date'], $a['slot']] <=> [$b['date'], $b['slot']];
+        });
+        return [200, ['events' => $events], false];
+    });
+}
+
 function handle(): array
 {
     $method = $_SERVER['REQUEST_METHOD'] ?? '';
     if ($method === 'GET') {
+        if (($_GET['published'] ?? '') === '1') {
+            return publishedEvents();
+        }
         $date = $_GET['date'] ?? '';
         if (!is_string($date) || !validDate($date)) {
             return [422, ['status' => 'invalid', 'fields' => ['date']]];
@@ -225,10 +424,19 @@ function handle(): array
     if ($action === 'guest-status' || $action === 'guest-cancel') {
         return guestBooking($body, $action === 'guest-cancel');
     }
-    if (!in_array($action, ['request', 'lock', 'pending', 'approve', 'reject', 'cancel'], true)) {
+    if (in_array($action, ['register', 'sign-in', 'sign-out', 'my-events', 'submit-event', 'cancel-my-event'], true)) {
+        return accountAction($action, $body);
+    }
+    if ($action === 'join-event') {
+        return signUpForEvent($body);
+    }
+    if ($action === 'request') {
+        return [401, ['status' => 'sign_in']];
+    }
+    if (!in_array($action, ['lock', 'pending', 'approve', 'reject', 'cancel', 'publish', 'attendees'], true)) {
         return [400, ['status' => 'invalid']];
     }
-    if ($action !== 'request' && !authorizeStaff()) {
+    if (!authorizeStaff()) {
         return [403, ['status' => 'forbidden']];
     }
     if ($action === 'pending') {
@@ -237,9 +445,36 @@ function handle(): array
                 return $record['status'] === 'pending';
             });
             return [200, ['requests' => array_values(array_map(static function (array $record): array {
-                unset($record['cancelToken']);
+                unset($record['cancelToken'], $record['owner'], $record['retryHash']);
                 return $record;
             }, $pending))], false];
+        });
+    }
+    if ($action === 'attendees') {
+        $id = $body['id'] ?? '';
+        return transaction(false, static function (array $records) use ($id): array {
+            if (!is_string($id) || !isset($records[$id])) {
+                return [404, ['status' => 'unknown'], false];
+            }
+            return [200, ['attendees' => array_values($records[$id]['registrations'] ?? [])], false];
+        });
+    }
+    if ($action === 'publish') {
+        $id = $body['id'] ?? '';
+        $poster = $body['poster'] ?? null;
+        if (posterPath($poster) === null) {
+            return [422, ['status' => 'invalid', 'fields' => ['poster']]];
+        }
+        return transaction(true, static function (array &$records) use ($id, $poster): array {
+            if (!is_string($id) || !isset($records[$id])) {
+                return [404, ['status' => 'unknown'], false];
+            }
+            $record = &$records[$id];
+            if ($record['status'] !== 'confirmed') {
+                return [409, ['status' => $record['status']], false];
+            }
+            $record['poster'] = $poster;
+            return [200, summary($record), true];
         });
     }
     if (in_array($action, ['approve', 'reject', 'cancel'], true)) {
@@ -270,7 +505,7 @@ function handle(): array
             if ($errors) {
                 return [422, ['status' => 'invalid', 'fields' => $errors], false];
             }
-            if (taken($records, $record)) {
+            if (taken($records, $record, $id)) {
                 return [409, ['status' => 'taken'], false];
             }
             $record['status'] = 'confirmed';
