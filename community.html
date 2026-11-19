@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;800&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261027-food1">
-  <link rel="stylesheet" href="community.css?v=20261119-lock1">
+  <link rel="stylesheet" href="community.css?v=20261119-lock2">
 </head>
 <body class="community-guest">
   <header>
@@ -45,7 +45,7 @@
       <button type="button" class="host-open" id="openHost" data-en="Host an event" data-zh="自己办活动" data-ms="Anjurkan aktiviti">Host an event</button>
       <p class="host-note" data-en="You can host your own talk or gathering here at no charge." data-zh="自己组织的讲座和活动，在这里办不收场地费。" data-ms="Anda boleh menganjurkan ceramah atau perkumpulan sendiri di sini tanpa bayaran.">You can host your own talk or gathering here at no charge.</p>
       <p class="host-note" data-en="A screen and projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too." data-zh="店里有投屏和投影仪，可以直接用。欢迎以 AI 为主题，其他主题也可以。" data-ms="Skrin dan projektor sedia untuk digunakan. Aktiviti bertema AI dialu-alukan, dan tema lain juga boleh.">A screen and projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too.</p>
-      <p class="host-note" data-en="To cancel after booking, send a WhatsApp message to +60 17-849 7319. We will free that time slot." data-zh="预约后如需取消，请发 WhatsApp 给 +60 17-849 7319，我们会把该时段重新开放。" data-ms="Untuk batal selepas menempah, hantar WhatsApp ke +60 17-849 7319. Kami akan buka semula slot itu.">To cancel after booking, send a WhatsApp message to +60 17-849 7319. We will free that time slot.</p>
+      <p class="host-note" data-en="After booking, click Cancel to free your slot." data-zh="预约成功后，点击“取消”即可释放时段。" data-ms="Selepas tempahan disahkan, klik Batal untuk membuka semula slot anda.">After booking, click Cancel to free your slot.</p>
     </div>
     <section class="events" id="events">
       <h2 data-en="What's on" data-zh="现有活动" data-ms="Aktiviti semasa">What's on</h2>
@@ -191,7 +191,7 @@
       </fieldset>
       <label><span data-en="Event introduction" data-zh="活动介绍" data-ms="Pengenalan aktiviti">Event introduction</span><textarea name="intro" required maxlength="400"></textarea></label>
       <p class="hint"><span data-en="A screen and projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too." data-zh="店里有投屏和投影仪，可以直接用。欢迎以 AI 为主题，其他主题也可以。" data-ms="Skrin dan projektor sedia untuk digunakan. Aktiviti bertema AI dialu-alukan, dan tema lain juga boleh.">A screen and projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too.</span> <span id="hostSignup" data-en="Gatherings are open to guests, people staying here, passersby, and anyone who sees them on the official site or Facebook. Each event is limited to 20 people." data-zh="活动开放参加：店里的客人、住在这里的人、路过的人，以及在官网或 Facebook 上看到的人，都可以报名。人数控制在 20 人以内。" data-ms="Aktiviti terbuka kepada tetamu, orang yang menginap, orang yang lalu, dan sesiapa yang melihatnya di laman rasmi atau Facebook. Setiap aktiviti dihadkan kepada 20 orang.">Gatherings are open to guests, people staying here, passersby, and anyone who sees them on the official site or Facebook. Each event is limited to 20 people.</span></p>
-      <p class="hint" id="hostCancellation" data-en="To cancel after booking, send a WhatsApp message to +60 17-849 7319. We will free that time slot." data-zh="预约后如需取消，请发 WhatsApp 给 +60 17-849 7319，我们会把该时段重新开放。" data-ms="Untuk batal selepas menempah, hantar WhatsApp ke +60 17-849 7319. Kami akan buka semula slot itu.">To cancel after booking, send a WhatsApp message to +60 17-849 7319. We will free that time slot.</p>
+      <p class="hint" data-en="After booking, click Cancel to free your slot." data-zh="预约成功后，点击“取消”即可释放时段。" data-ms="Selepas tempahan disahkan, klik Batal untuk membuka semula slot anda.">After booking, click Cancel to free your slot.</p>
       <label><span data-en="Notes" data-zh="备注" data-ms="Catatan">Notes</span><textarea name="note" maxlength="400"></textarea></label>
       <div>
         <button class="host-send" type="submit" data-en="Submit request" data-zh="提交申请" data-ms="Hantar permohonan">Submit request</button>
@@ -205,7 +205,16 @@
       <p data-result="rejected" hidden data-en="This activity was declined under our venue rules on safety and suitable conduct." data-zh="此活动不符合场地安全与行为规范，申请未获通过。" data-ms="Aktiviti ini ditolak mengikut peraturan keselamatan dan tatakelakuan ruang kami.">This activity was declined under our venue rules on safety and suitable conduct.</p>
       <p data-result="unavailable" hidden data-en="Unable to verify availability. Please try again." data-zh="无法核实时段，请重试。" data-ms="Ketersediaan tidak dapat disahkan. Sila cuba lagi.">Unable to verify availability. Please try again.</p>
       <p id="requestDetails" hidden><span data-en="Request ID" data-zh="申请编号" data-ms="ID permohonan">Request ID</span> <bdi id="requestId" data-user-content></bdi><br><bdi id="requestSlot" data-user-content></bdi></p>
-      <a id="cancelContact" data-user-content href="https://wa.me/60178497319" hidden></a>
+      <p data-result="cancelled" hidden data-en="Cancelled" data-zh="已取消" data-ms="Dibatalkan">Cancelled</p>
+      <p data-result="released" hidden data-en="Booking cancelled. The slot is available again." data-zh="预约已取消，该时段现已开放。" data-ms="Tempahan dibatalkan. Slot tersedia semula.">Booking cancelled. The slot is available again.</p>
+      <p data-result="forbidden" hidden data-en="This booking link is invalid." data-zh="此预约链接无效。" data-ms="Pautan tempahan ini tidak sah.">This booking link is invalid.</p>
+      <p id="confirmedCancellation" hidden data-en="After booking, click Cancel to free your slot." data-zh="预约成功后，点击“取消”即可释放时段。" data-ms="Selepas tempahan disahkan, klik Batal untuk membuka semula slot anda.">After booking, click Cancel to free your slot.</p>
+      <div id="bookingActions" hidden>
+        <button class="host-send" id="cancelBooking" type="button" hidden data-en="Cancel" data-zh="取消" data-ms="Batal">Cancel</button>
+        <a id="bookingLink" target="_blank" rel="noopener noreferrer" data-en="Save your private booking link" data-zh="保存你的私人预约链接" data-ms="Simpan pautan tempahan peribadi anda">Save your private booking link</a>
+      </div>
+      <span id="cancelPrompt" hidden data-en="Cancel this booking?" data-zh="取消这项预约吗？" data-ms="Batalkan tempahan ini?">Cancel this booking?</span>
+      <p id="cancelError" hidden data-en="We could not complete this request. Please try again or contact the team." data-zh="无法完成这项操作。请重试或联系团队。" data-ms="Permintaan ini tidak dapat diselesaikan. Sila cuba lagi atau hubungi pasukan kami.">We could not complete this request. Please try again or contact the team.</p>
       <ul id="invalidFields" hidden></ul>
     </div>
   </dialog>
@@ -226,9 +235,9 @@
       <a class="text-link" href="https://www.tiktok.com/@cohub.klcc" target="_blank" rel="noopener noreferrer" data-en="TikTok · @cohub.klcc" data-zh="TikTok · @cohub.klcc" data-ms="TikTok · @cohub.klcc">TikTok · @cohub.klcc</a>
     </div>
   </footer>
-  <script src="languages.js?v=20261119-lock1"></script>
+  <script src="languages.js?v=20261119-lock2"></script>
   <script src="app.js?v=20261027-food1"></script>
-  <script src="community-guest.js?v=20261119-lock1"></script>
+  <script src="community-guest.js?v=20261119-lock2"></script>
   <script src="site-ui.js?v=20261027-food1"></script>
 </body>
 </html>

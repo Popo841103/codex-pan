@@ -102,6 +102,9 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertEqual(self.call({'action': 'cancel', 'id': record['id']}, staff=True)[0], 403)
         self.assertEqual(self.occupancy(), ['20-2230'])
+        self.assertEqual(self.call({'action': 'guest-cancel', 'id': record['id'],
+                                    'token': record['cancelToken']})[0], 200)
+        self.assertEqual(self.occupancy(), [])
 
     def test_fields_and_sample_cards(self):
         parser = Samples()
@@ -129,7 +132,7 @@ class CommunityEvents(unittest.TestCase):
         (success, record), (conflict, error) = results
         self.assertEqual((success, conflict, error['status']), (201, 409, 'taken'))
         self.assertEqual(self.occupancy(), ['20-2230'])
-        self.assertEqual(set(record), {'id', 'date', 'slot', 'status'})
+        self.assertEqual(set(record), {'id', 'date', 'slot', 'status', 'cancelToken'})
         self.assertEqual(self.call({'action': 'cancel', 'id': record['id']})[0], 403)
         self.assertEqual(self.call({'action': 'cancel', 'id': 'unknown'}, staff=True)[0], 404)
         cancel = {'action': 'cancel', 'id': record['id']}
@@ -142,11 +145,39 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.call(cancel, staff=True)[0], 409)
         self.assertEqual(self.occupancy(), ['20-2230'])
 
+    def test_guest_cancel_and_rebook(self):
+        status, record = self.call(self.fields)
+        self.assertEqual(status, 201)
+        self.assertRegex(record['cancelToken'], r'^[a-f0-9]{64}$')
+        credentials = {'id': record['id'], 'token': record['cancelToken']}
+        status, booking = self.call({'action': 'guest-status', **credentials})
+        self.assertEqual(status, 200)
+        self.assertEqual(booking, {key: record[key] for key in ('id', 'status', 'date', 'slot')})
+
+        cancel = {'action': 'guest-cancel', **credentials}
+        self.assertEqual(self.call({'action': 'guest-cancel', 'id': record['id']})[0], 403)
+        self.assertEqual(self.call({**cancel, 'token': '0' * 64})[0], 403)
+        self.assertEqual(self.occupancy(), ['20-2230'])
+
+        status, cancelled = self.call(cancel)
+        self.assertEqual((status, cancelled['status'], cancelled['slotAvailable']), (200, 'cancelled', True))
+        self.assertEqual(self.occupancy(), [])
+        self.assertEqual(self.call(cancel), (status, cancelled))
+
+        status, second = self.call({**self.fields, 'name': 'Second organizer'})
+        self.assertEqual(status, 201)
+        self.assertNotEqual(second['cancelToken'], record['cancelToken'])
+        self.assertEqual(self.call({**cancel, 'id': second['id']})[0], 403)
+        self.assertEqual(self.call(cancel), (200, {**cancelled, 'slotAvailable': False}))
+        self.assertEqual(self.occupancy(), ['20-2230'])
+
     def test_moderation_and_pending_withdrawal(self):
         status, pending = self.call({**self.fields, 'intro': 'A topic for staff to review'})
         self.assertEqual(status, 202)
         self.assertEqual(self.occupancy(), [])
-        self.assertEqual(self.call({'action': 'pending'}, staff=True)[1]['requests'][0]['id'], pending['id'])
+        queued = self.call({'action': 'pending'}, staff=True)[1]['requests'][0]
+        self.assertEqual(queued['id'], pending['id'])
+        self.assertNotIn('cancelToken', queued)
         self.assertEqual(self.call({'action': 'cancel', 'id': pending['id']}, staff=True)[0], 200)
         self.assertEqual(self.occupancy(), [])
         rejected = self.call({**self.fields, 'intro': 'Sell illegal drugs'})
@@ -156,6 +187,9 @@ class CommunityEvents(unittest.TestCase):
         approve = {'action': 'approve', 'id': pending['id']}
         self.assertEqual(self.call(approve, staff=True)[0], 200)
         self.assertEqual(self.occupancy(), ['20-2230'])
+        self.assertEqual(self.call({'action': 'guest-cancel', 'id': pending['id'],
+                                    'token': pending['cancelToken']})[1]['status'], 'cancelled')
+        self.assertEqual(self.occupancy(), [])
 
     def test_response_retry_and_private_permissions(self):
         request = {**self.fields, 'retryKey': 'a1234567-1234-1234-1234-a12345678901'}

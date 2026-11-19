@@ -17,11 +17,15 @@
   const calendarError = byId('calendarError');
   const result = byId('hostResult');
   const details = byId('requestDetails');
-  const cancel = byId('cancelContact');
+  const cancel = byId('cancelBooking');
+  const bookingLink = byId('bookingLink');
+  const cancelError = byId('cancelError');
   const invalidFields = byId('invalidFields');
   const malaysiaToday = () => new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(new Date());
+  let booking;
+  let bookingRevision = 0;
   let slotRevision = 0;
   let calendarRevision = 0;
   let submitting = false;
@@ -45,9 +49,75 @@
     for (const message of result.querySelectorAll('[data-result]')) {
       message.hidden = message.dataset.result !== status;
     }
-    details.hidden = !['confirmed', 'pending'].includes(status);
+    details.hidden = !['confirmed', 'pending', 'cancelled', 'released', 'rejected'].includes(status) || !booking;
+    byId('bookingActions').hidden = !booking || !['confirmed', 'pending'].includes(status);
+    byId('confirmedCancellation').hidden = status !== 'confirmed';
     cancel.hidden = status !== 'confirmed';
+    cancelError.hidden = true;
     invalidFields.hidden = status !== 'invalid';
+  }
+
+  async function post(body) {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000)
+    });
+    return {code: response.status, reply: await response.json()};
+  }
+
+  function showBooking(reply, token) {
+    booking = {id: reply.id, token};
+    byId('requestId').textContent = reply.id;
+    byId('requestSlot').textContent = reply.date + ' · ' + slotLabel(reply.slot);
+    const link = new URL(location.pathname, location.origin);
+    link.hash = new URLSearchParams({booking: reply.id, token}).toString();
+    bookingLink.href = link.href;
+    const status = reply.status === 'cancelled' && reply.slotAvailable ? 'released' : reply.status;
+    showResult(status);
+    if (dialog.open) result.focus();
+  }
+
+  cancel.addEventListener('click', async () => {
+    if (!booking || submitting || !window.confirm(byId('cancelPrompt').textContent)) return;
+    const credentials = booking;
+    submitting = true;
+    cancel.disabled = true;
+    form.inert = true;
+    cancelError.hidden = true;
+    try {
+      const {code, reply} = await post({action: 'guest-cancel', ...credentials});
+      if (code !== 200 || reply.status !== 'cancelled') throw new Error('Cancellation failed');
+      if (booking === credentials) showBooking(reply, credentials.token);
+      lastPayload = undefined;
+      calendarDate.value = reply.date;
+    } catch {
+      if (booking === credentials) cancelError.hidden = false;
+    } finally {
+      submitting = false;
+      cancel.disabled = false;
+      form.inert = false;
+      void refreshSlots();
+      void refreshCalendar();
+    }
+  });
+
+  async function openBooking(id, token) {
+    const revision = ++bookingRevision;
+    booking = undefined;
+    showResult();
+    form.hidden = true;
+    byId('hostLead').hidden = true;
+    if (!dialog.open) dialog.showModal();
+    try {
+      const {code, reply} = await post({action: 'guest-status', id, token});
+      if (revision !== bookingRevision) return;
+      if (code === 200) showBooking(reply, token);
+      else showResult(code === 403 ? 'forbidden' : 'unavailable');
+    } catch {
+      if (revision === bookingRevision) showResult('unavailable');
+    }
   }
 
   function renderInvalidFields() {
@@ -81,7 +151,7 @@
       byId('noSlots').hidden = !full;
       submit.disabled = full || submitting;
     } catch {
-      if (revision === slotRevision && details.hidden) showResult('unavailable');
+      if (revision === slotRevision && details.hidden && !form.hidden) showResult('unavailable');
     }
   }
 
@@ -114,6 +184,13 @@
   }
 
   function openHost() {
+    if (form.hidden) {
+      ++bookingRevision;
+      booking = undefined;
+      form.hidden = false;
+      byId('hostLead').hidden = false;
+      showResult();
+    }
     if (!dialog.open) dialog.showModal();
     void refreshSlots();
   }
@@ -140,10 +217,7 @@
     if (dialog.open) void refreshSlots();
   });
   document.getElementById('language').addEventListener('change', () => {
-    requestAnimationFrame(() => {
-      renderInvalidFields();
-      cancel.textContent = byId('hostCancellation').textContent;
-    });
+    requestAnimationFrame(renderInvalidFields);
   });
   void refreshCalendar();
   void refreshSlots();
@@ -167,23 +241,12 @@
     showResult();
     unresolvedRequest = request;
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({...request, retryKey}),
-        signal: AbortSignal.timeout(15000)
-      });
-      const reply = await response.json();
-      if (response.status < 500) unresolvedRequest = null;
-      if ((response.status === 201 && reply.status === 'confirmed')
-        || (response.status === 202 && reply.status === 'pending')) {
-        byId('requestId').textContent = reply.id;
-        byId('requestSlot').textContent = reply.date + ' · ' + slotLabel(reply.slot);
-        cancel.href = 'https://wa.me/60178497319?text=' + encodeURIComponent(reply.id);
-        cancel.textContent = byId('hostCancellation').textContent;
-        showResult(reply.status);
-        if (dialog.open) result.focus();
-      } else if (response.status === 422 && reply.status === 'invalid') {
+      const {code, reply} = await post({...request, retryKey});
+      if (code < 500) unresolvedRequest = null;
+      if ((code === 201 && reply.status === 'confirmed')
+        || (code === 202 && reply.status === 'pending')) {
+        showBooking(reply, reply.cancelToken);
+      } else if (code === 422 && reply.status === 'invalid') {
         fieldsToFix = reply.fields || [];
         renderInvalidFields();
         showResult('invalid');
@@ -201,7 +264,15 @@
   });
 
   const url = new URL(location.href);
-  if (url.searchParams.get('host') === '1' || url.hash === '#host') {
+  function restoreBooking() {
+    const params = new URLSearchParams(location.hash.slice(1));
+    if (!params.has('booking')) return false;
+    void openBooking(params.get('booking'), params.get('token'));
+    return true;
+  }
+
+  window.addEventListener('hashchange', restoreBooking);
+  if (!restoreBooking() && (url.searchParams.get('host') === '1' || url.hash === '#host')) {
     openHost();
     url.searchParams.delete('host');
     if (url.hash === '#host') url.hash = '';

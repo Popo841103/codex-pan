@@ -47,14 +47,15 @@ body.community-guest .events-lead{margin:0 0 22px;color:var(--muted);font-size:1
 body.community-guest .empty{border:1px dashed #32271e33;border-radius:8px;padding:28px 22px;color:var(--muted);background:#fffdf8}
 body.community-guest .empty p{margin:0;font-size:16px}
 body.community-guest .events:has(.event) .empty{display:none}
-body.community-guest .event-list{display:grid;gap:28px}
+body.community-guest .event-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:480px){body.community-guest .event-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
 body.community-guest .event-list:not(:has(.event)){display:none}
 body.community-guest .event{background:#fffdf8;border-radius:12px;overflow:hidden;border:1px solid #32271e22}
-body.community-guest .event img{display:block;width:100%;height:auto;aspect-ratio:16/9;max-height:430px;object-fit:cover;background:#e8e0d2}
-body.community-guest .event .body{padding:16px 18px 20px}
+body.community-guest .event img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:#e8e0d2}
+body.community-guest .event .body{padding:10px 12px 12px;overflow-wrap:anywhere}
 body.community-guest .event .when{margin:0 0 4px;font-size:13px;color:var(--muted)}
-body.community-guest .event h3{margin:0 0 8px;font-size:22px;letter-spacing:-.4px}
-body.community-guest .event .desc{margin:0 0 14px;color:var(--ink)}
+body.community-guest .event h3{margin:0 0 8px;font-size:clamp(16px,2vw,20px);letter-spacing:-.4px}
+body.community-guest .event .desc{margin:0;color:var(--ink);font-size:14px}
 body.community-guest .join{display:inline-block;font-size:14px;font-weight:700;color:#8a5a16;border-bottom:1px solid var(--gold);padding-bottom:1px}
 dialog.host-dialog{width:min(520px,94vw);max-height:min(90vh,860px);overflow:auto;border:0;border-radius:12px;padding:0;background:var(--cream);color:var(--ink);box-shadow:0 20px 60px #0004}
 dialog.host-dialog::backdrop{background:#32271ecc}
@@ -95,3 +96,8 @@ dialog.host-dialog #hostResult{margin:0 22px 22px;overflow-wrap:anywhere}
 dialog.host-dialog #hostResult:not(:has(> :not([hidden]))){margin:0}
 dialog.host-dialog #hostResult a{display:inline-block;text-decoration:underline}
 dialog.host-dialog .host-send:disabled{opacity:.55;cursor:not-allowed}
+
+dialog.host-dialog .hostform[hidden]{display:none}
+dialog.host-dialog #bookingActions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+dialog.host-dialog #bookingActions[hidden]{display:none}
+dialog.host-dialog #cancelBooking{width:auto}

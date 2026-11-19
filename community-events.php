@@ -163,6 +163,31 @@ function summary(array $record): array
     return array_intersect_key($record, array_flip(['id', 'status', 'date', 'slot']));
 }
 
+function guestBooking(array $body, bool $cancel): array
+{
+    $id = $body['id'] ?? '';
+    $token = $body['token'] ?? '';
+    if (!is_string($id) || !preg_match('/\ACOHUB-[a-f0-9]{32}\z/', $id)
+        || !is_string($token) || !preg_match('/\A[a-f0-9]{64}\z/', $token)) {
+        return [403, ['status' => 'forbidden']];
+    }
+    return transaction($cancel, static function (array &$records) use ($id, $token, $cancel): array {
+        if (!isset($records[$id]['cancelToken']) || !hash_equals($records[$id]['cancelToken'], $token)) {
+            return [403, ['status' => 'forbidden'], false];
+        }
+        $record = &$records[$id];
+        $changed = $cancel && $record['status'] === 'confirmed';
+        if ($changed) {
+            $record['status'] = 'cancelled';
+        }
+        $response = summary($record);
+        if ($record['status'] === 'cancelled') {
+            $response['slotAvailable'] = !taken($records, $record);
+        }
+        return [200, $response, $changed];
+    });
+}
+
 function handle(): array
 {
     $method = $_SERVER['REQUEST_METHOD'] ?? '';
@@ -197,6 +222,9 @@ function handle(): array
         return [400, ['status' => 'invalid']];
     }
     $action = $body['action'] ?? 'request';
+    if ($action === 'guest-status' || $action === 'guest-cancel') {
+        return guestBooking($body, $action === 'guest-cancel');
+    }
     if (!in_array($action, ['request', 'lock', 'pending', 'approve', 'reject', 'cancel'], true)) {
         return [400, ['status' => 'invalid']];
     }
@@ -205,9 +233,13 @@ function handle(): array
     }
     if ($action === 'pending') {
         return transaction(false, static function (array $records): array {
-            return [200, ['requests' => array_values(array_filter($records, static function (array $record): bool {
+            $pending = array_filter($records, static function (array $record): bool {
                 return $record['status'] === 'pending';
-            }))], false];
+            });
+            return [200, ['requests' => array_values(array_map(static function (array $record): array {
+                unset($record['cancelToken']);
+                return $record;
+            }, $pending))], false];
         });
     }
     if (in_array($action, ['approve', 'reject', 'cancel'], true)) {
@@ -270,16 +302,23 @@ function handle(): array
                 if (!$same || !in_array($record['status'], ['confirmed', 'pending'], true)) {
                     return [409, ['status' => 'retry_conflict'], false];
                 }
-                return [$record['status'] === 'confirmed' ? 201 : 202, summary($record), false];
+                // Older requests can receive a token on an authenticated retry.
+                $newToken = !isset($record['cancelToken']);
+                $record['cancelToken'] ??= bin2hex(random_bytes(32));
+                $records[$record['id']] = $record;
+                return [$record['status'] === 'confirmed' ? 201 : 202,
+                    summary($record) + ['cancelToken' => $record['cancelToken']], $newToken];
             }
         }
         if (taken($records, $request)) {
             return [409, ['status' => 'taken'], false];
         }
         $id = 'COHUB-' . bin2hex(random_bytes(16));
-        $record = ['id' => $id, 'status' => $status, 'retryHash' => $retryHash] + $request;
+        $record = ['id' => $id, 'status' => $status, 'retryHash' => $retryHash,
+            'cancelToken' => bin2hex(random_bytes(32))] + $request;
         $records[$id] = $record;
-        return [$status === 'confirmed' ? 201 : 202, summary($record), true];
+        return [$status === 'confirmed' ? 201 : 202,
+            summary($record) + ['cancelToken' => $record['cancelToken']], true];
     });
 }
 
