@@ -1,5 +1,5 @@
 (() => {
-  if(new URLSearchParams(location.search).get('type')==='host'){location.replace('community.html#host-event');return;}
+  if(new URLSearchParams(location.search).get('type')==='host'){location.replace('my-events.html');return;}
   const form=document.querySelector('#enquiry-form');if(!form)return;
   const languageSelect=document.querySelector('#language');
   const topic=document.querySelector('#enquiry-topic');

@@ -59,24 +59,95 @@ function validateRequest(array $body, array &$errors): array
 function moderation(array $request): string
 {
     $text = implode("\n", [$request['title'], $request['intro'], $request['note']]);
-    if (preg_match('/\b(?:sell illegal drugs|stalk and harass|organize a hate rally|drinking contest)\b|贩卖毒品|販賣毒品|组织骚扰|組織騷擾|jualan dadah haram/iu', $text)) {
-        return 'rejected';
+    $rules = [
+        'venue_policy_illegal' =>
+            '\b(?:sell(?:ing)? (?:illegal drugs|contraband)|drug trafficking|money laundering|illegal fundraising|'
+            . 'gambling tournament|cash betting|run an illegal casino|armed attack|attack people with weapons|'
+            . '(?:exploit(?:ing)?|harm(?:ing)?|abus(?:e|ing)) (?:minors|children)|underage drinking|'
+            . '(?:jualan|pengedaran) dadah haram|jualan barang larangan|pengubahan wang haram|kutipan dana haram|'
+            . 'pertandingan judi|pertaruhan wang|serangan bersenjata|(?:mencederakan|mengeksploitasi|mendera) kanak-kanak)\b|'
+            . '贩卖毒品|販賣毒品|毒品交易|销售违禁品|販售違禁品|非法集资|非法集資|洗钱|洗錢|'
+            . '组织赌博|組織賭博|现金赌博|現金賭博|持械袭击|持械襲擊|武装袭击|武裝襲擊|'
+            . '(?:伤害|傷害|虐待|利用|剥削|剝削)(?:未成年人|儿童|兒童)',
+        'venue_policy_fraud' =>
+            '\b(?:ponzi scheme|pyramid scheme|run (?:a |an )?(?:investment )?scam|defraud (?:investors|participants)|'
+            . '(?:guaranteed?|promise[ds]?) (?:investment returns|profits|risk-free returns)|'
+            . '(?:earn|paid) (?:money )?(?:by|for) recruiting (?:members|investors)|'
+            . 'skim (?:ponzi|piramid)|menipu pelabur|jaminan (?:pulangan|keuntungan|modal) pelaburan|'
+            . 'pulangan pelaburan dijamin|komisen (?:untuk|dengan) merekrut ahli)\b|'
+            . '投资诈骗|投資詐騙|资金盘|資金盤|庞氏骗局|龐氏騙局|传销|傳銷|'
+            . '保本保收益|保本保息|保本稳赚|保本穩賺|保证收益|保證收益|承诺保本|承諾保本|拉人头|拉人頭',
+        'venue_policy_harassment' =>
+            '\b(?:sexually harass (?:people|participants|attendees)|stalk and harass|stalk (?:participants|attendees)|'
+            . 'doxx?(?:ing)? (?:participants|attendees)|(?:organize|coordinate|incite) (?:targeted )?harassment|'
+            . 'targeted verbal abuse|gangguan seksual terhadap peserta|mengekori peserta|dedahkan maklumat peribadi peserta|'
+            . 'menghasut orang untuk mengganggu|makian terhadap peserta)\b|'
+            . '(?:对|對)参[与與]者(?:实施|實施)?性骚扰|性騷擾參加者|性骚扰参与者|跟踪参与者|跟蹤參與者|'
+            . '起底(?:他人|参与者|參與者)|人肉搜索(?:他人|参与者|參與者)|组织骚扰|組織騷擾|'
+            . '煽动骚扰|煽動騷擾|辱骂参与者|辱罵參與者',
+        'venue_policy_harmful' =>
+            '\b(?:porn(?:ography)? screening|screen(?:ing)? (?:porn(?:ography)?|sexually explicit content|graphic violence)|'
+            . 'explicit sex show|extreme violence footage|(?:promote|encourage|glorify) (?:self[- ]harm|hurting others)|'
+            . 'drinking contest|tayangan (?:pornografi|bahan lucah|keganasan melampau)|'
+            . 'pertunjukan seks eksplisit|menggalakkan (?:mencederakan diri|mencederakan orang lain)|pertandingan minum arak)\b|'
+            . '放映色情|色情表演|播放露骨性内容|播放露骨性內容|展示极端暴力|展示極端暴力|'
+            . '宣扬自残|宣揚自殘|鼓励自残|鼓勵自殘|鼓励伤害他人|鼓勵傷害他人|拼酒比赛|拼酒比賽',
+        'venue_policy_controversial' =>
+            '\b(?:political party campaign|(?:election|campaign) rally|organi[sz](?:e|ing) (?:a |an )?protest|'
+            . 'religious extremist rally|incite (?:religious|racial) hatred|attack (?:a specific religion|religious groups)|'
+            . 'hate rally|racial supremacy rally|(?:promote|encourage) (?:racial|religious|gender|nationality[- ]based) discrimination|'
+            . 'kempen parti politik|kempen pilihan raya|menganjurkan protes|perhimpunan pelampau agama|'
+            . 'menghina penganut agama tertentu|menghasut kebencian (?:kaum|agama)|'
+            . 'menggalakkan diskriminasi (?:kaum|agama|jantina|kewarganegaraan))\b|'
+            . '政党竞选|政黨競選|组织抗议|組織抗議|宗教极端集会|宗教極端集會|攻击特定宗教|攻擊特定宗教|'
+            . '种族仇恨集会|種族仇恨集會|煽动(?:种族|宗教|性别|国籍)(?:歧视|仇恨)|'
+            . '煽動(?:種族|宗教|性別|國籍)(?:歧視|仇恨)',
+    ];
+    // Context can make an otherwise explicit phrase a discussion or prevention topic.
+    $context = '/\b(?:prevent(?:ing|ion)?|awareness|case stud(?:y|ies)|discuss(?:ion|ing)?|'
+        . 'avoid(?:ing)?|reporting|against|recognis(?:e|ing)|recogniz(?:e|ing)|no|not|without)\b|'
+        . '防范|防範|预防|預防|识别|識別|反对|反對|禁止|讨论|討論|案例分析|'
+        . '\b(?:mencegah|pencegahan|kesedaran|kajian kes|perbincangan|tanpa|bukan|jangan)\b/iu';
+    $needsReview = false;
+    foreach (preg_split('/[.!?;。！？；\n]+/u', $text) as $sentence) {
+        foreach ($rules as $reason => $pattern) {
+            if (preg_match('/' . $pattern . '/iu', $sentence)) {
+                if (!preg_match($context, $sentence)) {
+                    return $reason;
+                }
+                $needsReview = true;
+            }
+        }
     }
-    // Immediate approval is limited to recognizable low-risk titles and descriptions.
-    $topic = '(?:AI meetup|language exchange|book club|coffee tasting|drawing workshop|board games|'
-        . 'AI 交流局|AI交流|语言交换|讀書會|读书会|咖啡品鉴|绘画工作坊|桌游|'
-        . 'Pertemuan AI|Pertukaran bahasa|Kelab buku|Sesi merasa kopi|Bengkel melukis|Permainan papan)';
-    $intro = '(?:Share AI tools and tips|Practice languages together|Discuss books together|'
-        . 'Taste coffee together|Draw together|Play board games together|分享AI工具和技巧|一起练习语言|一起读书|'
-        . '一起品尝咖啡|一起画画|一起玩桌游|Kongsi alat dan petua AI|Berlatih bahasa bersama|'
-        . 'Bincang buku bersama|Rasa kopi bersama|Melukis bersama|Bermain permainan papan bersama)';
-    $notes = ['', 'projector', 'projector needed', '需要投影仪', 'Perlu projektor'];
-    if (preg_match('/\A' . $topic . '\z/iu', $request['title'])
-        && preg_match('/\A' . $intro . '[.!。！]?\z/iu', $request['intro'])
-        && in_array(strtolower($request['note']), $notes, true)) {
-        return 'confirmed';
+    if ($needsReview || preg_match('/\b(?:illegal drugs|contraband|gambling|investment scam|recruitment commission|'
+        . 'guaranteed returns|guaranteed principal|capital protection|risk[- ]free investment|sexual harassment|stalking|doxx?ing|child abuse|weapon sales|pornography|graphic violence|'
+        . 'self[- ]harm|religious extremism|hate speech|gangguan seksual|dadah haram|perjudian|'
+        . 'barang larangan|pulangan terjamin|penipuan pelaburan|ucapan kebencian|mencederakan diri)\b|'
+        . '毒品|违禁品|違禁品|赌博|賭博|诈骗|詐騙|性骚扰|性騷擾|传销|傳銷|暴力活动|暴力活動|跟踪骚扰|跟蹤騷擾|'
+        . '色情|自残|自殘|极端暴力|極端暴力|宗教极端|宗教極端|歧视|歧視|保本|保收益|静态收益|靜態收益/iu', $text)) {
+        return 'pending';
     }
-    return 'pending';
+    preg_match_all('/(?:(over|more than|lebih daripada|超过|超過)\s*)?([0-9]+)\s*'
+        . '(?:(?:[-–~至到]|to)\s*([0-9]+))?\s*([+＋])?\s*'
+        . '(?:people\b|persons?\b|participants?\b|guests?\b|attendees?\b|pax\b|orang\b|peserta\b|人|位)/iu', $text, $counts, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
+    foreach ($counts as $count) {
+        if ((int)$count[2] > 20 || (int)$count[3] > 20
+            || ((int)$count[2] === 20 && ($count[1] !== null || $count[4] !== null))) {
+            return 'pending';
+        }
+    }
+    if (preg_match('/\b(?:exclusive use|private buyout|whole venue|(?:book|rent) (?:out )?the entire venue|'
+        . 'stage setup|portable stage|(?:need|build|set up) (?:a )?stage|special (?:audio|sound)|large decorations|'
+        . 'extensive decorations|structural changes|reconfigure the venue|venue schedule conflict|'
+        . 'possible (?:schedule|scheduling) conflict|overlap with (?:another|a house|an in-house)|'
+        . 'to be decided|to be confirmed|unspecified|not sure|undecided|details (?:pending|tbd)|tbc|tbd|'
+        . 'sewa (?:seluruh ruang|seluruh premis)|penggunaan eksklusif|pentas khas|sistem bunyi khas|hiasan besar|belum pasti|pertindihan jadual)\b|'
+        . '包场|包場|独占场地|獨佔場地|(?:搭建|需要|架設|架设)(?:一個|一个)?舞台|特殊音响|特殊音響|大量装饰|大量裝飾|改建场地|改建場地|'
+        . '可能冲突|可能衝突|店内安排冲突|店內安排衝突|待定|还没想好|還沒想好/iu', $text)
+        || preg_match('/\A(?:[^\p{L}\p{N}]*|tbd|test|n\/?a|unknown|未知|再说|再說)\z/iu', $request['intro'])) {
+        return 'pending';
+    }
+    return 'confirmed';
 }
 
 function authorizeStaff(): bool
@@ -92,8 +163,7 @@ function authorizeStaff(): bool
 
 function occupy(array $record): bool
 {
-    return $record['status'] === 'confirmed'
-        || ($record['status'] === 'pending' && isset($record['owner']));
+    return in_array($record['status'], ['pending', 'confirmed'], true);
 }
 
 function privateDirectory(): string
@@ -167,7 +237,45 @@ function taken(array $records, array $request, string $except = ''): bool
 
 function summary(array $record): array
 {
-    return array_intersect_key($record, array_flip(['id', 'status', 'date', 'slot']));
+    return array_intersect_key($record, array_flip(['id', 'status', 'title', 'date', 'slot']));
+}
+
+function changeStatus(array &$record, string $status): void
+{
+    $record['status'] = $status;
+    if (in_array($status, ['confirmed', 'cancelled'], true)) {
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $record['updates'][] = ['status' => $status, 'changedAt' => $now->format('Y-m-d\TH:i:s.u\Z')];
+    }
+}
+
+function eventUpdates(array $body): array
+{
+    $since = '';
+    if (array_key_exists('since', $body)) {
+        $value = $body['since'];
+        if (!is_string($value)
+            || !preg_match('/\A([0-9]{4}-[0-9]{2}-[0-9]{2})T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]{1,6})?Z\z/', $value, $parts)
+            || !validDate($parts[1])) {
+            return [422, ['status' => 'invalid', 'fields' => ['since']]];
+        }
+        $since = (new DateTimeImmutable($value))->format('Y-m-d\TH:i:s.u\Z');
+    }
+    return transaction(false, static function (array $records) use ($since): array {
+        $updates = [];
+        foreach ($records as $record) {
+            foreach ($record['updates'] ?? [] as $change) {
+                if ($change['changedAt'] >= $since) {
+                    $updates[] = $change + summary($record)
+                        + array_intersect_key($record, array_flip(['name', 'phone', 'email']));
+                }
+            }
+        }
+        usort($updates, static function (array $a, array $b): int {
+            return $a['changedAt'] <=> $b['changedAt'];
+        });
+        return [200, ['updates' => $updates], false];
+    });
 }
 
 function guestBooking(array $body, bool $cancel): array
@@ -185,7 +293,7 @@ function guestBooking(array $body, bool $cancel): array
         $record = &$records[$id];
         $changed = $cancel && $record['status'] === 'confirmed';
         if ($changed) {
-            $record['status'] = 'cancelled';
+            changeStatus($record, 'cancelled');
         }
         $response = summary($record);
         if ($record['status'] === 'cancelled') {
@@ -279,7 +387,7 @@ function accountAction(string $action, array $body): array
             $mine = [];
             foreach (array_reverse($records) as $record) {
                 if (($record['owner'] ?? null) === $guest['id']) {
-                    $mine[] = summary($record) + array_intersect_key($record, array_flip(['title', 'reason']));
+                    $mine[] = summary($record) + array_intersect_key($record, ['reason' => true]);
                 }
             }
             return [200, ['email' => $guest['email'], 'phone' => $guest['phone'], 'requests' => $mine], false];
@@ -294,7 +402,7 @@ function accountAction(string $action, array $body): array
             $record = &$records[$id];
             $changed = occupy($record);
             if ($changed) {
-                $record['status'] = 'cancelled';
+                changeStatus($record, 'cancelled');
             }
             return [200, summary($record), $changed];
         });
@@ -305,18 +413,21 @@ function accountAction(string $action, array $body): array
     if ($errors) {
         return [422, ['status' => 'invalid', 'fields' => $errors]];
     }
-    $rejected = moderation($request) === 'rejected';
-    return transaction(true, static function (array &$records) use ($request, $guest, $rejected): array {
-        if (!$rejected && taken($records, $request)) {
+    $decision = moderation($request);
+    $status = str_starts_with($decision, 'venue_policy_') ? 'rejected' : $decision;
+    return transaction(true, static function (array &$records) use ($request, $guest, $status, $decision): array {
+        if (taken($records, $request)) {
             return [409, ['status' => 'taken'], false];
         }
         $id = 'COHUB-' . bin2hex(random_bytes(16));
-        $record = ['id' => $id, 'owner' => $guest['id'], 'status' => $rejected ? 'rejected' : 'pending'] + $request;
-        if ($rejected) {
-            $record['reason'] = 'venue_policy';
+        $record = ['id' => $id, 'owner' => $guest['id']] + $request;
+        changeStatus($record, $status);
+        if ($status === 'rejected') {
+            $record['reason'] = $decision;
         }
         $records[$id] = $record;
-        return [202, summary($record), true];
+        return [$status === 'confirmed' ? 201 : 202,
+            summary($record) + array_intersect_key($record, ['reason' => true]), true];
     });
 }
 
@@ -374,7 +485,7 @@ function publishedEvents(): array
             }
             $poster = posterPath($record['poster'] ?? null);
             if ($poster !== null) {
-                $events[] = summary($record) + ['title' => $record['title'], 'intro' => $record['intro'], 'poster' => $poster];
+                $events[] = summary($record) + ['intro' => $record['intro'], 'poster' => $poster];
             }
         }
         usort($events, static function (array $a, array $b): int {
@@ -399,10 +510,10 @@ function handle(): array
             $occupied = [];
             foreach ($records as $record) {
                 if (occupy($record) && $record['date'] === $date) {
-                    $occupied[] = $record['slot'];
+                    $occupied[$record['slot']] = $record['slot'];
                 }
             }
-            return [200, ['date' => $date, 'occupied' => $occupied, 'events' => []], false];
+            return [200, ['date' => $date, 'occupied' => array_values($occupied), 'events' => []], false];
         });
     }
     if ($method !== 'POST') {
@@ -433,11 +544,14 @@ function handle(): array
     if ($action === 'request') {
         return [401, ['status' => 'sign_in']];
     }
-    if (!in_array($action, ['lock', 'pending', 'approve', 'reject', 'cancel', 'publish', 'attendees'], true)) {
+    if (!in_array($action, ['lock', 'updates', 'pending', 'approve', 'reject', 'cancel', 'publish', 'attendees'], true)) {
         return [400, ['status' => 'invalid']];
     }
     if (!authorizeStaff()) {
         return [403, ['status' => 'forbidden']];
+    }
+    if ($action === 'updates') {
+        return eventUpdates($body);
     }
     if ($action === 'pending') {
         return transaction(false, static function (array $records): array {
@@ -489,7 +603,7 @@ function handle(): array
             }
             $record = &$records[$id];
             if ($action === 'cancel' && in_array($record['status'], ['pending', 'confirmed'], true)) {
-                $record['status'] = 'cancelled';
+                changeStatus($record, 'cancelled');
                 return [200, summary($record), true];
             }
             if ($action === 'reject' && $record['status'] === 'pending') {
@@ -508,7 +622,7 @@ function handle(): array
             if (taken($records, $record, $id)) {
                 return [409, ['status' => 'taken'], false];
             }
-            $record['status'] = 'confirmed';
+            changeStatus($record, 'confirmed');
             return [200, summary($record), true];
         });
     }
@@ -519,8 +633,8 @@ function handle(): array
         return [422, ['status' => 'invalid', 'fields' => $errors]];
     }
     $status = moderation($request);
-    if ($status === 'rejected') {
-        return [422, ['status' => 'rejected', 'reason' => 'venue_policy']];
+    if (str_starts_with($status, 'venue_policy_')) {
+        return [422, ['status' => 'rejected', 'reason' => $status]];
     }
     $retryKey = $body['retryKey'] ?? null;
     if ($retryKey !== null && (!is_string($retryKey) || !preg_match('/\A[0-9a-f-]{36}\z/', $retryKey))) {
@@ -549,8 +663,9 @@ function handle(): array
             return [409, ['status' => 'taken'], false];
         }
         $id = 'COHUB-' . bin2hex(random_bytes(16));
-        $record = ['id' => $id, 'status' => $status, 'retryHash' => $retryHash,
+        $record = ['id' => $id, 'retryHash' => $retryHash,
             'cancelToken' => bin2hex(random_bytes(32))] + $request;
+        changeStatus($record, $status);
         $records[$id] = $record;
         return [$status === 'confirmed' ? 201 : 202,
             summary($record) + ['cancelToken' => $record['cancelToken']], true];

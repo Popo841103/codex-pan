@@ -60,10 +60,10 @@ body.community-guest .event .desc{margin:0;color:var(--ink);font-size:14px}
 body.community-guest .join{display:inline-block;font-size:14px;font-weight:700;color:#8a5a16;border-bottom:1px solid var(--gold);padding-bottom:1px}
 body.community-guest .community-intro,.host-panel{max-width:660px}
 .community-links,.account-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px}
-.community-links{margin-top:20px}
-.community-links a{text-decoration:underline}
+nav.community-links{margin-top:20px;max-width:none;justify-content:flex-start}
+nav.community-links a{display:inline-block;text-decoration:underline}
 .host-panel{margin-top:48px;padding:clamp(12px,4vw,24px);border:1px solid #32271e33;border-radius:12px;scroll-margin-top:150px;overflow-wrap:anywhere}
-.host-panel h2{margin:0 0 12px}
+.host-panel h1{font-size:clamp(32px,5vw,44px);margin:0 0 12px}
 .host-panel .request-card{margin:12px 0;padding:14px;border:1px solid #32271e33;border-radius:8px;background:#fffdf8}
 .host-panel .request-card h3,.host-panel .request-card p{margin:0 0 8px}
 .host-panel .account-actions button{width:auto}

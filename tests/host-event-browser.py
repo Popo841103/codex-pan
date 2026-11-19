@@ -2,7 +2,6 @@
 from datetime import date, timedelta
 import os
 from pathlib import Path
-import secrets
 import socket
 import subprocess
 import tempfile
@@ -17,7 +16,7 @@ LANGUAGES = ['en', 'zh', 'ms', 'zh-TW', 'ja', 'ko', 'th', 'id', 'vi', 'fr',
              'de', 'es', 'pt', 'ru', 'ar', 'hi', 'it', 'nl', 'tr']
 
 
-def verify(browser, url, staff_token):
+def verify(browser, url):
     page = browser.new_page()
     page.route('**/fonts.googleapis.com/**', lambda route: route.abort())
     page_errors = []
@@ -30,11 +29,24 @@ def verify(browser, url, staff_token):
         page.set_viewport_size({'width': width, 'height': 900})
         assert grid.evaluate("element => getComputedStyle(element).gridTemplateColumns.split(' ').length") == columns
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-    expect(page.locator('#guestArea')).to_be_hidden()
-    page.locator('#openHost').click()
-    expect(page).to_have_url(url + 'community.html#my-events')
+    expect(page.locator('#accountForm, #hostForm')).to_have_count(0)
+    for entry in ['#openHost', '.community-links a:nth-child(2)', '.community-links a:nth-child(3)']:
+        expect(page.locator(entry)).to_have_attribute('href', 'my-events.html')
+    for legacy in ['community.html#my-events', 'community.html?host=1', 'enquiry.html?type=host']:
+        page.goto(url + legacy)
+        expect(page).to_have_url(url + 'my-events.html')
+    page.goto(url + 'index.html')
+    expect(page.locator('#activity-entry-actions a').last).to_have_attribute('href', 'my-events.html')
+    page.goto(url + 'community.html')
+    page.select_option('#language', 'zh')
+    page.get_by_role('link', name='我的活动', exact=True).click()
+    expect(page).to_have_url(url + 'my-events.html')
+    expect(page.locator('#hostTitle')).to_have_text('我的活动')
+    expect(page.locator('#hostForm')).to_be_hidden()
     auth = page.locator('#accountForm')
     expect(auth).to_be_visible()
+    expect(auth.locator('[name=password]')).to_have_attribute('minlength', '6')
+    expect(auth.locator('[name=password]')).to_have_attribute('maxlength', '72')
     page.set_viewport_size({'width': 320, 'height': 900})
     for lang in LANGUAGES:
         page.select_option('#language', lang)
@@ -46,7 +58,7 @@ def verify(browser, url, staff_token):
 
     email = 'browser@invalid.test'
     phone = '+60 11 0100 0000'
-    password = secrets.token_urlsafe(24)
+    password = 'abc123'
 
     def enter_account(action):
         auth.locator('[name=email]').fill(email)
@@ -59,33 +71,76 @@ def verify(browser, url, staff_token):
     form = page.locator('#hostForm')
     expect(form).to_be_visible()
     form.locator('[name=name]').fill('Local organizer')
-    form.locator('[name=title]').fill('Book club')
+    form.locator('[name=title]').fill('Saturday coffee and conversation')
     day = (date.today() + timedelta(days=60)).isoformat()
     form.locator('[name=date]').fill(day)
     form.locator('[value="10-12"]').check()
-    form.locator('[name=intro]').fill('Discuss books together')
+    form.locator('[name=intro]').fill('Neighbors will share brewing tips and sample coffee together.')
     form.get_by_role('button', name='Submit request').click()
     row = page.locator('#myRequests .request-card')
-    expect(row).to_contain_text('Pending review')
+    expect(row).to_contain_text('Confirmed')
     expect(row).to_contain_text(day + ' · 10:00–12:00')
     expect(row.get_by_role('button', name='Cancel')).to_be_visible()
 
-    event_id = next(text for text in row.locator('p').all_text_contents() if text.startswith('COHUB-'))
-    approval = page.request.post(url + 'community-events.php', data={'action': 'approve', 'id': event_id},
-                                 headers={'Authorization': 'Bearer ' + staff_token})
-    assert approval.ok, approval.status
-    page.locator('#refreshMine').click()
-    expect(row).to_contain_text('Your slot is confirmed.')
-    expect(row).to_contain_text('send your poster')
+    page.reload()
+    expect(row).to_contain_text('Confirmed')
+    assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == ['10-12']
+    confirmed = row.locator('[data-result=confirmed]')
+    required_copy = {
+        'en': ['poster and request ID', 'public business number', 'other private numbers',
+               'do not upload the poster on this website yourself', 'will not appear on the public list'],
+        'zh': ['海报和申请编号', '商家公开号', '不要发到其他私人号码',
+               '不要在本网站自行上传海报', '没有海报前，活动不会出现在公开列表'],
+        'ms': ['poster serta ID permohonan', 'nombor perniagaan awam', 'Jangan hantar ke nombor peribadi lain',
+               'jangan muat naik poster sendiri di laman ini', 'aktiviti tidak akan muncul dalam senarai awam'],
+    }
+    english = confirmed.inner_text()
+    for lang in LANGUAGES:
+        page.select_option('#language', lang)
+        expect(page.locator('#language-status')).to_be_hidden()
+        expect(confirmed).to_contain_text('+60 17-849 7319')
+        if lang != 'en':
+            expect(confirmed).not_to_have_text(english)
+        for phrase in required_copy.get(lang, []):
+            expect(confirmed).to_contain_text(phrase)
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), lang
+    page.select_option('#language', 'en')
+    expect(page.locator('input[type=file]')).to_have_count(0)
+    page.get_by_role('link', name="What's on", exact=True).click()
+    expect(page).to_have_url(url + 'community.html#events')
     expect(grid.locator('[data-published]')).to_have_count(0)
+    page.locator('.activity-calendar summary').click()
+    page.locator('#calendarDate').fill(day)
+    expect(page.locator('#calendarEvents')).to_contain_text('10:00–12:00')
+    page.get_by_role('link', name='My Events', exact=True).click()
+    expect(row).to_contain_text('Confirmed')
+    expect(auth).to_be_hidden()
     page.locator('#signOut').click()
     expect(row).to_have_count(0)
+    expect(form).to_be_hidden()
+    page.get_by_role('link', name="What's on", exact=True).click()
+    page.get_by_role('link', name='Sign in', exact=True).click()
+    expect(page).to_have_url(url + 'my-events.html')
     enter_account('sign-in')
     expect(row).to_contain_text('Confirmed')
     page.once('dialog', lambda dialog: dialog.accept())
     row.get_by_role('button', name='Cancel').click()
     expect(row).to_contain_text('Cancelled')
     expect(row.get_by_role('button', name='Cancel')).to_have_count(0)
+    assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == []
+    # A rejected proposal shows its specific reason locally and leaves the slot open.
+    form.locator('[name=name]').fill('Local organizer')
+    form.locator('[name=title]').fill('Web3 investment promotion')
+    form.locator('[name=date]').fill(day)
+    form.locator('[value="10-12"]').check()
+    form.locator('[name=intro]').fill('We promise guaranteed investment returns.')
+    form.get_by_role('button', name='Submit request').click()
+    reason = row.locator('[data-reason=venue_policy_fraud]')
+    expect(reason).to_contain_text('guaranteed investment returns')
+    page.select_option('#language', 'zh')
+    expect(reason).to_contain_text('承诺投资保本保收益')
+    page.select_option('#language', 'ms')
+    expect(reason).to_contain_text('jaminan pulangan pelaburan')
     assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == []
     assert not page_errors, page_errors
 
@@ -95,10 +150,9 @@ def main():
         listener.bind(('127.0.0.1', 0))
         port = listener.getsockname()[1]
         listener.close()
-        token = secrets.token_hex(32)
         server = subprocess.Popen(
             [os.environ.get('COHUB_TEST_PHP', 'php'), '-n', '-S', f'127.0.0.1:{port}', '-t', str(ROOT)],
-            env={**os.environ, 'COHUB_EVENTS_DATA_DIR': data, 'COHUB_EVENTS_API_TOKEN': token},
+            env={**os.environ, 'COHUB_EVENTS_DATA_DIR': data, 'COHUB_EVENTS_API_TOKEN': ''},
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         url = f'http://127.0.0.1:{port}/'
@@ -114,12 +168,12 @@ def main():
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(executable_path=os.environ.get('COHUB_TEST_CHROMIUM'),
                                                      args=['--no-sandbox'])
-                verify(browser, url, token)
+                verify(browser, url)
                 browser.close()
         finally:
             server.terminate()
             server.wait(timeout=5)
-    print('PASS: four/three/two-column grid, 19 languages, hosting, approval, sign-in and guest cancellation.')
+    print('PASS: four/three/two-column grid, 19 languages, hosting, automatic confirmation, sign-in and guest cancellation.')
 
 
 if __name__ == '__main__':

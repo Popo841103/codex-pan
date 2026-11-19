@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;800&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261027-food1">
-  <link rel="stylesheet" href="community.css?v=20261119-my-events">
+  <link rel="stylesheet" href="community.css?v=20261119-pages">
 </head>
 <body class="community-guest">
   <header>
@@ -42,13 +42,13 @@
     <div class="community-intro">
       <h1 data-en="Community events" data-zh="社区活动" data-ms="Aktiviti komuniti">Community events</h1>
       <p data-en="See what's on, or host your own gathering." data-zh="看现在有哪些活动，或自己办一场。" data-ms="Lihat aktiviti semasa, atau anjurkan perkumpulan anda sendiri.">See what's on, or host your own gathering.</p>
-      <a href="#my-events" class="host-open" id="openHost" data-en="Host an event" data-zh="自己办活动" data-ms="Anjurkan aktiviti">Host an event</a>
+      <a href="my-events.html" class="host-open" id="openHost" data-en="Host an event" data-zh="自己办活动" data-ms="Anjurkan aktiviti">Host an event</a>
       <p class="host-note" data-en="You can host your own talk or gathering here at no charge." data-zh="自己组织的讲座和活动，在这里办不收场地费。" data-ms="Anda boleh menganjurkan ceramah atau perkumpulan sendiri di sini tanpa bayaran.">You can host your own talk or gathering here at no charge.</p>
       <p class="host-note" data-en="A screen and projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too." data-zh="店里有投屏和投影仪，可以直接用。欢迎以 AI 为主题，其他主题也可以。" data-ms="Skrin dan projektor sedia untuk digunakan. Aktiviti bertema AI dialu-alukan, dan tema lain juga boleh.">A screen and projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too.</p>
       <nav class="community-links">
         <a href="#events" data-en="What's on" data-zh="现有活动" data-ms="Aktiviti semasa">What's on</a>
-        <a href="#my-events"><span data-en="My Events" data-zh="我的活动" data-ms="Aktiviti Saya">My Events</span></a>
-        <a href="#my-events" id="signInLink"><span data-en="Sign in" data-zh="登录" data-ms="Log masuk">Sign in</span></a>
+        <a href="my-events.html"><span data-en="My Events" data-zh="我的活动" data-ms="Aktiviti Saya">My Events</span></a>
+        <a href="my-events.html"><span data-en="Sign in" data-zh="登录" data-ms="Log masuk">Sign in</span></a>
       </nav>
     </div>
     <section class="events" id="events">
@@ -166,84 +166,23 @@
         </article>
       </div>
     </section>
-    <section class="host-panel" id="my-events" tabindex="-1" aria-labelledby="hostTitle">
-      <h2 id="hostTitle"><span data-en="My Events" data-zh="我的活动" data-ms="Aktiviti Saya">My Events</span></h2>
-      <div id="accountStatus" role="status" aria-live="polite"></div>
-      <form class="hostform" id="accountForm" method="post" action="community-events.php" hidden>
-        <div class="pair">
-          <label><span data-en="Phone" data-zh="电话" data-ms="Telefon">Phone</span><input name="phone" type="tel" required maxlength="40" autocomplete="tel"></label>
+    <template id="eventCopy">
+      <p data-result="invalid" data-en="Complete or correct the indicated fields." data-zh="请填写或更正标出的字段。" data-ms="Lengkapkan atau betulkan medan yang ditunjukkan.">Complete or correct the indicated fields.</p>
+      <p data-result="unavailable" data-en="Unable to verify availability. Please try again." data-zh="无法核实时段，请重试。" data-ms="Ketersediaan tidak dapat disahkan. Sila cuba lagi.">Unable to verify availability. Please try again.</p>
+      <p data-copy="joined" data-en="Joined" data-zh="已报名" data-ms="Telah menyertai">Joined</p>
+      <p data-copy="full"><span data-en="Participant limit" data-zh="人数上限" data-ms="Had peserta">Participant limit</span> · 20 / 20</p>
+    </template>
+    <template id="signupCopy">
+      <details class="poster-signup">
+        <summary data-en="Join an activity" data-zh="报名参加" data-ms="Sertai aktiviti">Join an activity</summary>
+        <form method="post" action="community-events.php">
+          <label><span data-en="Name" data-zh="姓名" data-ms="Nama">Name</span><input name="name" required maxlength="80" autocomplete="name"></label>
           <label><span data-en="Email" data-zh="邮箱" data-ms="E-mel">Email</span><input name="email" type="email" required maxlength="120" autocomplete="email"></label>
-        </div>
-        <label><span data-en="Password" data-zh="密码" data-ms="Kata laluan">Password</span><input name="password" type="password" required minlength="6" maxlength="72" autocomplete="current-password" aria-describedby="passwordHint"></label>
-        <p class="hint" id="passwordHint"><span data-en="Use at least 6 characters for your password." data-zh="密码至少需要 6 个字符。" data-ms="Gunakan sekurang-kurangnya 6 aksara untuk kata laluan anda.">Use at least 6 characters for your password.</span></p>
-        <div class="account-actions">
-          <button class="host-send" type="submit" value="sign-in"><span data-en="Sign in" data-zh="登录" data-ms="Log masuk">Sign in</span></button>
-          <button class="host-send" type="submit" value="register"><span data-en="Create account" data-zh="注册账号" data-ms="Daftar akaun">Create account</span></button>
-        </div>
-      </form>
-      <div id="guestArea" hidden>
-        <div class="account-actions">
-          <p id="guestIdentity" data-user-content></p>
-          <button type="button" id="signOut"><span data-en="Sign out" data-zh="退出登录" data-ms="Log keluar">Sign out</span></button>
-          <button type="button" id="refreshMine"><span data-en="Refresh" data-zh="刷新" data-ms="Muat semula">Refresh</span></button>
-        </div>
-        <div id="myRequests"></div>
-        <h3 data-en="Host an event" data-zh="自己办活动" data-ms="Anjurkan aktiviti">Host an event</h3>
-        <form class="hostform" id="hostForm" method="post" action="community-events.php">
-          <label><span data-en="Name" data-zh="姓名" data-ms="Nama">Name</span><input name="name" required autocomplete="name" maxlength="80"></label>
-          <label><span data-en="Event title" data-zh="活动名称" data-ms="Tajuk aktiviti">Event title</span><input name="title" required maxlength="80"></label>
-          <label><span data-en="Date" data-zh="日期" data-ms="Tarikh">Date</span><input name="date" type="date" required></label>
-          <fieldset class="host-slots">
-            <legend data-en="Time slots" data-zh="时段" data-ms="Slot masa">Time slots</legend>
-            <p class="hint" data-en="Kuala Lumpur time (UTC+8)" data-zh="吉隆坡时间（UTC+8）" data-ms="Waktu Kuala Lumpur (UTC+8)">Kuala Lumpur time (UTC+8)</p>
-            <div class="slot-grid">
-              <label class="slot"><input type="radio" name="slot" value="10-12" required><span data-user-content dir="ltr">10:00–12:00</span></label>
-              <label class="slot"><input type="radio" name="slot" value="14-17" required><span data-user-content dir="ltr">14:00–17:00</span></label>
-              <label class="slot"><input type="radio" name="slot" value="18-20" required><span data-user-content dir="ltr">18:00–20:00</span></label>
-              <label class="slot"><input type="radio" name="slot" value="20-2230" required><span data-user-content dir="ltr">20:00–22:30</span></label>
-            </div>
-            <p class="hint" id="noSlots" role="status" hidden data-en="No time slots are available on this date." data-zh="这一天没有可选时段。" data-ms="Tiada slot masa tersedia pada tarikh ini.">No time slots are available on this date.</p>
-          </fieldset>
-          <label><span data-en="Event introduction" data-zh="活动介绍" data-ms="Pengenalan aktiviti">Event introduction</span><textarea name="intro" required maxlength="400"></textarea></label>
-          <p class="hint"><span data-en="A screen and projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too." data-zh="店里有投屏和投影仪，可以直接用。欢迎以 AI 为主题，其他主题也可以。" data-ms="Skrin dan projektor sedia untuk digunakan. Aktiviti bertema AI dialu-alukan, dan tema lain juga boleh.">A screen and projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too.</span> <span id="hostSignup" data-en="Gatherings are open to guests, people staying here, passersby, and anyone who sees them on the official site or Facebook. Each event is limited to 20 people." data-zh="活动开放参加：店里的客人、住在这里的人、路过的人，以及在官网或 Facebook 上看到的人，都可以报名。人数控制在 20 人以内。" data-ms="Aktiviti terbuka kepada tetamu, orang yang menginap, orang yang lalu, dan sesiapa yang melihatnya di laman rasmi atau Facebook. Setiap aktiviti dihadkan kepada 20 orang.">Gatherings are open to guests, people staying here, passersby, and anyone who sees them on the official site or Facebook. Each event is limited to 20 people.</span></p>
-          <p class="hint"><span data-en="Your slot is held while your request is under review." data-zh="审核期间会暂留你选择的时段。" data-ms="Slot anda dipegang sementara permohonan disemak.">Your slot is held while your request is under review.</span></p>
-          <label><span data-en="Notes" data-zh="备注" data-ms="Catatan">Notes</span><textarea name="note" maxlength="400"></textarea></label>
-          <div>
-            <button class="host-send" type="submit" data-en="Submit request" data-zh="提交申请" data-ms="Hantar permohonan">Submit request</button>
-          </div>
+          <button type="submit" data-en="Submit request" data-zh="提交申请" data-ms="Hantar permohonan">Submit request</button>
+          <div role="status"></div>
         </form>
-      </div>
-      <template id="eventCopy">
-        <span data-copy="pending" data-en="Pending review" data-zh="待审核" data-ms="Menunggu semakan">Pending review</span>
-        <span data-copy="confirmed" data-en="Confirmed" data-zh="已确认" data-ms="Disahkan">Confirmed</span>
-        <span data-copy="rejected" data-en="Rejected" data-zh="未获批准" data-ms="Ditolak">Rejected</span>
-        <span data-copy="cancelled" data-result="cancelled" data-en="Cancelled" data-zh="已取消" data-ms="Dibatalkan">Cancelled</span>
-        <span data-copy="empty" data-en="No activities here yet." data-zh="这里还没有活动。" data-ms="Belum ada aktiviti di sini.">No activities here yet.</span>
-        <span data-copy="credentials" data-en="Check your email, phone number and password." data-zh="请检查邮箱、电话号码和密码。" data-ms="Semak e-mel, nombor telefon dan kata laluan anda.">Check your email, phone number and password.</span>
-        <p data-result="pending" data-en="Your slot is held while your request is under review." data-zh="审核期间会暂留你选择的时段。" data-ms="Slot anda dipegang sementara permohonan disemak.">Your slot is held while your request is under review.</p>
-        <p data-result="confirmed" data-en="Your slot is confirmed. Please host as scheduled and send your poster and request ID by WhatsApp to +60 17-849 7319." data-zh="时段已确认。请按时举办活动，并通过 WhatsApp 将海报和申请编号发给 +60 17-849 7319。" data-ms="Slot anda disahkan. Sila anjurkan aktiviti mengikut jadual dan hantar poster serta ID permohonan melalui WhatsApp ke +60 17-849 7319.">Your slot is confirmed. Please host as scheduled and send your poster and request ID by WhatsApp to +60 17-849 7319.</p>
-        <p data-result="rejected" data-en="This activity was declined under our venue rules on safety and suitable conduct." data-zh="此活动不符合场地安全与行为规范，申请未获通过。" data-ms="Aktiviti ini ditolak mengikut peraturan keselamatan dan tatakelakuan ruang kami.">This activity was declined under our venue rules on safety and suitable conduct.</p>
-        <p data-result="taken" data-en="That time slot is unavailable. Choose another time." data-zh="该时段暂不可选，请选择其他时段。" data-ms="Slot waktu itu tidak tersedia. Pilih masa lain.">That time slot is unavailable. Choose another time.</p>
-        <p data-result="invalid" data-en="Complete or correct the indicated fields." data-zh="请填写或更正标出的字段。" data-ms="Lengkapkan atau betulkan medan yang ditunjukkan.">Complete or correct the indicated fields.</p>
-        <p data-result="unavailable" data-en="Unable to verify availability. Please try again." data-zh="无法核实时段，请重试。" data-ms="Ketersediaan tidak dapat disahkan. Sila cuba lagi.">Unable to verify availability. Please try again.</p>
-        <p data-result="released" data-en="Booking cancelled. The slot is available again." data-zh="预约已取消，该时段现已开放。" data-ms="Tempahan dibatalkan. Slot tersedia semula.">Booking cancelled. The slot is available again.</p>
-        <span id="cancelPrompt" data-en="Cancel this booking?" data-zh="取消这项预约吗？" data-ms="Batalkan tempahan ini?">Cancel this booking?</span>
-        <button class="host-send" type="button" data-copy="cancel" data-en="Cancel" data-zh="取消" data-ms="Batal">Cancel</button>
-        <p data-copy="joined" data-en="Joined" data-zh="已报名" data-ms="Telah menyertai">Joined</p>
-        <p data-copy="full"><span data-en="Participant limit" data-zh="人数上限" data-ms="Had peserta">Participant limit</span> · 20 / 20</p>
-      </template>
-      <template id="signupCopy">
-        <details class="poster-signup">
-          <summary data-en="Join an activity" data-zh="报名参加" data-ms="Sertai aktiviti">Join an activity</summary>
-          <form method="post" action="community-events.php">
-            <label><span data-en="Name" data-zh="姓名" data-ms="Nama">Name</span><input name="name" required maxlength="80" autocomplete="name"></label>
-            <label><span data-en="Email" data-zh="邮箱" data-ms="E-mel">Email</span><input name="email" type="email" required maxlength="120" autocomplete="email"></label>
-            <button type="submit" data-en="Submit request" data-zh="提交申请" data-ms="Hantar permohonan">Submit request</button>
-            <div role="status"></div>
-          </form>
-        </details>
-      </template>
-    </section>
+      </details>
+    </template>
   </main>
   <footer>
     <a class="brand" href="index.html" aria-label="CO-HUB · Lifestyle Community · Bukit Bintang, Kuala Lumpur">CO-HUB<span data-en="Lifestyle Community · Bukit Bintang, Kuala Lumpur" data-zh="生活社区空间 · 吉隆坡 Bukit Bintang" data-ms="Komuniti gaya hidup · Bukit Bintang, Kuala Lumpur">Lifestyle Community · Bukit Bintang, Kuala Lumpur</span></a>
@@ -264,7 +203,7 @@
   </footer>
   <script src="languages.js?v=20261119-my-events"></script>
   <script src="app.js?v=20261027-food1"></script>
-  <script src="community-guest.js?v=20261119-my-events"></script>
+  <script src="community-guest.js?v=20261119-pages"></script>
   <script src="site-ui.js?v=20261027-food1"></script>
 </body>
 </html>
