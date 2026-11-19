@@ -66,8 +66,10 @@ nav.community-links a{display:inline-block;text-decoration:underline}
 .host-panel h1{font-size:clamp(32px,5vw,44px);margin:0 0 12px}
 .host-panel .request-card{margin:12px 0;padding:14px;border:1px solid #32271e33;border-radius:8px;background:#fffdf8}
 .host-panel .request-card h3,.host-panel .request-card p{margin:0 0 8px}
+.host-panel .upload-link a{text-decoration:underline}
+.host-panel [data-poster-form] h4{margin:0}
 .host-panel .account-actions button{width:auto}
-.host-panel [hidden]{display:none}
+.host-panel [hidden],.host-panel .host-send[hidden]{display:none}
 .host-panel .hostform{display:grid;gap:14px;padding:8px 0 16px}
 .host-panel .hostform label{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:700}
 .host-panel .hostform input,.host-panel .hostform textarea{width:100%;font-weight:400;padding:12px;border:1px solid #32271e55;border-radius:5px;background:white;color:var(--ink);color-scheme:light}

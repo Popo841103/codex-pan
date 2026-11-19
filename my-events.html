@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;800&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261027-food1">
-  <link rel="stylesheet" href="community.css?v=20261119-pages">
+  <link rel="stylesheet" href="community.css?v=20261119-poster-link">
 </head>
 <body class="community-guest">
   <header>
@@ -63,6 +63,7 @@
           <button type="button" id="signOut"><span data-en="Sign out" data-zh="退出登录" data-ms="Log keluar">Sign out</span></button>
           <button type="button" id="refreshMine"><span data-en="Refresh" data-zh="刷新" data-ms="Muat semula">Refresh</span></button>
         </div>
+        <div id="uploadLinkStatus" role="status"></div>
         <div id="myRequests"></div>
         <h3 data-en="Host an event" data-zh="自己办活动" data-ms="Anjurkan aktiviti">Host an event</h3>
         <form class="hostform" id="hostForm" method="post" action="community-events.php">
@@ -96,7 +97,20 @@
         <span data-copy="empty" data-en="No activities here yet." data-zh="这里还没有活动。" data-ms="Belum ada aktiviti di sini.">No activities here yet.</span>
         <span data-copy="credentials" data-en="Check your email, phone number and password." data-zh="请检查邮箱、电话号码和密码。" data-ms="Semak e-mel, nombor telefon dan kata laluan anda.">Check your email, phone number and password.</span>
         <p data-result="pending" data-en="Your slot is held while your request is under review." data-zh="审核期间会暂留你选择的时段。" data-ms="Slot anda dipegang sementara permohonan disemak.">Your slot is held while your request is under review.</p>
-        <p data-result="confirmed" data-en="Your slot is confirmed. Please host as scheduled, and send your poster and request ID to the CO-HUB customer-service WhatsApp (public business number +60 17-849 7319). Do not send it to other private numbers, and do not upload the poster on this website yourself. Staff will publish it to the official list after they receive it. Until a poster is added, the event will not appear on the public list." data-zh="时段已确认。请按时举办活动，并把海报和申请编号发到客服 WhatsApp（商家公开号 +60 17-849 7319）。请不要发到其他私人号码，也不要在本网站自行上传海报。客服收到后会帮你发布到官网列表；没有海报前，活动不会出现在公开列表。" data-ms="Slot anda telah disahkan. Sila anjurkan aktiviti mengikut jadual, dan hantar poster serta ID permohonan ke WhatsApp khidmat pelanggan CO-HUB (nombor perniagaan awam +60 17-849 7319). Jangan hantar ke nombor peribadi lain, dan jangan muat naik poster sendiri di laman ini. Staf akan menerbitkannya ke senarai rasmi selepas menerima poster. Sehingga poster ditambah, aktiviti tidak akan muncul dalam senarai awam.">Your slot is confirmed. Please host as scheduled, and send your poster and request ID to the CO-HUB customer-service WhatsApp (public business number +60 17-849 7319). Do not send it to other private numbers, and do not upload the poster on this website yourself. Staff will publish it to the official list after they receive it. Until a poster is added, the event will not appear on the public list.</p>
+        <p data-result="confirmed" data-en="Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list." data-zh="时段已确认。请按时举办活动。如果还没交海报，请在本页「我的活动」的「上传海报」处提交。没有海报前，活动不会出现在公开列表。" data-ms="Slot anda telah disahkan. Sila anjurkan aktiviti mengikut jadual. Jika anda belum serahkan poster, muat naik di sini dalam Aktiviti Saya, pada bahagian Muat naik poster. Sehingga poster ditambah, aktiviti tidak akan muncul dalam senarai awam.">Your slot is confirmed. Please host as scheduled. If you have not added a poster yet, upload it here in My Events, in the Upload poster section. Until a poster is added, the event will not appear on the public list.</p>
+        <p data-result="upload-link-unavailable" data-en="This poster upload link is unavailable." data-zh="此海报上传链接不可用。" data-ms="Pautan muat naik poster ini tidak tersedia.">This poster upload link is unavailable.</p>
+        <form class="hostform" data-poster-form>
+          <h4 data-en="Upload poster" data-zh="上传海报" data-ms="Muat naik poster">Upload poster</h4>
+          <label>
+            <span data-en="Poster file" data-zh="海报文件" data-ms="Fail poster">Poster file</span>
+            <input type="file" name="poster" accept="image/webp,image/png,image/jpeg" required>
+          </label>
+          <p class="hint" data-en="WebP, PNG or JPG, up to 2 MB." data-zh="支持 WebP、PNG 或 JPG，最大 2 MB。" data-ms="WebP, PNG atau JPG, sehingga 2 MB.">WebP, PNG or JPG, up to 2 MB.</p>
+          <button type="submit" class="host-send" data-poster-button="upload" data-en="Upload poster" data-zh="上传海报" data-ms="Muat naik poster">Upload poster</button>
+          <button type="submit" class="host-send" data-poster-button="replace" hidden data-en="Replace poster" data-zh="替换海报" data-ms="Gantikan poster">Replace poster</button>
+        </form>
+        <p data-result="poster-uploaded" data-en="Poster uploaded. Upcoming events with a poster appear on the public list." data-zh="海报已上传。尚未过期的活动会显示在公开列表。" data-ms="Poster dimuat naik. Aktiviti akan datang yang mempunyai poster dipaparkan dalam senarai awam.">Poster uploaded. Upcoming events with a poster appear on the public list.</p>
+        <p data-result="poster-failed" data-en="Could not upload the poster. Check the format and size, then try again." data-zh="无法上传海报。请检查格式和大小后重试。" data-ms="Poster tidak dapat dimuat naik. Semak format dan saiz, kemudian cuba lagi.">Could not upload the poster. Check the format and size, then try again.</p>
         <p data-result="rejected" data-en="This activity was declined under our venue rules on safety and suitable conduct." data-zh="此活动不符合场地安全与行为规范，申请未获通过。" data-ms="Aktiviti ini ditolak mengikut peraturan keselamatan dan tatakelakuan ruang kami.">This activity was declined under our venue rules on safety and suitable conduct.</p>
         <p data-reason="venue_policy_illegal" data-en="This activity was declined because the proposal involves illegal activity." data-zh="此活动未获批准，因为提案涉及违法活动。" data-ms="Aktiviti ini ditolak kerana cadangan melibatkan kegiatan yang menyalahi undang-undang.">This activity was declined because the proposal involves illegal activity.</p>
         <p data-reason="venue_policy_fraud" data-en="This activity was declined because the proposal involves fraud, guaranteed investment returns or recruitment-based schemes." data-zh="此活动未获批准，因为提案涉及诈骗、承诺投资保本保收益或拉人头。" data-ms="Aktiviti ini ditolak kerana cadangan melibatkan penipuan, jaminan pulangan pelaburan atau skim berasaskan perekrutan.">This activity was declined because the proposal involves fraud, guaranteed investment returns or recruitment-based schemes.</p>
@@ -129,9 +143,9 @@
       <a class="text-link" href="https://www.tiktok.com/@cohub.klcc" target="_blank" rel="noopener noreferrer" data-en="TikTok · @cohub.klcc" data-zh="TikTok · @cohub.klcc" data-ms="TikTok · @cohub.klcc">TikTok · @cohub.klcc</a>
     </div>
   </footer>
-  <script src="languages.js?v=20261119-poster-policy"></script>
+  <script src="languages.js?v=20261119-poster-link"></script>
   <script src="app.js?v=20261027-food1"></script>
-  <script src="community-guest.js?v=20261119-poster-policy"></script>
+  <script src="community-guest.js?v=20261119-poster-link"></script>
   <script src="site-ui.js?v=20261027-food1"></script>
 </body>
 </html>

@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import tempfile
@@ -60,8 +61,8 @@ def verify(browser, url):
     phone = '+60 11 0100 0000'
     password = 'abc123'
 
-    def enter_account(action):
-        auth.locator('[name=email]').fill(email)
+    def enter_account(action, address=email):
+        auth.locator('[name=email]').fill(address)
         auth.locator('[name=phone]').fill(phone)
         auth.locator('[name=password]').fill(password)
         auth.locator(f'[value={action}]').click()
@@ -87,25 +88,68 @@ def verify(browser, url):
     assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == ['10-12']
     confirmed = row.locator('[data-result=confirmed]')
     required_copy = {
-        'en': ['poster and request ID', 'public business number', 'other private numbers',
-               'do not upload the poster on this website yourself', 'will not appear on the public list'],
-        'zh': ['海报和申请编号', '商家公开号', '不要发到其他私人号码',
-               '不要在本网站自行上传海报', '没有海报前，活动不会出现在公开列表'],
-        'ms': ['poster serta ID permohonan', 'nombor perniagaan awam', 'Jangan hantar ke nombor peribadi lain',
-               'jangan muat naik poster sendiri di laman ini', 'aktiviti tidak akan muncul dalam senarai awam'],
+        'en': ['here in My Events, in the Upload poster section', 'will not appear on the public list'],
+        'zh': ['本页「我的活动」的「上传海报」处提交', '没有海报前，活动不会出现在公开列表'],
+        'ms': ['di sini dalam Aktiviti Saya, pada bahagian Muat naik poster',
+               'aktiviti tidak akan muncul dalam senarai awam'],
     }
     english = confirmed.inner_text()
+    upload = row.locator('[data-poster-button=upload]')
+    upload_english = upload.inner_text()
     for lang in LANGUAGES:
         page.select_option('#language', lang)
         expect(page.locator('#language-status')).to_be_hidden()
-        expect(confirmed).to_contain_text('+60 17-849 7319')
         if lang != 'en':
             expect(confirmed).not_to_have_text(english)
+            expect(upload).not_to_have_text(upload_english)
         for phrase in required_copy.get(lang, []):
             expect(confirmed).to_contain_text(phrase)
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), lang
     page.select_option('#language', 'en')
-    expect(page.locator('input[type=file]')).to_have_count(0)
+    expect(form.locator('input[type=file]')).to_have_count(0)
+    expect(row.locator('input[type=file]')).to_be_visible()
+    id_pattern = re.compile(r'^COHUB-[0-9a-f]{32}$')
+    application_id = row.get_by_text(id_pattern).inner_text()
+    query = 'my-events.html?upload=' + application_id
+    deep_link = url + query
+    public_link = 'https://cohub.jovianhome.com/' + query
+    expect(row.get_by_role('link', name=public_link)).to_have_attribute('href', public_link)
+    upload_form = page.locator('#upload-poster-' + application_id)
+    unavailable = page.locator('#uploadLinkStatus')
+
+    def expect_upload_destination():
+        expect(page).to_have_url(deep_link)
+        expect(upload_form).to_be_focused()
+        expect(upload_form.get_by_role('heading', name='Upload poster')).to_be_in_viewport()
+        file_box = upload_form.locator('input[type=file]').bounding_box()
+        assert file_box['y'] >= page.locator('header').bounding_box()['height']
+        expect(upload_form.locator('button:visible')).to_be_in_viewport()
+        expect(unavailable).to_be_empty()
+
+    page.goto(deep_link)
+    expect_upload_destination()
+
+    # A signed-out guest can register in place, but a new account cannot see
+    # another organizer's request. The same message covers missing IDs.
+    visitor = browser.new_page(viewport={'width': 320, 'height': 900})
+    visitor.goto(deep_link)
+    visitor_auth = visitor.locator('#accountForm')
+    expect(visitor_auth).to_be_visible()
+    expect(visitor.locator('#uploadLinkStatus')).to_be_empty()
+    visitor_auth.locator('[name=email]').fill('other@invalid.test')
+    visitor_auth.locator('[name=phone]').fill(phone)
+    visitor_auth.locator('[name=password]').fill(password)
+    visitor_auth.locator('[value=register]').click()
+    expect(visitor).to_have_url(deep_link)
+    expect(visitor.locator('#uploadLinkStatus')).to_have_text('This poster upload link is unavailable.')
+    expect(visitor.locator('#myRequests .request-card')).to_have_count(0)
+    visitor.close()
+
+    for invalid_id in ['COHUB-' + '0' * 32, 'COHUB-' + 'A' * 32]:
+        page.goto(url + 'my-events.html?upload=' + invalid_id)
+        expect(unavailable).to_have_text('This poster upload link is unavailable.')
+        expect(unavailable.get_by_text(invalid_id)).to_have_count(0)
+        expect(upload_form).not_to_be_focused()
     page.get_by_role('link', name="What's on", exact=True).click()
     expect(page).to_have_url(url + 'community.html#events')
     expect(grid.locator('[data-published]')).to_have_count(0)
@@ -115,18 +159,39 @@ def verify(browser, url):
     page.get_by_role('link', name='My Events', exact=True).click()
     expect(row).to_contain_text('Confirmed')
     expect(auth).to_be_hidden()
+    row.locator('input[type=file]').set_input_files(str(ROOT / 'assets/coffee/cohub-event-ai-meetup-v2.webp'))
+    row.get_by_role('button', name='Upload poster').click()
+    expect(page.locator('#accountStatus')).to_contain_text('Poster uploaded.')
+    expect(row.get_by_role('button', name='Replace poster')).to_be_visible()
+    page.goto(deep_link)
+    expect_upload_destination()
+    expect(row.get_by_role('button', name='Replace poster')).to_be_visible()
+    page.get_by_role('link', name="What's on", exact=True).click()
+    published = grid.locator('[data-published]')
+    expect(published).to_contain_text('Saturday coffee and conversation')
+    expect(grid.locator('.event-sample')).to_have_count(10)
+    image = published.locator('img')
+    image.scroll_into_view_if_needed()
+    assert image.get_attribute('src').startswith('/community-events.php?poster=cohub-poster-')
+    page.wait_for_function('image => image.complete && image.naturalWidth > 0', arg=image.element_handle())
+    page.get_by_role('link', name='My Events', exact=True).click()
+    expect(row.get_by_role('button', name='Replace poster')).to_be_visible()
     page.locator('#signOut').click()
     expect(row).to_have_count(0)
     expect(form).to_be_hidden()
-    page.get_by_role('link', name="What's on", exact=True).click()
-    page.get_by_role('link', name='Sign in', exact=True).click()
-    expect(page).to_have_url(url + 'my-events.html')
+    page.goto(deep_link)
+    expect(auth).to_be_visible()
     enter_account('sign-in')
+    expect_upload_destination()
     expect(row).to_contain_text('Confirmed')
     page.once('dialog', lambda dialog: dialog.accept())
     row.get_by_role('button', name='Cancel').click()
     expect(row).to_contain_text('Cancelled')
     expect(row.get_by_role('button', name='Cancel')).to_have_count(0)
+    expect(row.locator('input[type=file]')).to_have_count(0)
+    page.reload()
+    expect(unavailable).to_have_text('This poster upload link is unavailable.')
+    assert page.request.get(url + 'community-events.php?published=1').json()['events'] == []
     assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == []
     # A rejected proposal shows its specific reason locally and leaves the slot open.
     form.locator('[name=name]').fill('Local organizer')
@@ -142,6 +207,20 @@ def verify(browser, url):
     page.select_option('#language', 'ms')
     expect(reason).to_contain_text('jaminan pulangan pelaburan')
     assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == []
+    page.select_option('#language', 'en')
+    form.locator('[name=name]').fill('Local organizer')
+    form.locator('[name=title]').fill('Brewing workshop')
+    form.locator('[name=date]').fill(day)
+    form.locator('[value="10-12"]').check()
+    form.locator('[name=intro]').fill('Neighbors will share brewing tips and sample coffee together.')
+    form.locator('[name=note]').fill('We need a stage setup.')
+    form.get_by_role('button', name='Submit request').click()
+    pending = row.filter(has_text='Brewing workshop')
+    expect(pending).to_contain_text('Pending review')
+    pending_id = pending.get_by_text(id_pattern).inner_text()
+    page.goto(url + 'my-events.html?upload=' + pending_id)
+    expect(unavailable).to_have_text('This poster upload link is unavailable.')
+    expect(pending.locator('[data-poster-form]')).to_have_count(0)
     assert not page_errors, page_errors
 
 
@@ -173,7 +252,7 @@ def main():
         finally:
             server.terminate()
             server.wait(timeout=5)
-    print('PASS: four/three/two-column grid, 19 languages, hosting, automatic confirmation, sign-in and guest cancellation.')
+    print('PASS: event grid, 19 languages, hosting, confirmation, poster upload and public display, direct upload links, sign-in, registration and guest cancellation.')
 
 
 if __name__ == '__main__':
