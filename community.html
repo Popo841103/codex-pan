@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;800&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261027-food1">
-  <link rel="stylesheet" href="community.css?v=20261119-guest1">
+  <link rel="stylesheet" href="community.css?v=20261119-slots1">
 </head>
-<body class="community-guest">
+<body class="community-guest" data-events-page="guest">
   <header>
     <a class="brand" href="index.html" aria-label="CO-HUB · Lifestyle Community · Bukit Bintang, Kuala Lumpur">CO-HUB<span data-en="Lifestyle Community · Bukit Bintang, Kuala Lumpur" data-zh="生活社区空间 · 吉隆坡 Bukit Bintang" data-ms="Komuniti gaya hidup · Bukit Bintang, Kuala Lumpur">Lifestyle Community · Bukit Bintang, Kuala Lumpur</span></a>
     <nav aria-label="Main navigation">
@@ -44,14 +44,15 @@
       <p data-en="See what's on, or host your own gathering. No account, and nothing to download." data-zh="看现在有哪些活动，或自己办一场。不用注册，也不用下载应用。" data-ms="Lihat aktiviti semasa, atau anjurkan perkumpulan anda sendiri. Tidak perlu akaun, dan tidak perlu memuat turun apa-apa.">See what's on, or host your own gathering. No account, and nothing to download.</p>
       <button type="button" class="host-open" id="openHost" data-en="Host an event" data-zh="自己办活动" data-ms="Anjurkan aktiviti">Host an event</button>
       <p class="host-note" data-en="You can host your own talk or gathering here at no charge." data-zh="自己组织的讲座和活动，在这里办不收场地费。" data-ms="Anda boleh menganjurkan ceramah atau perkumpulan sendiri di sini tanpa bayaran.">You can host your own talk or gathering here at no charge.</p>
+      <p class="host-note" data-en="A screen and a projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too." data-zh="店里有投屏和投影仪，可以直接用。欢迎以 AI 为主题，其他主题也可以。" data-ms="Skrin dan projektor sedia untuk digunakan. Aktiviti bertema AI dialu-alukan, dan tema lain juga boleh.">A screen and a projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too.</p>
     </div>
     <section class="events" id="events">
       <h2 data-en="What's on" data-zh="现有活动" data-ms="Aktiviti semasa">What's on</h2>
-      <p class="events-lead" data-en="Only confirmed events appear here, and you can see them without opening anything." data-zh="只显示已经确定的活动，不用点开就能看到。" data-ms="Hanya aktiviti yang telah disahkan dipaparkan di sini, dan anda boleh melihatnya tanpa membuka apa-apa.">Only confirmed events appear here, and you can see them without opening anything.</p>
+      <p class="events-lead" data-en="Only events that are approved and already have a poster appear here." data-zh="只显示已经批准、并已上传海报的活动。" data-ms="Hanya aktiviti yang telah diluluskan dan sudah ada poster dipaparkan di sini.">Only events that are approved and already have a poster appear here.</p>
       <div class="empty">
-        <p data-en="There are no confirmed events yet. When one is set, it will show up here." data-zh="目前还没有已确定的活动，确定后会显示在这里。" data-ms="Belum ada aktiviti yang disahkan. Apabila satu aktiviti ditetapkan, ia akan dipaparkan di sini.">There are no confirmed events yet. When one is set, it will show up here.</p>
+        <p data-en="There are no confirmed events yet. After one is approved and a poster is uploaded, it will show up here." data-zh="目前还没有已确定的活动。批准并上传海报后，会显示在这里。" data-ms="Belum ada aktiviti yang disahkan. Selepas diluluskan dan poster dimuat naik, ia akan dipaparkan di sini.">There are no confirmed events yet. After one is approved and a poster is uploaded, it will show up here.</p>
       </div>
-      <div class="event-list" id="event-list"><!-- Confirmed events only. Add article.event cards here when a date is set; the empty state hides automatically. Photos: assets/coffee/cohub-event-*.webp --></div>
+      <div class="event-list" id="event-list"></div>
     </section>
   </main>
   <dialog class="host-dialog" id="hostDialog" aria-labelledby="hostTitle">
@@ -59,21 +60,11 @@
       <h2 id="hostTitle" data-en="Host an event" data-zh="自己办活动" data-ms="Anjurkan aktiviti">Host an event</h2>
       <button type="button" class="host-close" id="closeHost" data-en="×" data-zh="×" data-ms="×" aria-label="Close">×</button>
     </div>
-    <p class="host-lead" data-en="Hosting your own talk or gathering here is free. Fill this in and tap send. It opens WhatsApp with a ready message for you to check before sending. We'll reply with a possible time based on the room that day." data-zh="自己在这里办讲座或活动，不收场地费。填好信息后点发送，会打开 WhatsApp，留言已写好，你确认后再发出。我们会根据当天场地回复可预约的时间。" data-ms="Menganjurkan ceramah atau perkumpulan sendiri di sini adalah percuma. Isi borang ini dan tekan hantar. WhatsApp akan dibuka dengan mesej yang sedia untuk anda semak sebelum dihantar. Kami akan membalas dengan masa yang mungkin berdasarkan ruang pada hari itu.">Hosting your own talk or gathering here is free. Fill this in and tap send. It opens WhatsApp with a ready message for you to check before sending. We'll reply with a possible time based on the room that day.</p>
+    <p class="host-lead" data-en="Choose a time that is still open and write a short introduction. After you submit, WhatsApp opens with a message for you to check before it is sent. We review the same request on the approval page. Once it is approved, that slot can no longer be booked. We will then prepare a message asking you to remember the time and upload a poster. Your event appears on the list below only after the poster is in. Nothing is sent automatically." data-zh="请选一个还可以预定的时段，并写上活动介绍。提交后会发到 WhatsApp，由我们在批准页处理。批准后，该时段不能再订。我们会再发消息提醒你记住时间，并请你上传海报。海报上传后，活动才会出现在下面的列表里。不会自动发送，你可以先检查。" data-ms="Pilih masa yang masih terbuka dan tulis pengenalan ringkas. Selepas anda hantar, WhatsApp terbuka dengan mesej untuk anda semak sebelum dihantar. Kami menyemak permohonan yang sama di halaman kelulusan. Selepas diluluskan, slot itu tidak boleh ditempah lagi. Kami kemudian sediakan mesej untuk mengingatkan anda tentang masa dan meminta poster. Aktiviti anda muncul dalam senarai di bawah hanya selepas poster dimuat naik. Tiada mesej dihantar secara automatik.">Choose a time that is still open and write a short introduction. After you submit, WhatsApp opens with a message for you to check before it is sent. We review the same request on the approval page. Once it is approved, that slot can no longer be booked. We will then prepare a message asking you to remember the time and upload a poster. Your event appears on the list below only after the poster is in. Nothing is sent automatically.</p>
     <form class="hostform" id="hostForm">
       <label><span data-en="Name" data-zh="姓名" data-ms="Nama">Name</span><input name="name" required autocomplete="name" maxlength="80"></label>
       <label><span data-en="Contact" data-zh="联系方式" data-ms="Hubungan">Contact</span><input name="contact" required autocomplete="tel" maxlength="120" placeholder="WhatsApp number or email"></label>
-      <label><span data-en="What do you want to host" data-zh="想办的类型" data-ms="Apa yang ingin anda anjurkan">What do you want to host</span>
-        <select name="type" required>
-          <option value="Self-organized AI talk / sharing" data-en="Self-organized AI talk / sharing" data-zh="自发组织的 AI 分享" data-ms="Perkongsian AI anjuran sendiri">Self-organized AI talk / sharing</option>
-          <option value="Workshop or skill share" data-en="Workshop or skill share" data-zh="工作坊或技能分享" data-ms="Bengkel atau perkongsian kemahiran">Workshop or skill share</option>
-          <option value="Reading club / screening" data-en="Reading club / screening" data-zh="读书会 / 观影" data-ms="Kelab membaca / tayangan">Reading club / screening</option>
-          <option value="Team remote work day" data-en="Team remote work day" data-zh="团队远程工作日" data-ms="Hari kerja jarak jauh pasukan">Team remote work day</option>
-          <option value="Shoot / content recording" data-en="Shoot / content recording" data-zh="拍摄 / 内容记录" data-ms="Penggambaran / rakaman kandungan">Shoot / content recording</option>
-          <option value="Birthday / small gathering" data-en="Birthday / small gathering" data-zh="生日或小型聚会" data-ms="Hari jadi / perkumpulan kecil">Birthday / small gathering</option>
-          <option value="Something else" data-en="Something else" data-zh="其他" data-ms="Perkara lain">Something else</option>
-        </select>
-      </label>
+      <label><span data-en="Event title" data-zh="活动名称" data-ms="Tajuk aktiviti">Event title</span><input name="title" required maxlength="80" placeholder="A short name for the event"></label>
       <div class="pair">
         <label><span data-en="Expected guests" data-zh="预计人数" data-ms="Anggaran tetamu">Expected guests</span>
           <select name="pax" required>
@@ -83,23 +74,69 @@
             <option value="Over 30" data-en="Over 30" data-zh="30 人以上" data-ms="Lebih 30">Over 30</option>
           </select>
         </label>
-        <label><span data-en="Preferred date" data-zh="希望的日期" data-ms="Tarikh pilihan">Preferred date</span><input name="date" type="date"></label>
+        <label><span data-en="Event date" data-zh="日期" data-ms="Tarikh">Event date</span><input name="date" type="date" required></label>
       </div>
-      <label><span data-en="Time of day" data-zh="时段" data-ms="Waktu">Time of day</span>
-        <select name="time">
-          <option value="Daytime" data-en="Daytime" data-zh="白天" data-ms="Siang">Daytime</option>
-          <option value="Early evening" data-en="Early evening" data-zh="傍晚" data-ms="Awal petang">Early evening</option>
-          <option value="Night" data-en="Night" data-zh="晚上" data-ms="Malam">Night</option>
-          <option value="Not sure yet" data-en="Not sure yet" data-zh="还不确定" data-ms="Belum pasti">Not sure yet</option>
-        </select>
-      </label>
-      <label><span data-en="Notes" data-zh="备注" data-ms="Catatan">Notes</span><textarea name="note" maxlength="600" placeholder="Topic, gear you need, or anything else"></textarea></label>
+      <div>
+        <span class="slot-label" data-en="Available time slots" data-zh="可选时段" data-ms="Slot masa yang boleh ditempah">Available time slots</span>
+        <div class="slot-grid" id="slotGrid" role="group"></div>
+        <input type="hidden" name="slot" value="">
+        <p class="hint" id="slotHint" data-en="Choose a date first. Slots that are already approved are shown as unavailable." data-zh="请先选日期。已经批准的时段会显示不能预定。" data-ms="Pilih tarikh dahulu. Slot yang sudah diluluskan ditunjukkan sebagai tidak boleh ditempah.">Choose a date first. Slots that are already approved are shown as unavailable.</p>
+      </div>
+      <label><span data-en="Event introduction" data-zh="活动介绍" data-ms="Pengenalan aktiviti">Event introduction</span><textarea name="intro" required maxlength="400" placeholder="What it is, who it is for, and anything guests should know."></textarea></label>
+      <p class="hint host-note" data-en="A screen and a projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too." data-zh="店里有投屏和投影仪，可以直接用。欢迎以 AI 为主题，其他主题也可以。" data-ms="Skrin dan projektor sedia untuk digunakan. Aktiviti bertema AI dialu-alukan, dan tema lain juga boleh.">A screen and a projector are ready to use. AI-themed gatherings are welcome, and other themes are welcome too.</p>
+      <label><span data-en="Notes" data-zh="备注" data-ms="Catatan">Notes</span><textarea name="note" maxlength="400" placeholder="Anything else we should know."></textarea></label>
       <div>
         <button class="host-send" type="submit" data-en="Send to WhatsApp" data-zh="发送到 WhatsApp" data-ms="Hantar ke WhatsApp">Send to WhatsApp</button>
         <p class="hint" data-en="This does not send the message for you. It only opens WhatsApp so you can review it first." data-zh="不会自动发出，只是打开 WhatsApp，方便你检查后再发送。" data-ms="Mesej ini tidak dihantar secara automatik. Ia hanya membuka WhatsApp supaya anda boleh menyemaknya dahulu.">This does not send the message for you. It only opens WhatsApp so you can review it first.</p>
+        <p id="hostStatus" role="status"></p>
+        <p id="hostFallback"></p>
       </div>
     </form>
   </dialog>
+  <div id="event-copy" hidden>
+    <span data-en="Morning 10:00–12:00" data-zh="上午 10:00–12:00" data-ms="Pagi 10:00–12:00"></span>
+    <span data-en="Afternoon 14:00–17:00" data-zh="下午 14:00–17:00" data-ms="Petang 14:00–17:00"></span>
+    <span data-en="Early evening 18:00–20:00" data-zh="傍晚 18:00–20:00" data-ms="Awal malam 18:00–20:00"></span>
+    <span data-en="Evening 20:00–22:30" data-zh="晚上 20:00–22:30" data-ms="Malam 20:00–22:30"></span>
+    <span data-en="Unavailable" data-zh="不可预定" data-ms="Tidak boleh ditempah"></span>
+    <span data-en="Hi CO-HUB, I would like to host an event." data-zh="你好，CO-HUB，我想在店里办一场活动。" data-ms="Helo CO-HUB, saya ingin menganjurkan aktiviti di sini."></span>
+    <span data-en="This is a request only. The time is not confirmed yet." data-zh="这只是申请，时间尚未确认。" data-ms="Ini hanya permohonan. Masa belum disahkan."></span>
+    <span data-en="Hello, your CO-HUB event is approved." data-zh="你好，你在 CO-HUB 的活动已经批准。" data-ms="Helo, aktiviti CO-HUB anda telah diluluskan."></span>
+    <span data-en="Please remember this time and upload a poster. Guests can see the event only after the poster is uploaded." data-zh="请记住这个时间，并上传海报。海报上传后，客人才能在列表里看到这场活动。" data-ms="Sila ingat masa ini dan muat naik poster. Tetamu hanya dapat melihat aktiviti selepas poster dimuat naik."></span>
+    <span data-en="Upload your poster:" data-zh="上传海报：" data-ms="Muat naik poster:"></span>
+    <span data-en="Time slot" data-zh="时段" data-ms="Slot masa"></span>
+    <span data-en="The request is saved. Check the WhatsApp message, then tap send to COHUB KL." data-zh="申请已记下。请在 WhatsApp 里检查后再发送给 COHUB KL。" data-ms="Permohonan disimpan. Semak mesej WhatsApp, kemudian tekan hantar kepada COHUB KL."></span>
+    <span data-en="The approval page did not store this request. WhatsApp can still be used so you can check the message and send it." data-zh="批准页暂时没有记下这份申请。仍可打开 WhatsApp，检查后再发送。" data-ms="Halaman kelulusan belum menyimpan permohonan ini. WhatsApp masih boleh dibuka untuk semak dan hantar."></span>
+    <span data-en="Choose an available time slot." data-zh="请先选择一个还可以预定的时段。" data-ms="Pilih slot yang masih boleh ditempah."></span>
+    <span data-en="That time slot is no longer available. Please choose another one." data-zh="这个时段已经不能预定，请另选一个。" data-ms="Slot ini tidak lagi boleh ditempah. Sila pilih yang lain."></span>
+    <span data-en="Approved. That time slot can no longer be booked. The WhatsApp reminder below is ready for you to check before you send it. The event appears on the guest page after the poster is uploaded." data-zh="已批准。该时段现在不能再预定。下面的 WhatsApp 提醒已备好，请检查后再发送。海报上传后，活动才会出现在客人页。" data-ms="Diluluskan. Slot itu tidak boleh ditempah lagi. Peringatan WhatsApp di bawah sedia untuk anda semak sebelum dihantar. Aktiviti muncul di halaman tetamu selepas poster dimuat naik."></span>
+    <span data-en="Declined. That time slot stays available." data-zh="已标记为不通过，该时段仍可预定。" data-ms="Tidak diluluskan. Slot itu masih boleh ditempah."></span>
+    <span data-en="Cancelled. That time slot is free again, and the event is no longer on the guest page." data-zh="已取消。该时段重新空出，活动不再出现在客人页。" data-ms="Dibatalkan. Slot itu kosong semula, dan aktiviti tidak lagi dipaparkan di halaman tetamu."></span>
+    <span data-en="The events service is not available yet, so this page cannot load requests. Guests can still send a request through WhatsApp." data-zh="活动服务还没接上，这一页暂时读不到申请。客人仍可通过 WhatsApp 发送申请。" data-ms="Perkhidmatan aktiviti belum tersedia, jadi halaman ini tidak dapat memuatkan permohonan. Tetamu masih boleh hantar melalui WhatsApp."></span>
+    <span data-en="Poster submitted. The event now appears on the guest page." data-zh="海报已提交。活动现在会出现在客人页。" data-ms="Poster dihantar. Aktiviti kini dipaparkan di halaman tetamu."></span>
+    <span data-en="This upload link is not valid, or the event is not approved yet." data-zh="这条上传链接无效，或活动还没有批准。" data-ms="Pautan muat naik ini tidak sah, atau aktiviti belum diluluskan."></span>
+    <span data-en="Please choose a poster image first." data-zh="请先选择一张海报图片。" data-ms="Sila pilih gambar poster dahulu."></span>
+    <span data-en="The poster must be a JPG, PNG, or WebP image under 5 MB." data-zh="海报需为 5 MB 以内的 JPG、PNG 或 WebP 图片。" data-ms="Poster mestilah imej JPG, PNG, atau WebP di bawah 5 MB."></span>
+    <span data-en="No phone number was found in the contact, so copy the reminder and send it to the host yourself." data-zh="联系方式里没有找到电话号码，请复制提醒，自行发给主办人。" data-ms="Nombor telefon tidak dijumpai dalam hubungan. Salin peringatan dan hantar sendiri kepada penganjur."></span>
+    <span data-en="Could not reach the events service." data-zh="暂时连不上活动服务。" data-ms="Tidak dapat menghubungi perkhidmatan aktiviti."></span>
+    <span data-en="Could not confirm which slots are already taken. You can still send the request through WhatsApp." data-zh="暂时无法确认哪些时段已被占用。你仍可通过 WhatsApp 发送申请。" data-ms="Tidak dapat mengesahkan slot yang sudah diambil. Anda masih boleh hantar permohonan melalui WhatsApp."></span>
+    <span data-en="The owner token was not accepted." data-zh="所有者口令未被接受。" data-ms="Token pemilik tidak diterima."></span>
+    <span data-en="If WhatsApp did not open, use this link to review the message before you send it." data-zh="如果 WhatsApp 没有打开，用这个链接检查后再发送。" data-ms="Jika WhatsApp tidak terbuka, gunakan pautan ini untuk semak mesej sebelum menghantar."></span>
+    <span data-en="Event host" data-zh="主办人" data-ms="Penganjur"></span>
+    <span data-en="Request ID" data-zh="申请编号" data-ms="ID permohonan"></span>
+    <span data-en="A short name for the event" data-zh="给活动起一个简短的名字" data-ms="Nama ringkas untuk aktiviti ini"></span>
+    <span data-en="What it is, who it is for, and anything guests should know." data-zh="活动是什么、谁适合来、需要注意什么。" data-ms="Apa aktiviti ini, untuk siapa, dan apa yang tetamu perlu tahu."></span>
+    <span data-en="Anything else we should know." data-zh="还有什么需要我们知道的。" data-ms="Perkara lain yang perlu kami tahu."></span>
+    <span data-en="WhatsApp number or email" data-zh="WhatsApp 号码或邮箱" data-ms="Nombor WhatsApp atau e-mel"></span>
+    <span data-en="Please remember this time" data-zh="请记住这个时间" data-ms="Sila ingat masa ini"></span>
+    <span data-en="Approve" data-zh="批准" data-ms="Lulus"></span>
+    <span data-en="Open the upload page" data-zh="打开上传页" data-ms="Buka halaman muat naik"></span>
+    <span data-en="Cancel and release the slot" data-zh="取消并释放时段" data-ms="Batal dan lepaskan slot"></span>
+    <span data-en="Choose a poster image" data-zh="选择海报图片" data-ms="Pilih gambar poster"></span>
+    <span data-en="Submit poster" data-zh="提交海报" data-ms="Hantar poster"></span>
+    <span data-en="Event poster" data-zh="活动海报" data-ms="Poster aktiviti"></span>
+    <span data-en="After you submit the poster, the event appears on the guest page right away." data-zh="提交海报后，活动会立刻出现在客人页。" data-ms="Selepas poster dihantar, aktiviti serta-merta muncul pada halaman tetamu."></span>
+  </div>
   <footer>
     <a class="brand" href="index.html" aria-label="CO-HUB · Lifestyle Community · Bukit Bintang, Kuala Lumpur">CO-HUB<span data-en="Lifestyle Community · Bukit Bintang, Kuala Lumpur" data-zh="生活社区空间 · 吉隆坡 Bukit Bintang" data-ms="Komuniti gaya hidup · Bukit Bintang, Kuala Lumpur">Lifestyle Community · Bukit Bintang, Kuala Lumpur</span></a>
     <div class="company-details">
@@ -122,52 +159,12 @@
   <script>
     window.COHUB_TRANSLATIONS = Object.assign(window.COHUB_TRANSLATIONS || {}, {
       "WhatsApp number or email": ["WhatsApp 号码或邮箱", "Nombor WhatsApp atau e-mel"],
-      "Topic, gear you need, or anything else": ["主题、需要的设备，或其他说明", "Topik, peralatan yang diperlukan, atau perkara lain"]
+      "A short name for the event": ["给活动起一个简短的名字", "Nama ringkas untuk aktiviti ini"],
+      "What it is, who it is for, and anything guests should know.": ["活动是什么、谁适合来、需要注意什么。", "Apa aktiviti ini, untuk siapa, dan apa yang tetamu perlu tahu."],
+      "Anything else we should know.": ["还有什么需要我们知道的。", "Perkara lain yang perlu kami tahu."]
     });
   </script>
   <script src="site-ui.js?v=20261027-food1"></script>
-  <script>
-    (() => {
-      const hostDialog = document.getElementById("hostDialog");
-      const openBtn = document.getElementById("openHost");
-      function openHost() {
-        if (hostDialog.open) return;
-        if (typeof hostDialog.showModal === "function") hostDialog.showModal();
-        else hostDialog.setAttribute("open", "");
-      }
-      function closeHost() {
-        if (typeof hostDialog.close === "function" && hostDialog.open) hostDialog.close();
-        else hostDialog.removeAttribute("open");
-      }
-      openBtn.addEventListener("click", openHost);
-      document.getElementById("closeHost").addEventListener("click", closeHost);
-      hostDialog.addEventListener("click", (event) => { if (event.target === hostDialog) closeHost(); });
-      hostDialog.addEventListener("close", () => openBtn.focus());
-      document.getElementById("hostForm").addEventListener("submit", (event) => {
-        event.preventDefault();
-        const form = event.target;
-        const val = (name) => (form.elements[name].value || "").trim();
-        const message = [
-          "Hi COHUB, I would like to host an event.",
-          "Name: " + val("name"),
-          "Contact: " + val("contact"),
-          "Type: " + val("type"),
-          "Guests: " + val("pax"),
-          "Date: " + (val("date") || "flexible"),
-          "Time: " + val("time"),
-          "Notes: " + (val("note") || "-")
-        ].join("\n");
-        window.open("https://wa.me/60178497319?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
-      });
-      const params = new URLSearchParams(location.search);
-      if (params.get("host") === "1" || location.hash === "#host") {
-        openHost();
-        const url = new URL(location.href);
-        url.searchParams.delete("host");
-        if (url.hash === "#host") url.hash = "";
-        history.replaceState(null, "", url.pathname + url.search + url.hash);
-      }
-    })();
-  </script>
+  <script src="community-events.js?v=20261119-slots1"></script>
 </body>
 </html>
