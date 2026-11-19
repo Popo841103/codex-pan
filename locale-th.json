@@ -17,7 +17,7 @@
   "My Events": "กิจกรรมของฉัน",
   "See what's on, or host your own gathering.": "ดูกิจกรรมที่กำลังจะจัด หรือจัดกิจกรรมของคุณเอง",
   "Check your email, phone number and password.": "โปรดตรวจสอบอีเมล หมายเลขโทรศัพท์ และรหัสผ่าน",
-  "Use at least 12 characters for your password.": "ใช้รหัสผ่านอย่างน้อย 12 อักขระ",
+  "Use at least 6 characters for your password.": "ใช้รหัสผ่านอย่างน้อย 6 อักขระ",
   "Your slot is held while your request is under review.": "ระบบจะกันช่วงเวลาที่เลือกไว้ระหว่างการพิจารณาคำขอ",
   "That time slot is unavailable. Choose another time.": "ช่วงเวลานี้ไม่ว่าง โปรดเลือกช่วงเวลาอื่น"
 }

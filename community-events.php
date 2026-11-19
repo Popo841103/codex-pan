@@ -227,7 +227,7 @@ function accountAction(string $action, array $body): array
         $password = $body['password'] ?? '';
         if (!is_string($email) || strlen($email) > 120 || !filter_var(trim($email), FILTER_VALIDATE_EMAIL)
             || !is_string($phone) || strlen($phone) > 40 || !preg_match('/\A\+?[0-9 ()-]+\z/', trim($phone))
-            || !is_string($password) || strlen($password) < 12 || strlen($password) > 72
+            || !is_string($password) || strlen($password) < 6 || strlen($password) > 72
             || strpos($password, "\0") !== false) {
             return [422, ['status' => 'credentials']];
         }

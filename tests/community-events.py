@@ -111,6 +111,20 @@ class CommunityEvents(unittest.TestCase):
     def staff_lock(self, fields):
         return self.call({**fields, 'action': 'lock'}, staff=True)
 
+    def test_password_minimum_length(self):
+        auth = {'email': 'password-boundary@invalid.test', 'phone': '+60 11 0100 0000'}
+        short_password = 'abc12'
+        minimum_password = 'abc123'
+        self.assertEqual(self.call({'action': 'register', **auth, 'password': short_password}),
+                         (422, {'status': 'credentials'}))
+        self.assertEqual(self.call({'action': 'register', **auth, 'password': minimum_password})[0], 200)
+
+        client = build_opener(HTTPCookieProcessor(CookieJar()))
+        self.assertEqual(self.call({'action': 'sign-in', **auth, 'password': short_password}, client=client),
+                         (422, {'status': 'credentials'}))
+        self.assertEqual(self.call({'action': 'sign-in', **auth, 'password': minimum_password}, client=client)[0], 200)
+        self.assertEqual(self.call({'action': 'my-events'}, client=client)[0], 200)
+
     def test_public_lock_without_staff_token(self):
         self.assertEqual(self.call(self.fields)[0], 401)
         client, _ = self.guest()
