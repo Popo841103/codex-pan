@@ -32,3 +32,42 @@ html[dir="rtl"] .brand,html[dir="rtl"] .company-details strong,html[dir="rtl"] .
 /* Distinct themed covers, with readable copy outside the photography. */
 .experience-card.activity-theme-card{padding:0;overflow:hidden;align-items:stretch}.activity-cover{width:100%;aspect-ratio:16/9;overflow:hidden;background:#dce5e2;flex-shrink:0}.activity-cover img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .3s ease}.activity-theme-card:hover .activity-cover img{transform:scale(1.025)}.activity-card-content{padding:28px;display:flex;flex-direction:column;align-items:flex-start;flex:1;min-width:0;box-sizing:border-box}.activity-card-content>p:not(.eyebrow){font-size:14px}.activity-card-content .planning-label{padding-top:14px}.activity-card-content .text-link{margin-top:14px}@media(max-width:600px){.activity-card-content{padding:23px}}@media(prefers-reduced-motion:reduce){.activity-cover img{transition:none}.activity-theme-card:hover .activity-cover img{transform:none}}
 .activity-cover svg{display:block;width:100%;height:100%;overflow:hidden;transition:transform .3s ease}.activity-theme-card:hover .activity-cover svg{transform:scale(1.025)}@media(prefers-reduced-motion:reduce){.activity-cover svg{transition:none}.activity-theme-card:hover .activity-cover svg{transform:none}}
+
+/* Guest community page: one host button, a short note, and confirmed events only. */
+body.community-guest{font-family:"Noto Sans SC",Arial,"PingFang SC","Microsoft YaHei",sans-serif}
+body.community-guest .community-simple{max-width:760px;margin:0 auto;padding:40px 6% 80px}
+body.community-guest .community-simple h1{font-size:clamp(36px,6vw,64px);line-height:1.08;letter-spacing:-2px;margin:0 0 12px;white-space:normal}
+body.community-guest .community-intro p{margin:0 0 28px;font-size:18px;color:var(--muted);max-width:28em}
+body.community-guest .host-open{display:flex;width:100%;align-items:center;justify-content:center;min-height:88px;padding:22px 28px;border:0;border-radius:8px;background:var(--gold);color:var(--ink);font-weight:800;font-size:clamp(24px,4vw,36px);letter-spacing:-.5px;box-shadow:0 8px 20px #d1a14a40}
+body.community-guest .host-open:hover{background:#c4922e}
+body.community-guest .community-intro p.host-note{margin:12px 0 0;font-family:"Noto Serif SC","Songti SC","STSong",serif;font-size:13px;font-weight:400;color:var(--muted);max-width:36em;line-height:1.7;letter-spacing:.02em}
+body.community-guest .events{margin-top:56px;scroll-margin-top:140px}
+body.community-guest .events h2{font-size:clamp(24px,3vw,34px);letter-spacing:-1px;margin:0 0 6px;white-space:normal}
+body.community-guest .events-lead{margin:0 0 22px;color:var(--muted);font-size:16px}
+body.community-guest .empty{border:1px dashed #32271e33;border-radius:8px;padding:28px 22px;color:var(--muted);background:#fffdf8}
+body.community-guest .empty p{margin:0;font-size:16px}
+body.community-guest .events:has(.event) .empty{display:none}
+body.community-guest .event-list{display:grid;gap:28px}
+body.community-guest .event-list:not(:has(.event)){display:none}
+body.community-guest .event{background:#fffdf8;border-radius:12px;overflow:hidden;border:1px solid #32271e22}
+body.community-guest .event img{display:block;width:100%;height:auto;aspect-ratio:16/9;max-height:430px;object-fit:cover;background:#e8e0d2}
+body.community-guest .event .body{padding:16px 18px 20px}
+body.community-guest .event .when{margin:0 0 4px;font-size:13px;color:var(--muted)}
+body.community-guest .event h3{margin:0 0 8px;font-size:22px;letter-spacing:-.4px}
+body.community-guest .event .desc{margin:0 0 14px;color:var(--ink)}
+body.community-guest .join{display:inline-block;font-size:14px;font-weight:700;color:#8a5a16;border-bottom:1px solid var(--gold);padding-bottom:1px}
+dialog.host-dialog{width:min(520px,94vw);max-height:min(90vh,860px);overflow:auto;border:0;border-radius:12px;padding:0;background:var(--cream);color:var(--ink);box-shadow:0 20px 60px #0004}
+dialog.host-dialog::backdrop{background:#32271ecc}
+dialog.host-dialog .dialog-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px 22px 0}
+dialog.host-dialog h2{margin:0;font-size:26px;letter-spacing:-.6px;white-space:normal}
+dialog.host-dialog .host-close{border:1px solid #32271e33;background:transparent;font-size:28px;line-height:1;width:40px;height:40px;border-radius:4px;color:var(--ink);flex-shrink:0}
+dialog.host-dialog .host-lead{margin:0;padding:8px 22px 0;color:var(--muted);font-size:16px}
+dialog.host-dialog .hostform{display:grid;gap:14px;padding:8px 22px 24px}
+dialog.host-dialog .hostform label,dialog.host-dialog .pair label{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:700}
+dialog.host-dialog .hostform input,dialog.host-dialog .hostform select,dialog.host-dialog .hostform textarea{width:100%;font-weight:400;padding:12px;border:1px solid #32271e55;border-radius:5px;background:white;color:var(--ink);color-scheme:light}
+dialog.host-dialog .hostform textarea{min-height:80px;resize:vertical}
+dialog.host-dialog .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+dialog.host-dialog .hint{margin:4px 0 0;font-size:13px;font-weight:400;color:var(--muted)}
+dialog.host-dialog .host-send{display:inline-block;width:100%;padding:14px 22px;border-radius:5px;background:var(--gold);color:var(--ink);font-weight:700;font-size:14px;border:0}
+dialog.host-dialog .host-send:hover{background:#c4922e}
+@media(max-width:720px){body.community-guest .community-intro p.host-note{font-size:12px;line-height:1.65}body.community-guest .community-simple{padding-top:28px}dialog.host-dialog .pair{grid-template-columns:1fr}}
