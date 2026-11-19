@@ -59,15 +59,80 @@ function validateRequest(array $body, array &$errors): array
 function moderation(array $request): string
 {
     $text = implode("\n", [$request['title'], $request['intro'], $request['note']]);
-    if (preg_match('/\b(?:sell(?:ing)? illegal drugs|stalk and harass|(?:organize a )?hate rally|drinking contest|'
-        . 'underage drinking|racial supremacy rally|doxx(?:ing)? participants)\b|贩卖毒品|販賣毒品|组织骚扰|組織騷擾|'
-        . '拼酒比赛|種族仇恨集會|种族仇恨集会|jualan dadah haram|pertandingan minum arak/iu', $text)) {
-        return 'rejected';
+    $rules = [
+        'venue_policy_illegal' =>
+            '\b(?:sell(?:ing)? (?:illegal drugs|contraband)|drug trafficking|money laundering|illegal fundraising|'
+            . 'gambling tournament|cash betting|run an illegal casino|armed attack|attack people with weapons|'
+            . '(?:exploit(?:ing)?|harm(?:ing)?|abus(?:e|ing)) (?:minors|children)|underage drinking|'
+            . '(?:jualan|pengedaran) dadah haram|jualan barang larangan|pengubahan wang haram|kutipan dana haram|'
+            . 'pertandingan judi|pertaruhan wang|serangan bersenjata|(?:mencederakan|mengeksploitasi|mendera) kanak-kanak)\b|'
+            . '贩卖毒品|販賣毒品|毒品交易|销售违禁品|販售違禁品|非法集资|非法集資|洗钱|洗錢|'
+            . '组织赌博|組織賭博|现金赌博|現金賭博|持械袭击|持械襲擊|武装袭击|武裝襲擊|'
+            . '(?:伤害|傷害|虐待|利用|剥削|剝削)(?:未成年人|儿童|兒童)',
+        'venue_policy_fraud' =>
+            '\b(?:ponzi scheme|pyramid scheme|run (?:a |an )?(?:investment )?scam|defraud (?:investors|participants)|'
+            . '(?:guaranteed?|promise[ds]?) (?:investment returns|profits|risk-free returns)|'
+            . '(?:earn|paid) (?:money )?(?:by|for) recruiting (?:members|investors)|'
+            . 'skim (?:ponzi|piramid)|menipu pelabur|jaminan (?:pulangan|keuntungan|modal) pelaburan|'
+            . 'pulangan pelaburan dijamin|komisen (?:untuk|dengan) merekrut ahli)\b|'
+            . '投资诈骗|投資詐騙|资金盘|資金盤|庞氏骗局|龐氏騙局|传销|傳銷|'
+            . '保本保收益|保本保息|保本稳赚|保本穩賺|保证收益|保證收益|承诺保本|承諾保本|拉人头|拉人頭',
+        'venue_policy_harassment' =>
+            '\b(?:sexually harass (?:people|participants|attendees)|stalk and harass|stalk (?:participants|attendees)|'
+            . 'doxx?(?:ing)? (?:participants|attendees)|(?:organize|coordinate|incite) (?:targeted )?harassment|'
+            . 'targeted verbal abuse|gangguan seksual terhadap peserta|mengekori peserta|dedahkan maklumat peribadi peserta|'
+            . 'menghasut orang untuk mengganggu|makian terhadap peserta)\b|'
+            . '(?:对|對)参[与與]者(?:实施|實施)?性骚扰|性騷擾參加者|性骚扰参与者|跟踪参与者|跟蹤參與者|'
+            . '起底(?:他人|参与者|參與者)|人肉搜索(?:他人|参与者|參與者)|组织骚扰|組織騷擾|'
+            . '煽动骚扰|煽動騷擾|辱骂参与者|辱罵參與者',
+        'venue_policy_harmful' =>
+            '\b(?:porn(?:ography)? screening|screen(?:ing)? (?:porn(?:ography)?|sexually explicit content|graphic violence)|'
+            . 'explicit sex show|extreme violence footage|(?:promote|encourage|glorify) (?:self[- ]harm|hurting others)|'
+            . 'drinking contest|tayangan (?:pornografi|bahan lucah|keganasan melampau)|'
+            . 'pertunjukan seks eksplisit|menggalakkan (?:mencederakan diri|mencederakan orang lain)|pertandingan minum arak)\b|'
+            . '放映色情|色情表演|播放露骨性内容|播放露骨性內容|展示极端暴力|展示極端暴力|'
+            . '宣扬自残|宣揚自殘|鼓励自残|鼓勵自殘|鼓励伤害他人|鼓勵傷害他人|拼酒比赛|拼酒比賽',
+        'venue_policy_controversial' =>
+            '\b(?:political party campaign|(?:election|campaign) rally|organi[sz](?:e|ing) (?:a |an )?protest|'
+            . 'religious extremist rally|incite (?:religious|racial) hatred|attack (?:a specific religion|religious groups)|'
+            . 'hate rally|racial supremacy rally|(?:promote|encourage) (?:racial|religious|gender|nationality[- ]based) discrimination|'
+            . 'kempen parti politik|kempen pilihan raya|menganjurkan protes|perhimpunan pelampau agama|'
+            . 'menghina penganut agama tertentu|menghasut kebencian (?:kaum|agama)|'
+            . 'menggalakkan diskriminasi (?:kaum|agama|jantina|kewarganegaraan))\b|'
+            . '政党竞选|政黨競選|组织抗议|組織抗議|宗教极端集会|宗教極端集會|攻击特定宗教|攻擊特定宗教|'
+            . '种族仇恨集会|種族仇恨集會|煽动(?:种族|宗教|性别|国籍)(?:歧视|仇恨)|'
+            . '煽動(?:種族|宗教|性別|國籍)(?:歧視|仇恨)',
+    ];
+    // Context can make an otherwise explicit phrase a discussion or prevention topic.
+    $context = '/\b(?:prevent(?:ing|ion)?|awareness|case stud(?:y|ies)|discuss(?:ion|ing)?|'
+        . 'avoid(?:ing)?|reporting|against|recognis(?:e|ing)|recogniz(?:e|ing)|no|not|without)\b|'
+        . '防范|防範|预防|預防|识别|識別|反对|反對|禁止|讨论|討論|案例分析|'
+        . '\b(?:mencegah|pencegahan|kesedaran|kajian kes|perbincangan|tanpa|bukan|jangan)\b/iu';
+    $needsReview = false;
+    foreach (preg_split('/[.!?;。！？；\n]+/u', $text) as $sentence) {
+        foreach ($rules as $reason => $pattern) {
+            if (preg_match('/' . $pattern . '/iu', $sentence)) {
+                if (!preg_match($context, $sentence)) {
+                    return $reason;
+                }
+                $needsReview = true;
+            }
+        }
     }
-    preg_match_all('/([0-9]+)\s*(?:[-–~至到]\s*([0-9]+)\s*)?(?:[+＋-]\s*)?'
-        . '(?:people\b|persons?\b|participants?\b|guests?\b|attendees?\b|pax\b|orang\b|peserta\b|人|位)/iu', $text, $counts, PREG_SET_ORDER);
+    if ($needsReview || preg_match('/\b(?:illegal drugs|contraband|gambling|investment scam|recruitment commission|'
+        . 'guaranteed returns|guaranteed principal|capital protection|risk[- ]free investment|sexual harassment|stalking|doxx?ing|child abuse|weapon sales|pornography|graphic violence|'
+        . 'self[- ]harm|religious extremism|hate speech|gangguan seksual|dadah haram|perjudian|'
+        . 'barang larangan|pulangan terjamin|penipuan pelaburan|ucapan kebencian|mencederakan diri)\b|'
+        . '毒品|违禁品|違禁品|赌博|賭博|诈骗|詐騙|性骚扰|性騷擾|传销|傳銷|暴力活动|暴力活動|跟踪骚扰|跟蹤騷擾|'
+        . '色情|自残|自殘|极端暴力|極端暴力|宗教极端|宗教極端|歧视|歧視|保本|保收益|静态收益|靜態收益/iu', $text)) {
+        return 'pending';
+    }
+    preg_match_all('/(?:(over|more than|lebih daripada|超过|超過)\s*)?([0-9]+)\s*'
+        . '(?:(?:[-–~至到]|to)\s*([0-9]+))?\s*([+＋])?\s*'
+        . '(?:people\b|persons?\b|participants?\b|guests?\b|attendees?\b|pax\b|orang\b|peserta\b|人|位)/iu', $text, $counts, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
     foreach ($counts as $count) {
-        if ((int)$count[1] > 20 || (int)$count[2] > 20) {
+        if ((int)$count[2] > 20 || (int)$count[3] > 20
+            || ((int)$count[2] === 20 && ($count[1] !== null || $count[4] !== null))) {
             return 'pending';
         }
     }
@@ -75,9 +140,9 @@ function moderation(array $request): string
         . 'stage setup|portable stage|(?:need|build|set up) (?:a )?stage|special (?:audio|sound)|large decorations|'
         . 'extensive decorations|structural changes|reconfigure the venue|venue schedule conflict|'
         . 'possible (?:schedule|scheduling) conflict|overlap with (?:another|a house|an in-house)|'
-        . 'to be decided|to be confirmed|unspecified|not sure|undecided|details (?:pending|tbd)|'
-        . 'sewa seluruh ruang|pentas khas|sistem bunyi khas|hiasan besar|belum pasti|pertindihan jadual)\b|'
-        . '包场|包場|独占场地|獨佔場地|舞台|特殊音响|特殊音響|大量装饰|大量裝飾|改建场地|改建場地|'
+        . 'to be decided|to be confirmed|unspecified|not sure|undecided|details (?:pending|tbd)|tbc|tbd|'
+        . 'sewa (?:seluruh ruang|seluruh premis)|penggunaan eksklusif|pentas khas|sistem bunyi khas|hiasan besar|belum pasti|pertindihan jadual)\b|'
+        . '包场|包場|独占场地|獨佔場地|(?:搭建|需要|架設|架设)(?:一個|一个)?舞台|特殊音响|特殊音響|大量装饰|大量裝飾|改建场地|改建場地|'
         . '可能冲突|可能衝突|店内安排冲突|店內安排衝突|待定|还没想好|還沒想好/iu', $text)
         || preg_match('/\A(?:[^\p{L}\p{N}]*|tbd|test|n\/?a|unknown|未知|再说|再說)\z/iu', $request['intro'])) {
         return 'pending';
@@ -348,8 +413,9 @@ function accountAction(string $action, array $body): array
     if ($errors) {
         return [422, ['status' => 'invalid', 'fields' => $errors]];
     }
-    $status = moderation($request);
-    return transaction(true, static function (array &$records) use ($request, $guest, $status): array {
+    $decision = moderation($request);
+    $status = str_starts_with($decision, 'venue_policy_') ? 'rejected' : $decision;
+    return transaction(true, static function (array &$records) use ($request, $guest, $status, $decision): array {
         if (taken($records, $request)) {
             return [409, ['status' => 'taken'], false];
         }
@@ -357,7 +423,7 @@ function accountAction(string $action, array $body): array
         $record = ['id' => $id, 'owner' => $guest['id']] + $request;
         changeStatus($record, $status);
         if ($status === 'rejected') {
-            $record['reason'] = 'venue_policy';
+            $record['reason'] = $decision;
         }
         $records[$id] = $record;
         return [$status === 'confirmed' ? 201 : 202,
@@ -567,8 +633,8 @@ function handle(): array
         return [422, ['status' => 'invalid', 'fields' => $errors]];
     }
     $status = moderation($request);
-    if ($status === 'rejected') {
-        return [422, ['status' => 'rejected', 'reason' => 'venue_policy']];
+    if (str_starts_with($status, 'venue_policy_')) {
+        return [422, ['status' => 'rejected', 'reason' => $status]];
     }
     $retryKey = $body['retryKey'] ?? null;
     if ($retryKey !== null && (!is_string($retryKey) || !preg_match('/\A[0-9a-f-]{36}\z/', $retryKey))) {

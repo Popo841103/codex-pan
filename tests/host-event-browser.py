@@ -85,8 +85,27 @@ def verify(browser, url):
     page.reload()
     expect(row).to_contain_text('Confirmed')
     assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == ['10-12']
-    expect(row).to_contain_text('Your slot is confirmed.')
-    expect(row).to_contain_text('send your poster')
+    confirmed = row.locator('[data-result=confirmed]')
+    required_copy = {
+        'en': ['poster and request ID', 'public business number', 'other private numbers',
+               'do not upload the poster on this website yourself', 'will not appear on the public list'],
+        'zh': ['海报和申请编号', '商家公开号', '不要发到其他私人号码',
+               '不要在本网站自行上传海报', '没有海报前，活动不会出现在公开列表'],
+        'ms': ['poster serta ID permohonan', 'nombor perniagaan awam', 'Jangan hantar ke nombor peribadi lain',
+               'jangan muat naik poster sendiri di laman ini', 'aktiviti tidak akan muncul dalam senarai awam'],
+    }
+    english = confirmed.inner_text()
+    for lang in LANGUAGES:
+        page.select_option('#language', lang)
+        expect(page.locator('#language-status')).to_be_hidden()
+        expect(confirmed).to_contain_text('+60 17-849 7319')
+        if lang != 'en':
+            expect(confirmed).not_to_have_text(english)
+        for phrase in required_copy.get(lang, []):
+            expect(confirmed).to_contain_text(phrase)
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), lang
+    page.select_option('#language', 'en')
+    expect(page.locator('input[type=file]')).to_have_count(0)
     page.get_by_role('link', name="What's on", exact=True).click()
     expect(page).to_have_url(url + 'community.html#events')
     expect(grid.locator('[data-published]')).to_have_count(0)
@@ -108,6 +127,20 @@ def verify(browser, url):
     row.get_by_role('button', name='Cancel').click()
     expect(row).to_contain_text('Cancelled')
     expect(row.get_by_role('button', name='Cancel')).to_have_count(0)
+    assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == []
+    # A rejected proposal shows its specific reason locally and leaves the slot open.
+    form.locator('[name=name]').fill('Local organizer')
+    form.locator('[name=title]').fill('Web3 investment promotion')
+    form.locator('[name=date]').fill(day)
+    form.locator('[value="10-12"]').check()
+    form.locator('[name=intro]').fill('We promise guaranteed investment returns.')
+    form.get_by_role('button', name='Submit request').click()
+    reason = row.locator('[data-reason=venue_policy_fraud]')
+    expect(reason).to_contain_text('guaranteed investment returns')
+    page.select_option('#language', 'zh')
+    expect(reason).to_contain_text('承诺投资保本保收益')
+    page.select_option('#language', 'ms')
+    expect(reason).to_contain_text('jaminan pulangan pelaburan')
     assert page.request.get(url + 'community-events.php?date=' + day).json()['occupied'] == []
     assert not page_errors, page_errors
 

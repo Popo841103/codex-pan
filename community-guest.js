@@ -93,8 +93,14 @@
           card.append(localCopy('[data-result="' + record.status + '"]'));
         }
         if (record.reason) {
-          card.append(record.reason === 'venue_policy'
-            ? localCopy('[data-result="rejected"]') : userText('p', record.reason));
+          const reasonCopy = Array.from(copy.querySelectorAll('[data-reason]'))
+            .find(node => node.dataset.reason === record.reason);
+          if (reasonCopy) {
+            card.append(localCopy('[data-reason="' + reasonCopy.dataset.reason + '"]'));
+          } else {
+            card.append(record.reason === 'venue_policy'
+              ? localCopy('[data-result="rejected"]') : userText('p', record.reason));
+          }
         }
         if (['pending', 'confirmed'].includes(record.status)) {
           const cancel = localCopy('[data-copy="cancel"]');

@@ -226,17 +226,66 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.occupancy(), [])
         _, rejected = self.call({**request, 'intro': 'Sell illegal drugs'}, client=client)
         self.assertEqual(rejected['status'], 'rejected')
-        self.assertEqual(rejected['reason'], 'venue_policy')
+        self.assertEqual(rejected['reason'], 'venue_policy_illegal')
         self.assertEqual(self.occupancy(), [])
+
+    def test_community_topics_confirm_without_title_whitelist(self):
+        owner, _ = self.guest()
+        for title, intro in (
+            ('Web3 Builders Circle', 'Share open-source projects and build a demo together.'),
+            ('AI Meetup', 'A practical exchange about using AI in our daily work.'),
+            ('周末读书会', '交流读书笔记，欢迎 20 人参与。'),
+            ('Bengkel kopi', 'Berkongsi teknik membancuh kopi bersama 20 peserta.'),
+        ):
+            with self.subTest(title=title):
+                request = {**self.fields, 'action': 'submit-event', 'title': title, 'intro': intro}
+                code, event = self.call(request, client=owner)
+                self.assertEqual((code, event['status']), (201, 'confirmed'))
+                self.assertEqual(self.occupancy(), ['20-2230'])
+                self.assertEqual(self.call(request, client=owner)[0], 409)
+                self.assertEqual(self.call({'action': 'cancel-my-event', 'id': event['id']}, client=owner)[0], 200)
+
+    def test_clear_violations_reject_without_holding_the_slot(self):
+        owner, _ = self.guest()
+        for field, copy, category in (
+            ('title', '销售违禁品', 'illegal'),
+            ('intro', 'No experience needed. Sell illegal drugs.', 'illegal'),
+            ('note', 'Pertandingan judi', 'illegal'),
+            ('title', 'Armed attack', 'illegal'),
+            ('intro', '伤害未成年人', 'illegal'),
+            ('note', 'Pengubahan wang haram', 'illegal'),
+            ('title', '投资诈骗与传销', 'fraud'),
+            ('intro', 'Web3 项目保本保收益', 'fraud'),
+            ('note', 'Web3 拉人头', 'fraud'),
+            ('note', 'Pulangan pelaburan dijamin', 'fraud'),
+            ('title', 'Gangguan seksual terhadap peserta', 'harassment'),
+            ('intro', 'We will stalk attendees', 'harassment'),
+            ('note', '起底参与者', 'harassment'),
+            ('intro', 'Tayangan bahan lucah', 'harmful'),
+            ('note', 'Screening graphic violence', 'harmful'),
+            ('title', '宣扬自残', 'harmful'),
+            ('title', 'Kempen parti politik', 'controversial'),
+            ('intro', 'Organize a protest', 'controversial'),
+            ('note', '攻击特定宗教', 'controversial'),
+            ('intro', 'Promote gender discrimination', 'controversial'),
+        ):
+            with self.subTest(field=field, copy=copy):
+                request = {**self.fields, 'action': 'submit-event', field: copy}
+                code, event = self.call(request, client=owner)
+                self.assertEqual((code, event['status'], event['reason']),
+                                 (202, 'rejected', f'venue_policy_{category}'))
+                self.assertEqual(self.occupancy(), [])
 
     def test_manual_review_signals_hold_the_slot(self):
         owner, _ = self.guest()
-        for note in ('15–24 attendees', '20–30人', 'Exclusive use', 'Possible scheduling conflict',
-                     'Special sound equipment', 'Details TBD'):
+        for note in ('15–24 attendees', '20–30人', '20+ pax', '超过20人', 'Exclusive use', '包场',
+                     'Possible scheduling conflict', 'Special sound equipment', '搭建舞台', 'Details TBD',
+                     'Discussing how to prevent money laundering', 'Web3 guaranteed returns?', '防范投资诈骗'):
             with self.subTest(note=note):
                 code, event = self.call({**self.fields, 'action': 'submit-event', 'note': note}, client=owner)
                 self.assertEqual((code, event['status']), (202, 'pending'))
                 self.assertEqual(self.occupancy(), ['20-2230'])
+                self.assertEqual(self.call({**self.fields, 'action': 'submit-event'}, client=owner)[0], 409)
                 self.assertEqual(self.call({'action': 'cancel-my-event', 'id': event['id']}, client=owner)[0], 200)
                 self.assertEqual(self.occupancy(), [])
 
@@ -355,7 +404,7 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.call({'action': 'cancel', 'id': pending['id']}, staff=True)[0], 200)
         self.assertEqual(self.occupancy(), [])
         rejected = self.staff_lock({**self.fields, 'intro': 'Sell illegal drugs'})
-        self.assertEqual(rejected, (422, {'status': 'rejected', 'reason': 'venue_policy'}))
+        self.assertEqual(rejected, (422, {'status': 'rejected', 'reason': 'venue_policy_illegal'}))
         self.assertEqual(self.occupancy(), [])
         _, pending = self.staff_lock({**self.fields, 'intro': 'The topic is still to be decided'})
         approve = {'action': 'approve', 'id': pending['id']}
