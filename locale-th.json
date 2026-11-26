@@ -32,5 +32,8 @@
   "Check your email, phone number and password.": "โปรดตรวจสอบอีเมล หมายเลขโทรศัพท์ และรหัสผ่าน",
   "Use at least 6 characters for your password.": "ใช้รหัสผ่านอย่างน้อย 6 อักขระ",
   "Your slot is held while your request is under review.": "ระบบจะกันช่วงเวลาที่เลือกไว้ระหว่างการพิจารณาคำขอ",
-  "That time slot is unavailable. Choose another time.": "ช่วงเวลานี้ไม่ว่าง โปรดเลือกช่วงเวลาอื่น"
+  "That time slot is unavailable. Choose another time.": "ช่วงเวลานี้ไม่ว่าง โปรดเลือกช่วงเวลาอื่น",
+  "Accommodation is planned to open during Christmas 2026. Bookings are now open — see the booking page for available rooms, rates and terms.": "ที่พักมีแผนเปิดให้บริการช่วงคริสต์มาสปี 2026 และเปิดรับจองแล้ว ดูห้องว่าง ราคา และเงื่อนไขได้ที่หน้าจอง",
+  "Coffee, food and craft beer are open now, 09:00–23:30. Accommodation opens Christmas 2026; accommodation bookings are now open.": "ขณะนี้เปิดให้บริการกาแฟ อาหาร และคราฟต์เบียร์ เวลา 09:00–23:30 น. ที่พักจะเปิดช่วงคริสต์มาสปี 2026 และเปิดรับจองแล้ว",
+  "See the booking page for current rates and booking terms.": "ดูราคาปัจจุบันและเงื่อนไขการจองได้ที่หน้าจอง"
 }
