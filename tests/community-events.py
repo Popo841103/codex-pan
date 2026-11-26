@@ -1,4 +1,5 @@
 """Exercise the actual PHP HTTP endpoint with multiple workers and isolated storage."""
+from base64 import b64decode
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from html.parser import HTMLParser
@@ -86,13 +87,33 @@ class CommunityEvents(unittest.TestCase):
             headers['Authorization'] = 'Bearer ' + (self.token if staff is True else staff)
         url = self.url if body is not None else self.url + '?' + (query or 'date=' + self.day)
         request = Request(url, data=json.dumps(body).encode() if body is not None else None, headers=headers)
+        with self.open(request, client) as response:
+            return response.code, json.load(response)
+
+    def open(self, request, client=None):
         try:
             response = (client.open if client else urlopen)(request, timeout=5)
         except HTTPError as error:
             response = error
-        with response:
-            self.assertEqual(response.headers['Cache-Control'], 'no-store')
+        self.assertEqual(response.headers['Cache-Control'], 'no-store')
+        return response
+
+    def upload(self, event_id, image, client=None):
+        boundary = secrets.token_hex(16)
+        data = b''.join(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{field}"\r\n\r\n{value}\r\n'.encode()
+            for field, value in [('action', 'upload-poster'), ('id', event_id)]
+        )
+        data += (f'--{boundary}\r\nContent-Disposition: form-data; name="poster"; filename="client.png"\r\n'
+                 'Content-Type: image/png\r\n\r\n').encode()
+        data += image + f'\r\n--{boundary}--\r\n'.encode()
+        request = Request(self.url, data=data, headers={'Content-Type': f'multipart/form-data; boundary={boundary}'})
+        with self.open(request, client) as response:
             return response.code, json.load(response)
+
+    def get_image(self, path):
+        with self.open(self.url.rsplit('/', 1)[0] + path) as response:
+            return response.code, response.headers.get_content_type(), response.read()
 
     def occupancy(self):
         status, body = self.call()
@@ -175,6 +196,7 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.call(publish, staff=True)[0], 200)
         public = self.call(query='published=1')[1]['events']
         self.assertEqual([item['id'] for item in public], [event_id])
+        self.assertEqual(self.get_image(public[0]['poster'])[:2], (200, 'image/webp'))
         self.assertNotIn(self.fields['email'], json.dumps(public))
         self.assertEqual(self.call(cancel, client=other)[0], 404)
         self.assertEqual(self.call(cancel, client=owner)[1]['status'], 'cancelled')
@@ -188,6 +210,62 @@ class CommunityEvents(unittest.TestCase):
         self.assertEqual(self.call({'action': 'sign-in', **auth}, client=first)[0], 200)
         expected = 'cancelled' if winner == 0 else 'pending'
         self.assertEqual(self.call({'action': 'my-events'}, client=first)[1]['requests'][0]['status'], expected)
+
+    def test_guest_poster_upload_and_replacement(self):
+        owner, _ = self.guest()
+        other, _ = self.guest(2)
+        request = {**self.fields, 'action': 'submit-event'}
+        code, booking = self.call(request, client=owner)
+        self.assertEqual(code, 201)
+        event_id = booking['id']
+        code, pending = self.call({**request, 'slot': '10-12', 'note': 'We need a stage setup.'}, client=owner)
+        self.assertEqual(code, 202)
+        self.assertEqual(pending['status'], 'pending')
+        png = b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR1sAAAAASUVORK5CYII=')
+        invalid = (422, {'status': 'invalid', 'fields': ['poster']})
+        self.assertEqual(self.upload(event_id, png), (401, {'status': 'sign_in'}))
+        self.assertEqual(self.upload(event_id, png, other), (404, {'status': 'unknown'}))
+        self.assertEqual(self.upload('COHUB-' + '0' * 32, png, owner), (404, {'status': 'unknown'}))
+        self.assertEqual(self.upload(pending['id'], png, owner), (409, {'status': 'not_confirmed'}))
+        for image in [b'', b'\x89PNG\r\n\x1a\n', b'<html>fake image</html>', b'<?php echo "fake"; ?>',
+                      png.ljust(2_000_001, b'0')]:
+            with self.subTest(size=len(image)):
+                self.assertEqual(self.upload(event_id, image, owner), invalid)
+        self.assertEqual(self.call(query='published=1')[1], {'events': []})
+        self.assertIsNone(self.call({'action': 'my-events'}, client=owner)[1]['requests'][-1]['poster'])
+
+        code, uploaded = self.upload(event_id, png, owner)
+        self.assertEqual(code, 200)
+        prefix = 'cohub-poster-' + event_id.removeprefix('COHUB-')
+        path = '/community-events.php?poster=' + prefix + '.png'
+        self.assertEqual(uploaded, {**booking, 'poster': path})
+        public = self.call(query='published=1')[1]['events']
+        self.assertEqual(public, [{**uploaded, 'intro': self.fields['intro']}])
+        self.assertEqual(self.get_image(path), (200, 'image/png', png))
+        self.assertEqual(self.get_image('/community-events.php?poster=../' + prefix + '.png')[0], 404)
+        posters = self.data / 'posters'
+        self.assertEqual(posters.stat().st_mode & 0o777, 0o700)
+        self.assertEqual((posters / (prefix + '.png')).stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.call({'action': 'my-events'}, client=owner)[1]['requests'][-1]['poster'], path)
+        self.assertEqual(self.call({'action': 'publish', 'id': event_id, 'poster': prefix + '.png'}, staff=True)[0], 200)
+
+        jpeg = (ROOT / 'assets/coffee/cohub-espresso.jpg').read_bytes()
+        code, updated = self.upload(event_id, jpeg, owner)
+        self.assertEqual(code, 200)
+        self.assertEqual(updated['poster'], '/community-events.php?poster=' + prefix + '.jpg')
+        self.assertFalse((posters / (prefix + '.png')).exists())
+        self.assertEqual(self.get_image(path)[0], 404)
+        self.assertEqual(self.get_image(updated['poster']), (200, 'image/jpeg', jpeg))
+
+        webp = (ROOT / 'assets/coffee/cohub-event-ai-meetup-v2.webp').read_bytes()
+        code, updated = self.upload(event_id, webp, owner)
+        self.assertEqual(code, 200)
+        self.assertEqual(self.upload(event_id, webp, owner), (200, updated))
+        self.assertEqual(self.get_image(updated['poster']), (200, 'image/webp', webp))
+        self.assertEqual(self.call({'action': 'cancel-my-event', 'id': event_id}, client=owner)[0], 200)
+        self.assertEqual(self.upload(event_id, png, owner), (409, {'status': 'not_confirmed'}))
+        self.assertEqual(self.call(query='published=1')[1], {'events': []})
+        self.assertEqual(self.get_image(updated['poster'])[0], 404)
 
     def test_public_signup_cap_is_atomic_and_private(self):
         owner, _ = self.guest()
