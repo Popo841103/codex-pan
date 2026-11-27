@@ -26,6 +26,7 @@
 已保持原图并映射：
 1. 水洗SOE包装 → assets/coffee/cohub-soe.jpg（一级SOE产品图）
 2. 意式拼配包装 → assets/coffee/cohub-blend.jpg（一级拼配产品图）
+   一级拼配现展示 1 kg（assets/coffee/cohub-blend.jpg）与 250 g（assets/coffee/cohub-blend-250g.jpg）包装照片。
 3. 黑底量勺咖啡豆 → assets/coffee/cohub-beans-dark.jpg（系列背景）
 4. 烘焙机照片 → assets/coffee/cohub-roasting.jpg（系列背景）
 5. 金勺咖啡豆 → assets/coffee/cohub-beans-spoon.jpg（系列背景）
