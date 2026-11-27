@@ -57,6 +57,35 @@ class DeploymentTests(unittest.TestCase):
         self.assertFalse((self.root/'community-events.php').exists())
         self.assertEqual((self.root/'index.html').read_text(),'CO-HUB old')
 
+    def test_booking_page_replaces_only_the_approved_legacy_file(self):
+        booking=self.root/'booking'
+        booking.mkdir()
+        old=b'legacy public booking page'
+        (booking/'booking.html').write_bytes(old)
+        (booking/'pay.php').write_bytes(b'existing server file')
+        name='booking/booking.html'
+        self.data[name]=b'new accommodation information'
+        self.make_zip()
+        with self.assertRaisesRegex(deploy.DeploymentError,'Existing file has other changes'):
+            self.apply()
+        trusted={n:deploy.digest((self.root/n).read_bytes()) for n in ('index.html','app.js',name)}
+
+        def wrong_booking_probe(path):
+            return b'old cache' if path==name else (self.root/path).read_bytes()
+
+        with self.assertRaisesRegex(deploy.DeploymentError,'Live verification failed: '+name):
+            deploy.apply_release(self.root,self.zip,self.base/'backups',wrong_booking_probe,baseline_override=trusted)
+        self.assertEqual((booking/'booking.html').read_bytes(),old)
+        deploy.apply_release(self.root,self.zip,self.base/'backups',lambda n:(self.root/n).read_bytes(),baseline_override=trusted)
+        self.assertEqual((booking/'booking.html').read_bytes(),self.data[name])
+        self.assertEqual((booking/'pay.php').read_bytes(),b'existing server file')
+
+    def test_only_the_public_booking_path_is_allowed(self):
+        self.assertEqual(str(deploy.safe_name('booking/booking.html')),'booking/booking.html')
+        for name in ['booking/other.html','booking/pay.php','booking/nested/booking.html','other/booking.html','booking/./booking.html']:
+            with self.subTest(name=name), self.assertRaises(deploy.DeploymentError):
+                deploy.safe_name(name)
+
     def test_php_path_restriction(self):
         self.assertEqual(str(deploy.safe_name('community-events.php')),'community-events.php')
         for name in ['other.php','assets/other.PHP','assets/other.phtml','./community-events.php']:

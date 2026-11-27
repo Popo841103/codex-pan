@@ -16,7 +16,7 @@ def safe_name(name):
     p=PurePosixPath(name)
     if p.as_posix()!=name or p.is_absolute() or '\\' in name or '..' in p.parts or not p.parts or p.parts[0]=='_deploy':
         raise DeploymentError('Unsafe release path')
-    if len(p.parts)>1 and p.parts[0]!='assets':
+    if len(p.parts)>1 and p.parts[0]!='assets' and name!='booking/booking.html':
         raise DeploymentError('Unexpected release directory: '+name)
     if p.suffix.lower().startswith(('.php', '.phtml', '.phar')) and name!='community-events.php':
         raise DeploymentError('Unexpected PHP file: '+name)
@@ -75,7 +75,7 @@ def apply_release(root,archive,backup_base,probe,log=print,baseline_override=Non
         for name in files:
             p=safe_name(name);target=root.joinpath(*p.parts)
             touched.append(name);atomic_copy(stage.joinpath(*p.parts),target)
-        for name in ['index.html','community.html','guide.html','enquiry.html','enquiry.js']:
+        for name in ['index.html','community.html','guide.html','enquiry.html','enquiry.js','booking/booking.html']:
             if name in files and digest(probe(name))!=files[name]:raise DeploymentError('Live verification failed: '+name)
         if 'community-events.php' in files:
             occupancy=json.loads(probe('community-events.php?date=2000-01-01'))
@@ -109,6 +109,11 @@ if __name__=='__main__':
             state=Path('/var/lib/cohub-ci/last-files.json')
             trusted=Path('/usr/local/lib/cohub-ci/baseline.json')
             baseline=json.loads(state.read_text()) if state.exists() else (json.loads(trusted.read_text()) if trusted.exists() else None)
+            if baseline is not None and 'booking/booking.html' not in baseline and trusted.exists():
+                # The first release of this path replaces a separately published legacy page.
+                legacy_booking=json.loads(trusted.read_text()).get('booking/booking.html')
+                if legacy_booking:
+                    baseline['booking/booking.html']=legacy_booking
             apply_release('/var/www/cohub',sys.argv[1],'/var/backups/cohub',local_https_probe,baseline_override=baseline)
             if trusted.exists():
                 with zipfile.ZipFile(sys.argv[1]) as z:files=json.loads(z.read('_deploy/manifest.json'))['files']

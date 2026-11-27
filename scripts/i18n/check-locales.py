@@ -11,7 +11,7 @@ class CopyParser(HTMLParser):
         data=dict(attrs)
         if 'data-en' in data:self.keys.add(norm(data['data-en']))
 expected=set()
-for path in ROOT.glob('*.html'):
+for path in [*ROOT.glob('*.html'), ROOT/'booking/booking.html']:
     parser=CopyParser();parser.feed(path.read_text());expected.update(parser.keys)
 errors=[]
 for lang in LANGS:
