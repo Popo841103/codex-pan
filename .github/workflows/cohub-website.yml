@@ -4,6 +4,7 @@ on:
     branches: [cohub-website]
     paths:
       - '*.html'
+      - booking/booking.html
       - '*.js'
       - '*.css'
       - community-events.php
@@ -64,6 +65,7 @@ jobs:
           "${SSH[@]}" status
           "${SSH[@]}" "deploy $GITHUB_SHA" < cohub-release.zip
           curl --fail --silent --show-error --compressed --max-time 20 https://cohub.jovianhome.com/community.html | cmp - community.html
+          curl --fail --silent --show-error --compressed --max-time 20 https://cohub.jovianhome.com/booking/booking.html | cmp - booking/booking.html
           curl --fail --silent --show-error --max-time 20 'https://cohub.jovianhome.com/community-events.php?date=2000-01-01' |
             python3 -c 'import json,sys; data=json.load(sys.stdin); assert data["date"] == "2000-01-01" and isinstance(data["occupied"], list)'
           echo "CO-HUB website deployment verified for commit $GITHUB_SHA. PMS unchanged." >> "$GITHUB_STEP_SUMMARY"

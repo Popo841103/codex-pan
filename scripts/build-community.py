@@ -253,29 +253,29 @@ for lang,value in zip(['en','zh','ms'],['Directions to CO-HUB ↗','导航到CO-
 button.text='Directions to CO-HUB ↗'
 (R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
 
-# Confirmed operating status: café open; hostel planned for Christmas 2026.
+# Operating status: café open; accommodation in preparation.
 def set_copy(node, values):
  for lang,value in zip(['en','zh','ms'],values):node.set('data-'+lang,value)
  node.text=values[0]
 for filename in ['index.html','stay.html','community.html','guide.html']:
  tree=html.fromstring((R/filename).read_bytes())
  if filename=='index.html':
-  set_copy(tree.xpath('//section[@id="home"]//p[@class="small"]')[0],['Accommodation opening planned for Christmas 2026 · Accommodation bookings are not open yet. Coffee, food and craft beer are open now.','住宿计划于2026年圣诞节期间开业，暂未开放预订。咖啡、餐食和精酿现已开放。','Penginapan dirancang dibuka sekitar Krismas 2026 · Tempahan penginapan belum dibuka. Kopi, makanan dan bir kraf kini dibuka.'])
+  set_copy(tree.xpath('//section[@id="home"]//p[@class="small"]')[0],['Accommodation is in preparation and not yet open for booking. Coffee, food and craft beer are open now.', '住宿正在筹备中，尚未开放预订。咖啡、餐食和精酿现已开放。', 'Penginapan sedang dalam persiapan dan belum dibuka untuk tempahan. Kopi, makanan dan bir kraf kini dibuka.'])
   status=tree.xpath('//section[@id="opening-status"]')[0]
-  set_copy(status.xpath('./div[1]/h3')[0],['Accommodation · Christmas 2026','住宿 · 2026年圣诞节期间','Penginapan · Krismas 2026'])
-  set_copy(status.xpath('./div[1]/p')[0],['We plan to open accommodation during Christmas 2026. Bookings are not open yet; request updates for the exact opening date and booking arrangements.','住宿计划于2026年圣诞节期间开业。暂未开放预订，可登记获取确切开业日期与预订安排。','Penginapan dirancang dibuka sekitar Krismas 2026. Tempahan belum dibuka; minta berita tentang tarikh tepat dan aturan tempahan.'])
+  set_copy(status.xpath('./div[1]/h3')[0],['Accommodation', '住宿', 'Penginapan'])
+  set_copy(status.xpath('./div[1]/p')[0],['Accommodation is in preparation and not yet open for booking.', '住宿正在筹备中，尚未开放预订。', 'Penginapan sedang dalam persiapan dan belum dibuka untuk tempahan.'])
   set_copy(status.xpath('./div[2]/h3')[0],['Coffee, food & craft beer · Open now','咖啡、餐食和精酿 · 现已开放','Kopi, makanan & bir kraf · Kini dibuka'])
   set_copy(status.xpath('./div[2]/p')[0],['Open 09:00–23:30, Malaysia time. Scan the in-venue QR code to order online, collect at the bar and pay at the front counter.','营业时间为马来西亚时间09:00–23:30。店内扫码线上点餐、吧台自取、前台买单。','Dibuka 09:00–23:30, waktu Malaysia. Imbas kod QR di premis untuk memesan dalam talian, ambil di bar dan bayar di kaunter.'])
-  set_copy(tree.xpath('//details[summary/@data-en="When will accommodation open?"]/p')[0],['Accommodation is planned to open during Christmas 2026. Bookings are not open yet. Request updates for the exact date and booking arrangements.','住宿计划于2026年圣诞节期间开业，暂未开放预订。可登记获取确切日期与预订安排。','Penginapan dirancang dibuka sekitar Krismas 2026. Tempahan belum dibuka. Minta berita tentang tarikh tepat dan aturan tempahan.'])
+  set_copy(tree.xpath('//details[summary/@data-en="When will accommodation open?"]/p')[0],['Accommodation is in preparation and not yet open for booking.', '住宿正在筹备中，尚未开放预订。', 'Penginapan sedang dalam persiapan dan belum dibuka untuk tempahan.'])
   set_copy(tree.xpath('//details[summary/@data-en="Where can I find arrival information?"]/p')[0],['See the Visit & guide page for our address, Google Maps directions and arrival information. Coffee, food and craft beer are open now.','到店指南提供完整地址、Google Maps导航与到店说明。咖啡、餐食和精酿现已开放。','Lihat halaman Lokasi & panduan untuk alamat, arah Google Maps dan maklumat ketibaan. Kopi, makanan dan bir kraf kini dibuka.'])
  if filename=='stay.html':
-  set_copy(tree.xpath('//p[contains(@class,"opening-notice")]')[0],['ACCOMMODATION OPENING PLANNED · CHRISTMAS 2026 · Bookings not open yet','住宿计划于2026年圣诞节期间开业 · 暂未开放预订','PENGINAPAN DIRANCANG DIBUKA · KRISMAS 2026 · Tempahan belum dibuka'])
-  tree.xpath('//title')[0].text='Rooms · CO-HUB Kuala Lumpur · Christmas 2026 Opening Planned'
+  set_copy(tree.xpath('//p[contains(@class,"opening-notice")]')[0],['Accommodation is in preparation and not yet open for booking.', '住宿正在筹备中，尚未开放预订。', 'Penginapan sedang dalam persiapan dan belum dibuka untuk tempahan.'])
+  tree.xpath('//title')[0].text='CO-HUB · Lifestyle Community · Stay'
  if filename=='community.html':
-  set_copy(tree.xpath('//section[contains(@class,"community-end")]/p')[0],['Coffee, food and craft beer are open now. Accommodation is planned for Christmas 2026 and bookings are not open yet. Community activities are collecting interests; contact us about participation.','咖啡、餐食和精酿现已开放。住宿计划于2026年圣诞节期间开业，暂未开放预订。社区活动正在收集兴趣，可联系团队咨询参加安排。','Kopi, makanan dan bir kraf kini dibuka. Penginapan dirancang untuk Krismas 2026 dan tempahan belum dibuka. Aktiviti komuniti sedang mengumpul minat; hubungi kami tentang penyertaan.'])
+  set_copy(tree.xpath('//section[contains(@class,"community-end")]/p')[0],['Coffee, food and craft beer are open now. Accommodation is in preparation and not yet open for booking. Community activities are collecting interests; contact us about participation.', '咖啡、餐食和精酿现已开放。住宿正在筹备中，尚未开放预订。社区活动正在收集兴趣，可联系团队咨询参加安排。', 'Kopi, makanan dan bir kraf kini dibuka. Penginapan sedang dalam persiapan dan belum dibuka untuk tempahan. Aktiviti komuniti sedang mengumpul minat; hubungi kami tentang penyertaan.'])
  if filename=='guide.html':
-  set_copy(tree.xpath('//p[contains(@class,"opening-notice")]')[0],['Coffee, food and craft beer are open now, 09:00–23:30. Accommodation opening planned for Christmas 2026; accommodation bookings are not open yet.','咖啡、餐食和精酿现已开放，时间09:00–23:30。住宿计划于2026年圣诞节期间开业，暂未开放预订。','Kopi, makanan dan bir kraf kini dibuka, 09:00–23:30. Penginapan dirancang dibuka sekitar Krismas 2026; tempahan penginapan belum dibuka.'])
-  set_copy(tree.xpath('//section[contains(@class,"guide-stay")]//article[1]/p')[0],['Accommodation is planned to open during Christmas 2026. The exact opening date, available rooms and booking terms will be announced before bookings open. An enquiry is not a confirmed reservation.','住宿计划于2026年圣诞节期间开业。确切日期、可预订房源及正式条款将在开放预订前公布，咨询不等于已确认预订。','Penginapan dirancang dibuka sekitar Krismas 2026. Tarikh tepat, bilik tersedia dan syarat akan diumumkan sebelum tempahan dibuka. Pertanyaan bukan tempahan yang disahkan.'])
+  set_copy(tree.xpath('//p[contains(@class,"opening-notice")]')[0],['Coffee, food and craft beer are open now, 09:00–23:30. Accommodation is in preparation and not yet open for booking.', '咖啡、餐食和精酿现已开放，时间09:00–23:30。住宿正在筹备中，尚未开放预订。', 'Kopi, makanan dan bir kraf kini dibuka, 09:00–23:30. Penginapan sedang dalam persiapan dan belum dibuka untuk tempahan.'])
+  set_copy(tree.xpath('//section[contains(@class,"guide-stay")]//article[1]/p')[0],['Accommodation is in preparation and not yet open for booking.', '住宿正在筹备中，尚未开放预订。', 'Penginapan sedang dalam persiapan dan belum dibuka untuk tempahan.'])
   for node in tree.xpath('//p[@data-en]'):
    if node.get('data-en','').startswith('Café hours:'):
     set_copy(node,['Coffee, food and craft beer are open now, 09:00–23:30, Malaysia time. Scan the in-venue QR code to order online, collect at the bar and pay at the front counter.','咖啡、餐食和精酿现已开放，时间为马来西亚时间09:00–23:30。店内扫码线上点餐、吧台自取、前台买单。','Kopi, makanan dan bir kraf kini dibuka, 09:00–23:30, waktu Malaysia. Imbas kod QR di premis untuk memesan dalam talian, ambil di bar dan bayar di kaunter.'])
@@ -296,7 +296,7 @@ old.getparent().replace(old,html.fromstring(gallery))
 (R/'index.html').write_text('<!doctype html>\n'+html.tostring(tree,encoding='unicode',method='html'))
 
 # Public business name approved by the owner; legal registered company is unchanged.
-for filename,label in [('index.html','Bukit Bintang, Kuala Lumpur'),('stay.html','Stay · Christmas 2026 Opening Planned'),('community.html','Community & Experiences'),('guide.html','Location & Arrival Guide'),('enquiry.html','Enquiries'),('supply.html','Hospitality Supply'),('beer.html','Craft Beer Supply'),('coffee.html','Coffee Beans & Drip Coffee')]:
+for filename,label in [('index.html','Bukit Bintang, Kuala Lumpur'),('stay.html','Stay'),('community.html','Community & Experiences'),('guide.html','Location & Arrival Guide'),('enquiry.html','Enquiries'),('supply.html','Hospitality Supply'),('beer.html','Craft Beer Supply'),('coffee.html','Coffee Beans & Drip Coffee')]:
  tree=html.fromstring((R/filename).read_bytes())
  tree.xpath('//title')[0].text='CO-HUB · Lifestyle Community · '+label
  for brand in tree.xpath('//a[contains(concat(" ",normalize-space(@class)," ")," brand ")]'):

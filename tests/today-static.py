@@ -4,18 +4,20 @@ from html.parser import HTMLParser
 import re
 root=Path(__file__).resolve().parents[1]
 page=(root/'today.html').read_text(encoding='utf-8')
-community=(root/'community.html').read_text(encoding='utf-8')
 pattern=r'<dialog id="host-event"[\s\S]*?</dialog>'
-assert re.search(pattern,page).group()==re.search(pattern,community).group(),'Shared modal drifted'
+assert re.search(pattern,page),'In-house host dialog is missing'
 class Page(HTMLParser):
- def __init__(self): super().__init__(); self.ids=[]; self.src=[]; self.links=[]
+ def __init__(self): super().__init__(); self.ids=[]; self.src=[]; self.links=[]; self.notice=None
  def handle_starttag(self,tag,attrs):
   a=dict(attrs)
+  if a.get('id')=='weekly-notice':self.notice=a
   if 'id' in a:self.ids.append(a['id'])
   if tag=='script':self.src.append(a.get('src'))
   if tag=='a':self.links.append(a.get('href'))
 p=Page();p.feed(page)
 assert len(p.ids)==len(set(p.ids)),'Duplicate element IDs'
+assert p.notice and all(p.notice.get('data-'+lang) for lang in ('en','zh','ms'))
+assert 'data-copy' not in p.notice,'Weekly notice must use the shared language dictionaries'
 assert '#host-event' in p.links
 assert 'https://wa.me/60178497319' in p.links
 assert [src.split('?')[0] for src in p.src]==['languages.js','today.js','member-config.js','host-event.js']

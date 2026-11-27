@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const localeBase=new URL('.',document.currentScript.src);
   const select=document.querySelector('#language');if(!select)return;
   const extra=[['zh-TW','繁體中文'],['ja','日本語'],['ko','한국어'],['th','ไทย'],['id','Bahasa Indonesia'],['vi','Tiếng Việt'],['fr','Français'],['de','Deutsch'],['es','Español'],['pt','Português'],['ru','Русский'],['ar','العربية'],['hi','हिन्दी'],['it','Italiano'],['nl','Nederlands'],['tr','Türkçe']];
   const native=new Set(['en','zh','ms']),allowed=new Set([...native,...extra.map(([id])=>id)]);
@@ -62,7 +63,7 @@
     status.hidden=false;status.textContent='Loading '+extra.find(([id])=>id===code)[1]+'…';
     try{
       let data=cache.get(code);
-      if(!data){const response=await fetch('locale-'+code+'.json?v=20261119-poster-link',{credentials:'same-origin'});if(!response.ok)throw Error('Language file unavailable');data=await response.json();if(!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid language file');cache.set(code,data);}
+      if(!data){const response=await fetch(new URL('locale-'+code+'.json?v=20261127',localeBase),{credentials:'same-origin'});if(!response.ok)throw Error('Language file unavailable');data=await response.json();if(!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid language file');cache.set(code,data);}
       if(request!==revision||active!==code)return;
       messages=Object.fromEntries(Object.entries(data).map(([k,v])=>[normal(k),String(v)]));
       window.COHUB_I18N.fragments=Object.entries(messages).filter(([k])=>k.length>2&&k.length<120&&!k.includes('http')).sort((a,b)=>b[0].length-a[0].length);
